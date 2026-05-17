@@ -1,0 +1,55 @@
+{
+  "name": "Elementor Implementation Toolkit Architecture UI",
+  "source": "Approved imagegen layout: Visual Filter Architecture Builder",
+  "colors": {
+    "page": "#f6f3ee",
+    "canvas": "#fbfaf6",
+    "surface": "#ffffff",
+    "surfaceSoft": "#f4fbf8",
+    "surfaceWarm": "#fff9f4",
+    "line": "#cfe1dc",
+    "lineStrong": "#8fc8c0",
+    "ink": "#17262b",
+    "muted": "#65747b",
+    "teal": "#087f78",
+    "tealDeep": "#075f5a",
+    "tealSoft": "#e4f7f3",
+    "purple": "#6f45bf",
+    "purpleSoft": "#f1eaff",
+    "coral": "#ff6245",
+    "coralSoft": "#fff0ec",
+    "blue": "#176db8",
+    "blueSoft": "#eaf4ff",
+    "green": "#168a64",
+    "greenSoft": "#e8f7ef",
+    "amber": "#d89a18",
+    "amberSoft": "#fff3d7",
+    "warning": "#d89a18",
+    "warningSoft": "#fff3d7",
+    "degraded": "#b6541f",
+    "degradedSoft": "#fff0e4",
+    "valid": "#168a64",
+    "validSoft": "#e8f7ef",
+    "runtime": "#176db8",
+    "runtimeSoft": "#eaf4ff"
+  },
+  "semantic": {
+    "teal": "structure and contracts",
+    "purple": "modules and configurable layers",
+    "coral": "selection, inspector, modal focus",
+    "green": "active and valid states",
+    "amber": "degraded and warning states",
+    "blue": "runtime and URL state movement"
+  },
+  "shape": {
+    "radius": "8px",
+    "nodeRadius": "8px",
+    "pillRadius": "999px",
+    "lineWidth": "2px"
+  },
+  "assetPolicy": {
+    "format": "webp",
+    "background": "transparent",
+    "crop": "alpha-bounding-box"
+  }
+}

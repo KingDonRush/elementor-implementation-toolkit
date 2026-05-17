@@ -1,0 +1,44 @@
+.eit-editor-targets {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.eit-editor-targets__title {
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.eit-editor-target,
+.eit-editor-targets__empty,
+.eit-editor-targets__hint {
+    font-size: 12px;
+}
+
+.eit-editor-target {
+    display: block;
+    width: 100%;
+    margin: 0 0 6px;
+    padding: 7px 8px;
+    border: 1px solid #ff7ab8;
+    border-radius: 5px;
+    background: #fff5fa;
+    color: #8a104d;
+    text-align: left;
+    cursor: pointer;
+}
+
+.eit-editor-target:hover {
+    background: #ffe0ef;
+}
+
+.eit-editor-targets__empty,
+.eit-editor-targets__hint {
+    margin: 6px 0 0;
+    color: #6b7280;
+    line-height: 1.4;
+}
