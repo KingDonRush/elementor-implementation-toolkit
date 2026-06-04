@@ -12,6 +12,7 @@
     --eit-range-thumb-size: 18px;
     --eit-range-thumb-radius: 999px;
     --eit-range-vertical-height: 180px;
+    --eit-range-input-width: 140px;
     color: var(--eit-text);
 }
 
@@ -196,6 +197,10 @@
     gap: 10px;
 }
 
+.eit-range:not(.eit-range--show-inputs) .eit-range__values {
+    display: none;
+}
+
 .eit-range-input {
     width: 100%;
     height: var(--eit-range-thumb-size);
@@ -302,25 +307,65 @@
 }
 
 .eit-range--vertical {
-    grid-template-areas: "values sliders";
-    grid-template-columns: minmax(120px, 1fr) auto;
+    grid-template-areas: "sliders";
+    grid-template-columns: auto;
     column-gap: 16px;
     align-items: center;
 }
 
 .eit-range--vertical.eit-range--show-values {
-    grid-template-areas: "values labels sliders";
-    grid-template-columns: minmax(120px, 1fr) minmax(4ch, max-content) auto;
+    grid-template-areas: "labels sliders";
+    grid-template-columns: minmax(4ch, max-content) auto;
 }
 
 .eit-range--vertical.eit-range--show-ticks {
-    grid-template-areas: "values sliders ticks";
-    grid-template-columns: minmax(120px, 1fr) auto minmax(4ch, max-content);
+    grid-template-areas: "sliders ticks";
+    grid-template-columns: auto minmax(4ch, max-content);
 }
 
 .eit-range--vertical.eit-range--show-values.eit-range--show-ticks {
+    grid-template-areas: "labels sliders ticks";
+    grid-template-columns: minmax(4ch, max-content) auto minmax(4ch, max-content);
+}
+
+.eit-range--vertical.eit-range--show-inputs {
+    grid-template-areas: "values sliders";
+    grid-template-columns: minmax(0, var(--eit-range-input-width)) auto;
+}
+
+.eit-range--vertical.eit-range--show-inputs.eit-range--show-values {
+    grid-template-areas: "values labels sliders";
+    grid-template-columns: minmax(0, var(--eit-range-input-width)) minmax(4ch, max-content) auto;
+}
+
+.eit-range--vertical.eit-range--show-inputs.eit-range--show-ticks {
+    grid-template-areas: "values sliders ticks";
+    grid-template-columns: minmax(0, var(--eit-range-input-width)) auto minmax(4ch, max-content);
+}
+
+.eit-range--vertical.eit-range--show-inputs.eit-range--show-values.eit-range--show-ticks {
     grid-template-areas: "values labels sliders ticks";
-    grid-template-columns: minmax(120px, 1fr) minmax(4ch, max-content) auto minmax(4ch, max-content);
+    grid-template-columns: minmax(0, var(--eit-range-input-width)) minmax(4ch, max-content) auto minmax(4ch, max-content);
+}
+
+.eit-range--vertical.eit-range--show-inputs.eit-range--inputs-right {
+    grid-template-areas: "sliders values";
+    grid-template-columns: auto minmax(0, var(--eit-range-input-width));
+}
+
+.eit-range--vertical.eit-range--show-inputs.eit-range--show-values.eit-range--inputs-right {
+    grid-template-areas: "labels sliders values";
+    grid-template-columns: minmax(4ch, max-content) auto minmax(0, var(--eit-range-input-width));
+}
+
+.eit-range--vertical.eit-range--show-inputs.eit-range--show-ticks.eit-range--inputs-right {
+    grid-template-areas: "sliders ticks values";
+    grid-template-columns: auto minmax(4ch, max-content) minmax(0, var(--eit-range-input-width));
+}
+
+.eit-range--vertical.eit-range--show-inputs.eit-range--show-values.eit-range--show-ticks.eit-range--inputs-right {
+    grid-template-areas: "labels sliders ticks values";
+    grid-template-columns: minmax(4ch, max-content) auto minmax(4ch, max-content) minmax(0, var(--eit-range-input-width));
 }
 
 .eit-range--vertical .eit-range__labels,
@@ -347,7 +392,8 @@
     grid-area: values;
     grid-template-columns: 1fr;
     align-self: center;
-    min-width: 130px;
+    min-width: 0;
+    width: var(--eit-range-input-width);
 }
 
 .eit-range--vertical .eit-range__sliders {
@@ -491,28 +537,11 @@
     }
 
     .eit-range--vertical {
-        grid-template-areas: "values sliders";
-        grid-template-columns: minmax(0, 1fr) auto;
         column-gap: 10px;
     }
 
-    .eit-range--vertical.eit-range--show-values {
-        grid-template-areas: "values labels sliders";
-        grid-template-columns: minmax(0, 1fr) minmax(4ch, max-content) auto;
-    }
-
-    .eit-range--vertical.eit-range--show-ticks {
-        grid-template-areas: "values sliders ticks";
-        grid-template-columns: minmax(0, 1fr) auto minmax(4ch, max-content);
-    }
-
-    .eit-range--vertical.eit-range--show-values.eit-range--show-ticks {
-        grid-template-areas: "values labels sliders ticks";
-        grid-template-columns: minmax(0, 1fr) minmax(4ch, max-content) auto minmax(4ch, max-content);
-    }
-
     .eit-range--vertical .eit-range__values {
-        min-width: 0;
+        max-width: 100%;
     }
 
     .eit-range--vertical .eit-range__sliders {

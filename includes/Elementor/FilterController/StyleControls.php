@@ -460,6 +460,71 @@ class StyleControls {
 		);
 
 		$widget->add_control(
+			'range_show_inputs',
+			[
+				'label'        => esc_html__( 'Show Number Inputs', 'elementor-implementation-toolkit' ),
+				'description'  => esc_html__( 'Visible min and max fields. Sliders keep working when these fields are hidden.', 'elementor-implementation-toolkit' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'condition'    => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_input_position',
+			[
+				'label'     => esc_html__( 'Number Input Side', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'default'   => 'left',
+				'options'   => [
+					'left'  => [
+						'title' => esc_html__( 'Left', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-h-align-left',
+					],
+					'right' => [
+						'title' => esc_html__( 'Right', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-h-align-right',
+					],
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_orientation'             => 'vertical',
+					'range_show_inputs'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_input_width',
+			[
+				'label'      => esc_html__( 'Number Input Width', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => [ 'px' ],
+				'range'      => [
+					'px' => [
+						'min' => 72,
+						'max' => 280,
+					],
+				],
+				'default'    => [
+					'size' => 140,
+					'unit' => 'px',
+				],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-input-width: {{SIZE}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_orientation'             => 'vertical',
+					'range_show_inputs'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
 			'range_track_style',
 			[
 				'label'     => esc_html__( 'Track Style', 'elementor-implementation-toolkit' ),

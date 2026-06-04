@@ -166,14 +166,21 @@ class FilterController extends Widget_Base {
 				</select>
 				<?php elseif ( 'range' === $type ) : ?>
 					<?php
-					$show_range_values = ( $settings['range_show_values'] ?? '' ) === 'yes';
-					$show_range_ticks  = ( $settings['range_show_ticks'] ?? '' ) === 'yes';
+					$show_range_inputs   = ( $settings['range_show_inputs'] ?? 'yes' ) === 'yes';
+					$show_range_values   = ( $settings['range_show_values'] ?? '' ) === 'yes';
+					$show_range_ticks    = ( $settings['range_show_ticks'] ?? '' ) === 'yes';
+					$range_input_position = $this->get_range_setting( $settings, 'range_input_position', [ 'left', 'right' ], 'left' );
 					$range_classes = [
 						'eit-range',
-						'eit-range--has-inputs',
+						'eit-range--inputs-' . $range_input_position,
 						'eit-range--' . $this->get_range_setting( $settings, 'range_orientation', [ 'horizontal', 'vertical' ], 'horizontal' ),
 						'eit-range--track-' . $this->get_range_setting( $settings, 'range_track_style', [ 'solid', 'dashed', 'segmented' ], 'solid' ),
 					];
+
+					if ( $show_range_inputs ) {
+						$range_classes[] = 'eit-range--show-inputs';
+						$range_classes[] = 'eit-range--has-inputs';
+					}
 
 					if ( $show_range_values ) {
 						$range_classes[] = 'eit-range--show-values';
