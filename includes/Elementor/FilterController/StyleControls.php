@@ -434,7 +434,8 @@ class StyleControls {
 		$widget->add_control(
 			'range_show_values',
 			[
-				'label'        => esc_html__( 'Show Current Values', 'elementor-implementation-toolkit' ),
+				'label'        => esc_html__( 'Show Current Value Labels', 'elementor-implementation-toolkit' ),
+				'description'  => esc_html__( 'Dynamic min and max labels that update as the handles move.', 'elementor-implementation-toolkit' ),
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => '',
@@ -448,6 +449,7 @@ class StyleControls {
 			'range_show_ticks',
 			[
 				'label'        => esc_html__( 'Show Scale Ticks', 'elementor-implementation-toolkit' ),
+				'description'  => esc_html__( 'Static min, midpoint, and max scale labels.', 'elementor-implementation-toolkit' ),
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => '',
@@ -617,13 +619,28 @@ class StyleControls {
 		$widget->add_control(
 			'range_value_color',
 			[
-				'label'     => esc_html__( 'Value Text', 'elementor-implementation-toolkit' ),
+				'label'     => esc_html__( 'Current Value Text', 'elementor-implementation-toolkit' ),
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => [
-					'{{WRAPPER}} .eit-range__labels, {{WRAPPER}} .eit-range__ticks' => 'color: {{VALUE}};',
+					'{{WRAPPER}} .eit-range__labels' => 'color: {{VALUE}};',
 				],
 				'condition' => [
 					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_tick_color',
+			[
+				'label'     => esc_html__( 'Scale Tick Text', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range__ticks' => 'color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_show_ticks'              => 'yes',
 				],
 			]
 		);

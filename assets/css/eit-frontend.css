@@ -302,10 +302,25 @@
 }
 
 .eit-range--vertical {
-    grid-template-areas: "values labels sliders ticks";
-    grid-template-columns: minmax(120px, 1fr) auto auto auto;
+    grid-template-areas: "values sliders";
+    grid-template-columns: minmax(120px, 1fr) auto;
     column-gap: 16px;
     align-items: center;
+}
+
+.eit-range--vertical.eit-range--show-values {
+    grid-template-areas: "values labels sliders";
+    grid-template-columns: minmax(120px, 1fr) minmax(4ch, max-content) auto;
+}
+
+.eit-range--vertical.eit-range--show-ticks {
+    grid-template-areas: "values sliders ticks";
+    grid-template-columns: minmax(120px, 1fr) auto minmax(4ch, max-content);
+}
+
+.eit-range--vertical.eit-range--show-values.eit-range--show-ticks {
+    grid-template-areas: "values labels sliders ticks";
+    grid-template-columns: minmax(120px, 1fr) minmax(4ch, max-content) auto minmax(4ch, max-content);
 }
 
 .eit-range--vertical .eit-range__labels,
@@ -320,6 +335,12 @@
     align-items: flex-end;
     justify-content: space-between;
     min-width: 3ch;
+}
+
+.eit-range--vertical .eit-range__labels span,
+.eit-range--vertical .eit-range__ticks span {
+    max-width: 8ch;
+    overflow-wrap: anywhere;
 }
 
 .eit-range--vertical .eit-range__values {
@@ -470,9 +491,28 @@
     }
 
     .eit-range--vertical {
-        grid-template-areas: "values labels sliders ticks";
-        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        grid-template-areas: "values sliders";
+        grid-template-columns: minmax(0, 1fr) auto;
         column-gap: 10px;
+    }
+
+    .eit-range--vertical.eit-range--show-values {
+        grid-template-areas: "values labels sliders";
+        grid-template-columns: minmax(0, 1fr) minmax(4ch, max-content) auto;
+    }
+
+    .eit-range--vertical.eit-range--show-ticks {
+        grid-template-areas: "values sliders ticks";
+        grid-template-columns: minmax(0, 1fr) auto minmax(4ch, max-content);
+    }
+
+    .eit-range--vertical.eit-range--show-values.eit-range--show-ticks {
+        grid-template-areas: "values labels sliders ticks";
+        grid-template-columns: minmax(0, 1fr) minmax(4ch, max-content) auto minmax(4ch, max-content);
+    }
+
+    .eit-range--vertical .eit-range__values {
+        min-width: 0;
     }
 
     .eit-range--vertical .eit-range__sliders {

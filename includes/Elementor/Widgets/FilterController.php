@@ -164,24 +164,29 @@ class FilterController extends Widget_Base {
 						<option value="<?php echo esc_attr( $option['value'] ); ?>"><?php echo esc_html( $option['label'] ); ?></option>
 					<?php endforeach; ?>
 				</select>
-			<?php elseif ( 'range' === $type ) : ?>
-				<?php
-				$range_classes = [
-					'eit-range',
-					'eit-range--' . $this->get_range_setting( $settings, 'range_orientation', [ 'horizontal', 'vertical' ], 'horizontal' ),
-					'eit-range--track-' . $this->get_range_setting( $settings, 'range_track_style', [ 'solid', 'dashed', 'segmented' ], 'solid' ),
-				];
+				<?php elseif ( 'range' === $type ) : ?>
+					<?php
+					$show_range_values = ( $settings['range_show_values'] ?? '' ) === 'yes';
+					$show_range_ticks  = ( $settings['range_show_ticks'] ?? '' ) === 'yes';
+					$range_classes = [
+						'eit-range',
+						'eit-range--has-inputs',
+						'eit-range--' . $this->get_range_setting( $settings, 'range_orientation', [ 'horizontal', 'vertical' ], 'horizontal' ),
+						'eit-range--track-' . $this->get_range_setting( $settings, 'range_track_style', [ 'solid', 'dashed', 'segmented' ], 'solid' ),
+					];
 
-				if ( ( $settings['range_show_values'] ?? '' ) === 'yes' ) {
-					$range_classes[] = 'eit-range--show-values';
-				}
+					if ( $show_range_values ) {
+						$range_classes[] = 'eit-range--show-values';
+						$range_classes[] = 'eit-range--has-value-labels';
+					}
 
-				if ( ( $settings['range_show_ticks'] ?? '' ) === 'yes' ) {
-					$range_classes[] = 'eit-range--show-ticks';
-				}
+					if ( $show_range_ticks ) {
+						$range_classes[] = 'eit-range--show-ticks';
+						$range_classes[] = 'eit-range--has-ticks';
+					}
 
-				$range_midpoint = ( $filter['rangeMin'] + $filter['rangeMax'] ) / 2;
-				?>
+					$range_midpoint = ( $filter['rangeMin'] + $filter['rangeMax'] ) / 2;
+					?>
 				<div class="<?php echo esc_attr( implode( ' ', $range_classes ) ); ?>" data-eit-control data-eit-type="range" data-eit-key="<?php echo esc_attr( $key ); ?>">
 					<div class="eit-range__labels" aria-hidden="true">
 						<span data-eit-range-min-label><?php echo esc_html( $this->format_range_value( $filter['rangeMin'] ) ); ?></span>
