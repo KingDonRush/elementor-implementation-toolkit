@@ -1,7 +1,7 @@
 # Elementor Implementation Toolkit
 
-V0.2 starts with a Filter Controller widget for Elementor and a product-grade
-WordPress admin layer for implementation-heavy settings.
+V0.2.1 starts with a Filter Controller widget for Elementor and a practical
+WordPress admin layer for reusable implementation settings.
 
 The widget is intentionally parasitic: it does not render its own grid. It detects
 an existing listing on the page, lets the implementer select that target in the
@@ -12,9 +12,9 @@ Elementor editor, and filters the existing cards through AJAX.
 - Elementor widget category: `Elementor Implementation Toolkit`
 - Widget: `Filter Controller`
 - Admin menu: `Implementation Toolkit`
-- Filter preset manager for backend filter minutiae
-- Lightweight CPT manager for custom post types, taxonomies, and typed meta fields
-- Integrations / Superpowers admin contracts saved in `eit_integration_patterns`
+- Filter preset manager with an Elementor template bridge
+- Lightweight Post Types manager for custom post types, taxonomies, and typed fields
+- Providers / Diagnostics status for the current filtering runtime
 - Editor listing detection with hover highlight
 - Manual CSS selector fallback
 - DOM-provider filtering for existing listings
@@ -23,11 +23,15 @@ Elementor editor, and filters the existing cards through AJAX.
 
 ## Admin Tools
 
-The admin UI now uses the Toolkit's own architecture-builder language inside the
-normal WordPress admin chrome. Filter presets, CPT definitions, and Integration
-modules are shown as architecture layers, runtime boundaries, and contextual
-inspectors so the interface explains what wraps, influences, or connects to each
-backend option.
+The admin area is an operational backend surface, not a second page builder.
+Elementor remains responsible for layout, placement, preview, and visual styling.
+The WordPress backend is used for reusable structures that should survive across
+pages and projects:
+
+- reusable Filter Presets consumed by the Elementor widget or a plugin-owned
+  Elementor template;
+- compact Post Types for custom post types, taxonomies, and typed fields;
+- provider and diagnostic status for the current filtering runtime.
 
 Local visual assets live in `assets/images/icons/` as transparent, tightly
 cropped WebP files. The palette/tokens used by the admin surface are documented
@@ -35,55 +39,46 @@ in `assets/design/palette.json`.
 
 ### Filter Presets
 
-Filter presets move the noisy configuration out of the Elementor widget panel:
+Filter presets move reusable behavior out of the Elementor widget panel:
 
-- provider mode and target/item selector defaults;
 - apply mode, URL sync, result count, active chips, empty copy, and pagination;
-- sort labels/options;
 - filter definitions for search, checkbox, radio, select, chips, toggle, range,
   date, swatches, and rating;
-- backend metadata such as source type, compare mode, data type, query var,
-  default value, and future count behavior.
-- structured builders for sort rules, filter choices, and select choices. The
-  admin UI does not require line-coded textarea input.
+- advanced provider/selector/query metadata when the DOM fallback needs help;
+- Elementor template creation so layout and styling happen in Elementor instead
+  of a custom admin builder.
 
 The widget can still use inline controls, but when `Configuration Source` is set
 to `Admin filter preset`, the preset supplies the filter definitions and runtime
 behavior. The widget remains responsible for placement and visual styling.
 
-### CPT Manager
+### Post Types
 
-The CPT manager is intentionally compact. It registers stored definitions with
-native WordPress APIs:
+The Post Types manager is intentionally compact. It registers stored definitions
+with native WordPress APIs:
 
-- custom post type labels, visibility, REST exposure, archives, rewrite slug,
-  hierarchy, menu icon, and supports;
+- custom post type labels, menu icon, and description;
+- advanced visibility, REST exposure, archives, rewrite slug, hierarchy, and
+  supports;
 - taxonomies attached to the managed post type;
-- typed meta fields rendered in a native meta box.
+- repeatable typed fields rendered in a native meta box.
 
-Deleting a CPT definition unregisters the structure on the next request. It does
-not delete posts, terms, or post meta.
+Supported field types include text, textarea, number, URL, email, date, time,
+date/time, checkbox, select, radio, color, image URL, and gallery URLs.
 
-### Integrations / Superpowers
+Deleting a post type definition unregisters the structure on the next request.
+It does not delete posts, terms, or post meta.
 
-The Integrations area is an admin contract layer for future Toolkit modules. In
-V0.2 these modules save configuration, status, and preview state, but do not
-claim full runtime adapters yet:
+### Providers / Diagnostics
 
-- Simple Budget Bridge;
-- WooCommerce Card Adapter;
-- Mobile Filter Panel;
-- Listing Target Detector;
-- URL State Router;
-- Conditional Display Rules;
-- Design Token Mapper;
-- Editor Handoff Notes;
-- QA Scenario Runner;
-- Connector Registry.
+The Diagnostics area is intentionally small in V0.2. It reports the providers
+that are real today:
 
-Each module has a fixed product identity, status (`active`, `draft`, or
-`degraded`), scoped configuration fields, a contextual inspector, and a contract
-preview modal. Deep integrations stay optional and adapter-based.
+- DOM provider for existing Elementor, WooCommerce, JetEngine, and generic
+  listings;
+- WordPress enrichment when listing items expose a local post ID or permalink.
+
+Deep adapters remain future work until a real project needs them.
 
 ## Data Contract
 

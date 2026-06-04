@@ -57,7 +57,7 @@ class FilterPresets {
 			'show_active_chips'   => true,
 			'show_sort'           => true,
 			'sort_label'          => __( 'Sort by', 'elementor-implementation-toolkit' ),
-			'sort_options'        => "default|Default\ntitle_asc|Title A-Z\ntitle_desc|Title Z-A\ndate_desc|Newest\nnumeric_asc|Lowest value\nnumeric_desc|Highest value",
+			'sort_options'        => "default|Default\ntitle_asc|Title A-Z\ntitle_desc|Title Z-A\ndate_desc|Newest",
 			'apply_text'          => __( 'Apply filters', 'elementor-implementation-toolkit' ),
 			'reset_text'          => __( 'Reset', 'elementor-implementation-toolkit' ),
 			'empty_text'          => __( 'No matching items found.', 'elementor-implementation-toolkit' ),
@@ -72,56 +72,6 @@ class FilterPresets {
 						'key'         => 'title',
 						'query_var'   => 'search',
 						'placeholder' => __( 'Search...', 'elementor-implementation-toolkit' ),
-					]
-				),
-				self::blank_filter(
-					[
-						'label'      => __( 'Category Checkbox', 'elementor-implementation-toolkit' ),
-						'type'       => 'checkbox',
-						'key'        => 'product_cat',
-						'source'     => 'taxonomy',
-						'query_var'  => 'category',
-						'compare'    => 'in',
-						'options'    => "shoes|Shoes\nclothing|Clothing\naccessories|Accessories",
-						'show_count' => true,
-					]
-				),
-				self::blank_filter(
-					[
-						'label'       => __( 'Price Range', 'elementor-implementation-toolkit' ),
-						'type'        => 'range',
-						'key'         => '_price',
-						'source'      => 'meta',
-						'query_var'   => 'price',
-						'compare'     => 'between',
-						'data_type'   => 'number',
-						'range_min'   => 0,
-						'range_max'   => 1000,
-						'range_step'  => 10,
-						'show_count'  => true,
-					]
-				),
-				self::blank_filter(
-					[
-						'label'     => __( 'Color Swatches', 'elementor-implementation-toolkit' ),
-						'type'      => 'swatch',
-						'key'       => 'color',
-						'source'    => 'data_attr',
-						'query_var' => 'color',
-						'compare'   => 'in',
-						'options'   => "black|Black|#111111\nblue|Blue|#176db8\nred|Red|#e5484d",
-					]
-				),
-				self::blank_filter(
-					[
-						'label'      => __( 'Rating', 'elementor-implementation-toolkit' ),
-						'type'       => 'rating',
-						'key'        => 'rating',
-						'source'     => 'meta',
-						'query_var'  => 'rating',
-						'compare'    => 'gte',
-						'data_type'  => 'number',
-						'show_count' => true,
 					]
 				),
 			],
@@ -235,9 +185,9 @@ class FilterPresets {
 
 	public static function provider_modes() {
 		return [
-			'dom'          => __( 'Parasitic DOM provider', 'elementor-implementation-toolkit' ),
-			'wp_post_link' => __( 'DOM + WordPress post enrichment', 'elementor-implementation-toolkit' ),
-			'adapter'      => __( 'Adapter placeholder', 'elementor-implementation-toolkit' ),
+			'dom'          => __( 'Read visible listing HTML', 'elementor-implementation-toolkit' ),
+			'wp_post_link' => __( 'Read listing HTML and enrich from WordPress posts', 'elementor-implementation-toolkit' ),
+			'adapter'      => __( 'Custom adapter', 'elementor-implementation-toolkit' ),
 		];
 	}
 

@@ -13,7 +13,7 @@ class CptManager {
 
 	const OPTION = 'eit_cpt_definitions';
 	const MAX_TAXONOMIES = 12;
-	const MAX_META_FIELDS = 40;
+	const MAX_META_FIELDS = 80;
 
 	public function init_hooks() {
 		add_action( 'init', [ $this, 'register_definitions' ], 9 );
@@ -132,10 +132,16 @@ class CptManager {
 			'textarea' => __( 'Textarea', 'elementor-implementation-toolkit' ),
 			'number'   => __( 'Number', 'elementor-implementation-toolkit' ),
 			'url'      => __( 'URL', 'elementor-implementation-toolkit' ),
+			'email'    => __( 'Email', 'elementor-implementation-toolkit' ),
 			'date'     => __( 'Date', 'elementor-implementation-toolkit' ),
+			'time'     => __( 'Time', 'elementor-implementation-toolkit' ),
+			'datetime' => __( 'Date and time', 'elementor-implementation-toolkit' ),
 			'checkbox' => __( 'Checkbox', 'elementor-implementation-toolkit' ),
 			'select'   => __( 'Select', 'elementor-implementation-toolkit' ),
+			'radio'    => __( 'Radio', 'elementor-implementation-toolkit' ),
 			'color'    => __( 'Color', 'elementor-implementation-toolkit' ),
+			'image'    => __( 'Image URL', 'elementor-implementation-toolkit' ),
+			'gallery'  => __( 'Gallery URLs', 'elementor-implementation-toolkit' ),
 		];
 	}
 
@@ -334,7 +340,7 @@ class CptManager {
 		echo '<p class="eit-managed-field eit-managed-field--' . esc_attr( $field['type'] ) . '">';
 		echo '<label for="' . esc_attr( $id ) . '"><strong>' . esc_html( $field['label'] ?: $key ) . '</strong></label>';
 
-		if ( 'textarea' === $field['type'] ) {
+		if ( in_array( $field['type'], [ 'textarea', 'gallery' ], true ) ) {
 			echo '<textarea id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="widefat" rows="4">' . esc_textarea( $value ) . '</textarea>';
 		} elseif ( 'select' === $field['type'] ) {
 			echo '<select id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="widefat">';
@@ -342,10 +348,16 @@ class CptManager {
 				echo '<option value="' . esc_attr( $option['value'] ) . '" ' . selected( (string) $value, (string) $option['value'], false ) . '>' . esc_html( $option['label'] ) . '</option>';
 			}
 			echo '</select>';
+		} elseif ( 'radio' === $field['type'] ) {
+			foreach ( self::parse_options( $field['options'] ?? '' ) as $option ) {
+				echo '<label class="eit-checkbox-inline"><input type="radio" name="' . esc_attr( $name ) . '" value="' . esc_attr( $option['value'] ) . '" ' . checked( (string) $value, (string) $option['value'], false ) . ' /> ' . esc_html( $option['label'] ) . '</label><br />';
+			}
 		} elseif ( 'checkbox' === $field['type'] ) {
 			echo '<label class="eit-checkbox-inline"><input type="checkbox" id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" value="1" ' . checked( (string) $value, '1', false ) . ' /> ' . esc_html__( 'Enabled', 'elementor-implementation-toolkit' ) . '</label>';
 		} else {
-			$type = in_array( $field['type'], [ 'number', 'url', 'date', 'color' ], true ) ? $field['type'] : 'text';
+			$type = in_array( $field['type'], [ 'number', 'url', 'email', 'date', 'time', 'color' ], true ) ? $field['type'] : 'text';
+			$type = 'datetime' === $field['type'] ? 'datetime-local' : $type;
+			$type = 'image' === $field['type'] ? 'url' : $type;
 			echo '<input id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="widefat" type="' . esc_attr( $type ) . '" value="' . esc_attr( $value ) . '" />';
 		}
 
@@ -473,12 +485,32 @@ class CptManager {
 			return esc_url_raw( $value );
 		}
 
+		if ( 'image' === $type ) {
+			return esc_url_raw( $value );
+		}
+
+		if ( 'email' === $type ) {
+			return sanitize_email( $value );
+		}
+
 		if ( 'date' === $type ) {
 			return preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $value ) ? (string) $value : '';
 		}
 
+		if ( 'time' === $type ) {
+			return preg_match( '/^(?:[01]\d|2[0-3]):[0-5]\d$/', (string) $value ) ? (string) $value : '';
+		}
+
+		if ( 'datetime' === $type ) {
+			return preg_match( '/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/', (string) $value ) ? (string) $value : '';
+		}
+
 		if ( 'checkbox' === $type ) {
 			return self::truthy( $value ) ? '1' : '0';
+		}
+
+		if ( 'gallery' === $type ) {
+			return self::sanitize_gallery_urls( $value );
 		}
 
 		if ( 'textarea' === $type ) {
@@ -487,6 +519,10 @@ class CptManager {
 
 		if ( 'color' === $type ) {
 			return sanitize_hex_color( $value ) ?: '';
+		}
+
+		if ( in_array( $type, [ 'select', 'radio' ], true ) ) {
+			return sanitize_key( $value );
 		}
 
 		return sanitize_text_field( $value );
@@ -553,6 +589,21 @@ class CptManager {
 		}
 
 		return implode( "\n", $lines );
+	}
+
+	private static function sanitize_gallery_urls( $value ) {
+		$lines = preg_split( '/\r\n|\r|\n|,/', (string) $value );
+		$urls = [];
+
+		foreach ( $lines as $line ) {
+			$url = esc_url_raw( trim( $line ) );
+
+			if ( '' !== $url ) {
+				$urls[] = $url;
+			}
+		}
+
+		return implode( "\n", array_slice( $urls, 0, 80 ) );
 	}
 
 	private static function sanitize_post_type_slug( $value ) {
