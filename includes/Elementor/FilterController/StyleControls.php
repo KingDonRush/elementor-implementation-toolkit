@@ -1,0 +1,926 @@
+<?php
+/**
+ * Style-tab controls for the Elementor Filter Controller widget.
+ */
+
+namespace EIT\Elementor\FilterController;
+
+use Elementor\Controls_Manager;
+use Elementor\Group_Control_Background;
+use Elementor\Group_Control_Border;
+use Elementor\Group_Control_Box_Shadow;
+use Elementor\Group_Control_Typography;
+use Elementor\Widget_Base;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class StyleControls {
+
+	public static function register( Widget_Base $widget ) {
+		self::register_layout_controls( $widget );
+		self::register_field_controls( $widget );
+		self::register_option_controls( $widget );
+		self::register_range_controls( $widget );
+		self::register_button_controls( $widget );
+		self::register_chip_controls( $widget );
+		self::register_pagination_controls( $widget );
+		self::register_state_controls( $widget );
+	}
+
+	private static function range_or_rating_conditions() {
+		return [
+			'relation' => 'or',
+			'terms'    => [
+				[
+					'name'     => 'eit_filter_has_range_controls',
+					'operator' => '==',
+					'value'    => 'yes',
+				],
+				[
+					'name'     => 'eit_filter_has_rating_controls',
+					'operator' => '==',
+					'value'    => 'yes',
+				],
+			],
+		];
+	}
+
+	private static function count_or_chips_conditions() {
+		return [
+			'relation' => 'or',
+			'terms'    => [
+				[
+					'name'     => 'show_result_count',
+					'operator' => '==',
+					'value'    => 'yes',
+				],
+				[
+					'name'     => 'show_active_chips',
+					'operator' => '==',
+					'value'    => 'yes',
+				],
+			],
+		];
+	}
+
+	private static function register_layout_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_layout_style',
+			[
+				'label' => esc_html__( 'Layout', 'elementor-implementation-toolkit' ),
+				'tab'   => Controls_Manager::TAB_STYLE,
+			]
+		);
+
+		$widget->add_responsive_control(
+			'layout_direction',
+			[
+				'label'   => esc_html__( 'Direction', 'elementor-implementation-toolkit' ),
+				'type'    => Controls_Manager::CHOOSE,
+				'default' => 'column',
+				'options' => [
+					'row'    => [
+						'title' => esc_html__( 'Horizontal', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-ellipsis-h',
+					],
+					'column' => [
+						'title' => esc_html__( 'Vertical', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-editor-list-ul',
+					],
+				],
+				'selectors' => [
+					'{{WRAPPER}} .eit-filter-controller__form' => 'flex-direction: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'layout_gap',
+			[
+				'label' => esc_html__( 'Gap', 'elementor-implementation-toolkit' ),
+				'type'  => Controls_Manager::SLIDER,
+				'range' => [
+					'px' => [
+						'min' => 0,
+						'max' => 80,
+					],
+				],
+				'default' => [
+					'size' => 16,
+					'unit' => 'px',
+				],
+				'selectors' => [
+					'{{WRAPPER}} .eit-filter-controller__form' => 'gap: {{SIZE}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'group_gap',
+			[
+				'label' => esc_html__( 'Group Gap', 'elementor-implementation-toolkit' ),
+				'type'  => Controls_Manager::SLIDER,
+				'range' => [
+					'px' => [
+						'min' => 0,
+						'max' => 48,
+					],
+				],
+				'default' => [
+					'size' => 10,
+					'unit' => 'px',
+				],
+				'selectors' => [
+					'{{WRAPPER}} .eit-filter-group' => 'gap: {{SIZE}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Background::get_type(),
+			[
+				'name'     => 'controller_background',
+				'selector' => '{{WRAPPER}} .eit-filter-controller',
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Border::get_type(),
+			[
+				'name'     => 'controller_border',
+				'selector' => '{{WRAPPER}} .eit-filter-controller',
+			]
+		);
+
+		$widget->add_responsive_control(
+			'controller_radius',
+			[
+				'label'      => esc_html__( 'Border Radius', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', '%' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-filter-controller' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'controller_padding',
+			[
+				'label'      => esc_html__( 'Padding', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', 'em', '%' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-filter-controller' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Box_Shadow::get_type(),
+			[
+				'name'     => 'controller_shadow',
+				'selector' => '{{WRAPPER}} .eit-filter-controller',
+			]
+		);
+
+		$widget->end_controls_section();
+	}
+
+	private static function register_field_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_field_style',
+			[
+				'label' => esc_html__( 'Fields', 'elementor-implementation-toolkit' ),
+				'tab'   => Controls_Manager::TAB_STYLE,
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Typography::get_type(),
+			[
+				'name'     => 'label_typography',
+				'selector' => '{{WRAPPER}} .eit-filter-group__label',
+			]
+		);
+
+		$widget->add_control(
+			'label_color',
+			[
+				'label'     => esc_html__( 'Label Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-filter-group__label' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Typography::get_type(),
+			[
+				'name'     => 'field_typography',
+				'selector' => '{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select',
+				'condition' => [
+					'eit_filter_has_field_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'field_text_color',
+			[
+				'label'     => esc_html__( 'Text Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select' => 'color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_field_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'field_background',
+			[
+				'label'     => esc_html__( 'Background', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select' => 'background-color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_field_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Border::get_type(),
+			[
+				'name'     => 'field_border',
+				'selector' => '{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select',
+				'condition' => [
+					'eit_filter_has_field_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'field_radius',
+			[
+				'label'      => esc_html__( 'Radius', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', '%' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_field_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'field_padding',
+			[
+				'label'      => esc_html__( 'Padding', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', 'em' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_field_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->end_controls_section();
+	}
+
+	private static function register_option_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_option_style',
+			[
+				'label'     => esc_html__( 'Options, Chips & Swatches', 'elementor-implementation-toolkit' ),
+				'tab'       => Controls_Manager::TAB_STYLE,
+				'condition' => [
+					'eit_filter_has_option_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Typography::get_type(),
+			[
+				'name'     => 'option_typography',
+				'selector' => '{{WRAPPER}} .eit-option',
+			]
+		);
+
+		$widget->add_control(
+			'option_color',
+			[
+				'label'     => esc_html__( 'Text Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-option' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'option_background',
+			[
+				'label'     => esc_html__( 'Background', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-option' => 'background-color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'option_active_color',
+			[
+				'label'     => esc_html__( 'Active Text', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-option:has(input:checked), {{WRAPPER}} .eit-option.is-active' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'option_active_background',
+			[
+				'label'     => esc_html__( 'Active Background', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-option:has(input:checked), {{WRAPPER}} .eit-option.is-active' => 'background-color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Border::get_type(),
+			[
+				'name'     => 'option_border',
+				'selector' => '{{WRAPPER}} .eit-option',
+			]
+		);
+
+		$widget->add_responsive_control(
+			'option_radius',
+			[
+				'label'      => esc_html__( 'Radius', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', '%' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-option' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'option_padding',
+			[
+				'label'      => esc_html__( 'Padding', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', 'em' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-option' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->end_controls_section();
+	}
+
+	private static function register_range_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_range_style',
+			[
+				'label'      => esc_html__( 'Range & Rating', 'elementor-implementation-toolkit' ),
+				'tab'        => Controls_Manager::TAB_STYLE,
+				'conditions' => self::range_or_rating_conditions(),
+			]
+		);
+
+		$widget->add_control(
+			'range_orientation',
+			[
+				'label'     => esc_html__( 'Range Orientation', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'default'   => 'horizontal',
+				'options'   => [
+					'horizontal' => [
+						'title' => esc_html__( 'Horizontal', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-ellipsis-h',
+					],
+					'vertical'   => [
+						'title' => esc_html__( 'Vertical', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-editor-list-ul',
+					],
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_show_values',
+			[
+				'label'        => esc_html__( 'Show Current Values', 'elementor-implementation-toolkit' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+				'condition'    => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_show_ticks',
+			[
+				'label'        => esc_html__( 'Show Scale Ticks', 'elementor-implementation-toolkit' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+				'condition'    => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_track_style',
+			[
+				'label'     => esc_html__( 'Track Style', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => 'solid',
+				'options'   => [
+					'solid'     => esc_html__( 'Solid', 'elementor-implementation-toolkit' ),
+					'dashed'    => esc_html__( 'Dashed', 'elementor-implementation-toolkit' ),
+					'segmented' => esc_html__( 'Segmented', 'elementor-implementation-toolkit' ),
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_track_color',
+			[
+				'label'     => esc_html__( 'Selected Track', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range-input'                  => 'accent-color: {{VALUE}};',
+					'{{WRAPPER}} .eit-range'                        => '--eit-range-fill-color: {{VALUE}}; --eit-range-thumb-color: {{VALUE}};',
+					'{{WRAPPER}} .eit-rating-option input:checked + span' => 'color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_track_base_color',
+			[
+				'label'     => esc_html__( 'Base Track', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-track-color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_track_height',
+			[
+				'label'      => esc_html__( 'Track Height', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => [ 'px' ],
+				'range'      => [
+					'px' => [
+						'min' => 2,
+						'max' => 18,
+					],
+				],
+				'default'    => [
+					'size' => 6,
+					'unit' => 'px',
+				],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-track-size: {{SIZE}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_vertical_height',
+			[
+				'label'      => esc_html__( 'Vertical Height', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => [ 'px' ],
+				'range'      => [
+					'px' => [
+						'min' => 96,
+						'max' => 360,
+					],
+				],
+				'default'    => [
+					'size' => 180,
+					'unit' => 'px',
+				],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-vertical-height: {{SIZE}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_orientation'             => 'vertical',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_handle_size',
+			[
+				'label'      => esc_html__( 'Handle Size', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => [ 'px' ],
+				'range'      => [
+					'px' => [
+						'min' => 12,
+						'max' => 36,
+					],
+				],
+				'default'    => [
+					'size' => 18,
+					'unit' => 'px',
+				],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-size: {{SIZE}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_handle_shape',
+			[
+				'label'     => esc_html__( 'Handle Shape', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => '999px',
+				'options'   => [
+					'999px' => esc_html__( 'Circle', 'elementor-implementation-toolkit' ),
+					'8px'   => esc_html__( 'Rounded', 'elementor-implementation-toolkit' ),
+					'2px'   => esc_html__( 'Square', 'elementor-implementation-toolkit' ),
+				],
+				'selectors' => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-radius: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_handle_color',
+			[
+				'label'     => esc_html__( 'Handle Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_value_color',
+			[
+				'label'     => esc_html__( 'Value Text', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range__labels, {{WRAPPER}} .eit-range__ticks' => 'color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'rating_color',
+			[
+				'label'     => esc_html__( 'Rating Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-rating-option span' => 'color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_rating_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->end_controls_section();
+	}
+
+	private static function register_button_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_button_style',
+			[
+				'label' => esc_html__( 'Buttons', 'elementor-implementation-toolkit' ),
+				'tab'   => Controls_Manager::TAB_STYLE,
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Typography::get_type(),
+			[
+				'name'     => 'button_typography',
+				'selector' => '{{WRAPPER}} .eit-button',
+			]
+		);
+
+		$widget->add_control(
+			'button_color',
+			[
+				'label'     => esc_html__( 'Text Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-button' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'button_background',
+			[
+				'label'     => esc_html__( 'Background', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-button' => 'background-color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Border::get_type(),
+			[
+				'name'     => 'button_border',
+				'selector' => '{{WRAPPER}} .eit-button',
+			]
+		);
+
+		$widget->add_responsive_control(
+			'button_radius',
+			[
+				'label'      => esc_html__( 'Radius', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', '%' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-button' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'button_padding',
+			[
+				'label'      => esc_html__( 'Padding', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', 'em' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-button' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->end_controls_section();
+	}
+
+	private static function register_chip_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_chip_style',
+			[
+				'label'      => esc_html__( 'Active Chips & Count', 'elementor-implementation-toolkit' ),
+				'tab'        => Controls_Manager::TAB_STYLE,
+				'conditions' => self::count_or_chips_conditions(),
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Typography::get_type(),
+			[
+				'name'       => 'meta_typography',
+				'selector'   => '{{WRAPPER}} .eit-result-count, {{WRAPPER}} .eit-active-chip',
+				'conditions' => self::count_or_chips_conditions(),
+			]
+		);
+
+		$widget->add_control(
+			'chip_color',
+			[
+				'label'     => esc_html__( 'Chip Text', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-active-chip' => 'color: {{VALUE}};',
+				],
+				'condition' => [
+					'show_active_chips' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'chip_background',
+			[
+				'label'     => esc_html__( 'Chip Background', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-active-chip' => 'background-color: {{VALUE}};',
+				],
+				'condition' => [
+					'show_active_chips' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'count_color',
+			[
+				'label'     => esc_html__( 'Count Text', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-result-count' => 'color: {{VALUE}};',
+				],
+				'condition' => [
+					'show_result_count' => 'yes',
+				],
+			]
+		);
+
+		$widget->end_controls_section();
+	}
+
+	private static function register_pagination_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_pagination_style',
+			[
+				'label'     => esc_html__( 'Pagination', 'elementor-implementation-toolkit' ),
+				'tab'       => Controls_Manager::TAB_STYLE,
+				'condition' => [
+					'pagination_type!' => 'none',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'pagination_gap',
+			[
+				'label' => esc_html__( 'Gap', 'elementor-implementation-toolkit' ),
+				'type'  => Controls_Manager::SLIDER,
+				'range' => [
+					'px' => [
+						'min' => 0,
+						'max' => 40,
+					],
+				],
+				'selectors' => [
+					'{{WRAPPER}} .eit-pagination' => 'gap: {{SIZE}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'pagination_color',
+			[
+				'label'     => esc_html__( 'Text Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-page-button' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'pagination_background',
+			[
+				'label'     => esc_html__( 'Background', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-page-button' => 'background-color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'pagination_active_color',
+			[
+				'label'     => esc_html__( 'Active Text', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-page-button.is-active' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'pagination_active_background',
+			[
+				'label'     => esc_html__( 'Active Background', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-page-button.is-active' => 'background-color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->end_controls_section();
+	}
+
+	private static function register_state_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_state_style',
+			[
+				'label' => esc_html__( 'Loading, Empty & Motion', 'elementor-implementation-toolkit' ),
+				'tab'   => Controls_Manager::TAB_STYLE,
+			]
+		);
+
+		$widget->add_control(
+			'transition_duration',
+			[
+				'label' => esc_html__( 'Transition Duration', 'elementor-implementation-toolkit' ),
+				'type'  => Controls_Manager::SLIDER,
+				'range' => [
+					'ms' => [
+						'min' => 0,
+						'max' => 900,
+					],
+				],
+				'default' => [
+					'size' => 180,
+					'unit' => 'ms',
+				],
+				'selectors' => [
+					'{{WRAPPER}} .eit-filter-controller, {{WRAPPER}} .eit-option, {{WRAPPER}} .eit-button, {{WRAPPER}} .eit-active-chip, {{WRAPPER}} .eit-page-button' => 'transition-duration: {{SIZE}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'loading_opacity',
+			[
+				'label' => esc_html__( 'Listing Loading Opacity', 'elementor-implementation-toolkit' ),
+				'type'  => Controls_Manager::SLIDER,
+				'range' => [
+					'px' => [
+						'min'  => 0.1,
+						'max'  => 1,
+						'step' => 0.05,
+					],
+				],
+				'default' => [
+					'size' => 0.55,
+				],
+				'selectors' => [
+					'body .eit-target-is-loading' => 'opacity: {{SIZE}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'empty_color',
+			[
+				'label'     => esc_html__( 'Empty Text Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-empty-state' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->end_controls_section();
+	}
+}

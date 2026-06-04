@@ -1,0 +1,17 @@
+{
+  "name": "kingdonrush/elementor-implementation-toolkit",
+  "description": "Practical Elementor implementation helpers for existing WordPress listings.",
+  "type": "wordpress-plugin",
+  "license": "proprietary",
+  "require": {
+    "php": ">=7.4"
+  },
+  "autoload": {
+    "psr-4": {
+      "EIT\\": "includes/"
+    }
+  },
+  "config": {
+    "sort-packages": true
+  }
+}

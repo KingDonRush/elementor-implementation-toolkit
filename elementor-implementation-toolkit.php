@@ -19,7 +19,13 @@ define( 'EIT_FILE', __FILE__ );
 define( 'EIT_PATH', plugin_dir_path( __FILE__ ) );
 define( 'EIT_URL', plugin_dir_url( __FILE__ ) );
 
-require_once EIT_PATH . 'includes/Core/Autoloader.php';
+$eit_composer_autoload = EIT_PATH . 'vendor/autoload.php';
+
+if ( file_exists( $eit_composer_autoload ) ) {
+	require_once $eit_composer_autoload;
+} else {
+	require_once EIT_PATH . 'includes/Core/Autoloader.php';
+}
 
 use EIT\Core\Plugin;
 

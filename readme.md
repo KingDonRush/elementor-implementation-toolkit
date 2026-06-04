@@ -96,6 +96,7 @@ filters need usable item data or a future adapter.
 ## Local Development
 
 ```bash
+composer dump-autoload
 docker compose run --rm --entrypoint sh wpcli -lc 'find /var/www/html/wp-content/plugins/elementor-implementation-toolkit -name "*.php" -print0 | xargs -0 -n1 php -l'
 node --check assets/js/eit-frontend.js
 node --check assets/js/eit-editor.js

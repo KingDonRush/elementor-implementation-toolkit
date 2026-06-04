@@ -56,8 +56,9 @@
 
     Controller.prototype.init = function () {
         this.bind();
-        this.syncRangeInputs();
         this.readUrlState();
+        this.syncRangeInputs();
+        this.updateOptionStates();
         this.refreshTarget();
         this.apply(false);
     };
@@ -429,6 +430,8 @@
     };
 
     Controller.prototype.reset = function () {
+        var self = this;
+
         this.$root.find('[data-eit-control]').each(function () {
             if ('checkbox' === this.type || 'radio' === this.type) {
                 this.checked = false;
@@ -438,14 +441,12 @@
         });
 
         this.$root.find('.eit-range[data-eit-control]').each(function () {
-            var $range = $(this);
-            $range.find('[data-eit-range-min]').val($range.find('[data-eit-range-min]').attr('min'));
-            $range.find('[data-eit-range-max]').val($range.find('[data-eit-range-max]').attr('max'));
-            $range.find('[data-eit-range-min-slider]').val($range.find('[data-eit-range-min-slider]').attr('min'));
-            $range.find('[data-eit-range-max-slider]').val($range.find('[data-eit-range-max-slider]').attr('max'));
+            self.resetRange($(this));
         });
 
-        this.$root.find('.eit-date-range[data-eit-control] input').val('');
+        this.$root.find('.eit-date-range[data-eit-control]').each(function () {
+            self.resetDate($(this));
+        });
         this.$root.find('[data-eit-sort]').val('default');
         this.page = 1;
         this.updateOptionStates();
@@ -456,14 +457,67 @@
         var parts = String(filterId || '').split(':');
         var type = parts[0];
         var key = parts[1] || '';
+        var self = this;
 
         this.$root.find('[data-eit-type="' + cssEscape(type) + '"][data-eit-key="' + cssEscape(key) + '"]').each(function () {
             if ('checkbox' === this.type || 'radio' === this.type) {
                 this.checked = false;
+            } else if ('range' === type) {
+                self.resetRange($(this));
+            } else if ('date' === type) {
+                self.resetDate($(this));
             } else {
                 this.value = '';
             }
         });
+
+        this.updateOptionStates();
+    };
+
+    Controller.prototype.resetRange = function ($range) {
+        this.setRangeValue($range, {
+            min: $range.find('[data-eit-range-min]').attr('min'),
+            max: $range.find('[data-eit-range-max]').attr('max')
+        });
+    };
+
+    Controller.prototype.setRangeValue = function ($range, value) {
+        value = value && 'object' === typeof value ? value : {};
+
+        var min = value.min;
+        var max = value.max;
+        var $minNumber = $range.find('[data-eit-range-min]');
+        var $maxNumber = $range.find('[data-eit-range-max]');
+        var $minSlider = $range.find('[data-eit-range-min-slider]');
+        var $maxSlider = $range.find('[data-eit-range-max-slider]');
+
+        if (null !== min && undefined !== min && '' !== String(min)) {
+            $minNumber.val(min);
+            $minSlider.val(min);
+        }
+
+        if (null !== max && undefined !== max && '' !== String(max)) {
+            $maxNumber.val(max);
+            $maxSlider.val(max);
+        }
+
+        this.syncRangeInputs($minNumber.get(0));
+    };
+
+    Controller.prototype.resetDate = function ($date) {
+        $date.find('[data-eit-date-from], [data-eit-date-to]').val('');
+    };
+
+    Controller.prototype.setDateValue = function ($date, value) {
+        value = value && 'object' === typeof value ? value : {};
+
+        if (value.from) {
+            $date.find('[data-eit-date-from]').val(value.from);
+        }
+
+        if (value.to) {
+            $date.find('[data-eit-date-to]').val(value.to);
+        }
     };
 
     Controller.prototype.syncRangeInputs = function (changed) {
@@ -488,6 +542,9 @@
                 maxNumber.val(minNumber.val());
                 maxSlider.val(minNumber.val());
             }
+
+            $range.find('[data-eit-range-min-label]').text(minNumber.val());
+            $range.find('[data-eit-range-max-label]').text(maxNumber.val());
         });
     };
 
@@ -513,11 +570,12 @@
 
         var params = new URLSearchParams(window.location.search);
         var prefix = 'eit_' + this.instance + '_';
+        var self = this;
 
         this.$root.find('[data-eit-control], [data-eit-sort]').each(function () {
             var $control = $(this);
-            var key = $control.attr('data-eit-key') || 'sort';
             var type = $control.attr('data-eit-type') || 'sort';
+            var key = stateParamKey(type, $control.attr('data-eit-key') || '');
             var param = params.get(prefix + type + '_' + key);
 
             if (!param) {
@@ -526,6 +584,10 @@
 
             if ('checkbox' === this.type || 'radio' === this.type) {
                 this.checked = param.split(',').indexOf(this.value) !== -1;
+            } else if ('range' === type) {
+                self.setRangeValue($control, safeJson(param, {}));
+            } else if ('date' === type) {
+                self.setDateValue($control, safeJson(param, {}));
             } else if ('range' !== type && 'date' !== type) {
                 this.value = param;
             }
@@ -553,7 +615,7 @@
                 value = JSON.stringify(value);
             }
 
-            params.set(prefix + filter.type + '_' + (filter.key || 'search'), value);
+            params.set(prefix + filter.type + '_' + stateParamKey(filter.type, filter.key), value);
         });
 
         if (state.sort && 'default' !== state.sort) {
@@ -576,6 +638,14 @@
 
     function getFilterLabel(key, type) {
         return key || type || 'Filter';
+    }
+
+    function stateParamKey(type, key) {
+        if (key) {
+            return key;
+        }
+
+        return 'sort' === type ? 'sort' : 'search';
     }
 
     function detectListings(doc, exclude) {

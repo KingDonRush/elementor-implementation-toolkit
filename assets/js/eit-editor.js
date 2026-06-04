@@ -5,6 +5,14 @@
     var i18n = config.i18n || {};
     var currentTargets = [];
     var panelTimer = null;
+    var filterTypeSyncTimer = null;
+    var filterTypeHooksBound = false;
+    var filterTypeStateControls = [
+        'eit_filter_has_field_controls',
+        'eit_filter_has_option_controls',
+        'eit_filter_has_range_controls',
+        'eit_filter_has_rating_controls'
+    ];
 
     function getPreviewDocument() {
         var iframe = document.querySelector('#elementor-preview-iframe');
@@ -213,6 +221,188 @@
         $('<p/>', { class: 'eit-editor-targets__hint', text: i18n.fallback || 'Manual selector remains available for difficult cases.' }).appendTo($helper);
     }
 
+    function getEditedElementView() {
+        var panel;
+        var page;
+
+        if (!window.elementor || !elementor.getPanelView) {
+            return null;
+        }
+
+        panel = elementor.getPanelView();
+        page = panel && panel.getCurrentPageView ? panel.getCurrentPageView() : null;
+
+        if (!page || !page.getOption) {
+            return null;
+        }
+
+        return page.getOption('editedElementView') || null;
+    }
+
+    function getWidgetType(view) {
+        if (view && view.model && view.model.get) {
+            return view.model.get('widgetType');
+        }
+
+        if (view && view.container && view.container.model && view.container.model.get) {
+            return view.container.model.get('widgetType');
+        }
+
+        return '';
+    }
+
+    function getEditedFilterControllerContainer() {
+        var view = getEditedElementView();
+
+        if (getWidgetType(view) !== 'eit-filter-controller') {
+            return null;
+        }
+
+        if (view && view.getContainer) {
+            return view.getContainer();
+        }
+
+        return view && view.container ? view.container : null;
+    }
+
+    function getFilterRows(container) {
+        var filters = container && container.settings && container.settings.get ? container.settings.get('filters') : null;
+
+        if (Array.isArray(filters)) {
+            return filters;
+        }
+
+        return readFilterRowsFromPanel();
+    }
+
+    function readFilterRowsFromPanel() {
+        var rows = [];
+
+        $('.elementor-control-filters select[data-setting="type"]').each(function () {
+            rows.push({
+                type: this.value || 'search'
+            });
+        });
+
+        return rows;
+    }
+
+    function hasType(types, type) {
+        return types.indexOf(type) !== -1;
+    }
+
+    function computeFilterTypeFlags(filters) {
+        var types = [];
+        var fieldTypes = ['search', 'select', 'range', 'date'];
+        var optionTypes = ['checkbox', 'radio', 'chips', 'toggle', 'swatch', 'rating'];
+
+        filters.forEach(function (filter) {
+            var type = filter && filter.type ? filter.type : 'search';
+
+            if (types.indexOf(type) === -1) {
+                types.push(type);
+            }
+        });
+
+        return {
+            eit_filter_has_field_controls: types.some(function (type) {
+                return hasType(fieldTypes, type);
+            }) ? 'yes' : '',
+            eit_filter_has_option_controls: types.some(function (type) {
+                return hasType(optionTypes, type);
+            }) ? 'yes' : '',
+            eit_filter_has_range_controls: hasType(types, 'range') ? 'yes' : '',
+            eit_filter_has_rating_controls: hasType(types, 'rating') ? 'yes' : ''
+        };
+    }
+
+    function getCurrentFilterTypeFlags(container) {
+        var current = {};
+
+        filterTypeStateControls.forEach(function (controlId) {
+            current[controlId] = container && container.settings && container.settings.get ? (container.settings.get(controlId) || '') : '';
+        });
+
+        return current;
+    }
+
+    function hasFilterTypeFlagChanges(current, next) {
+        return filterTypeStateControls.some(function (controlId) {
+            return (current[controlId] || '') !== (next[controlId] || '');
+        });
+    }
+
+    function setHiddenFilterTypeInputs(flags, triggerEvents) {
+        filterTypeStateControls.forEach(function (controlId) {
+            var input = document.querySelector('[data-setting="' + controlId + '"]');
+
+            if (input && input.value !== flags[controlId]) {
+                input.value = flags[controlId];
+
+                if (triggerEvents) {
+                    $(input).trigger('input').trigger('change');
+                }
+            }
+        });
+    }
+
+    function syncFilterTypeState() {
+        var container = getEditedFilterControllerContainer();
+        var flags;
+        var current;
+
+        if (!container || !$('.elementor-control-filters').length) {
+            return;
+        }
+
+        flags = computeFilterTypeFlags(getFilterRows(container));
+        current = getCurrentFilterTypeFlags(container);
+        setHiddenFilterTypeInputs(flags, false);
+
+        if (!hasFilterTypeFlagChanges(current, flags)) {
+            return;
+        }
+
+        if (window.$e && $e.run) {
+            try {
+                $e.run('document/elements/settings', {
+                    container: container,
+                    settings: flags,
+                    options: {
+                        render: false,
+                        renderUI: true
+                    }
+                });
+                return;
+            } catch (error) {
+                // Fall through to the legacy input/model path if Elementor changes the command contract.
+            }
+        }
+
+        if (container.settings && container.settings.set) {
+            container.settings.set(flags);
+        }
+
+        setHiddenFilterTypeInputs(flags, true);
+    }
+
+    function scheduleFilterTypeSync() {
+        window.clearTimeout(filterTypeSyncTimer);
+        filterTypeSyncTimer = window.setTimeout(syncFilterTypeState, 80);
+    }
+
+    function bindFilterTypeHooks() {
+        if (filterTypeHooksBound || !window.elementor || !elementor.hooks || !elementor.hooks.addAction) {
+            return;
+        }
+
+        filterTypeHooksBound = true;
+
+        elementor.hooks.addAction('panel/open_editor/widget/eit-filter-controller', function () {
+            scheduleFilterTypeSync();
+        });
+    }
+
     function highlight(element) {
         clearHighlights();
 
@@ -239,10 +429,16 @@
         }
 
         panelTimer = window.setInterval(renderPanelHelper, 900);
+        window.setInterval(syncFilterTypeState, 900);
         renderPanelHelper();
+        bindFilterTypeHooks();
+        scheduleFilterTypeSync();
     }
 
+    $(document).on('input change click', '.elementor-control-filters', scheduleFilterTypeSync);
+
     $(window).on('elementor:init', function () {
+        bindFilterTypeHooks();
         startPanelLoop();
     });
 
