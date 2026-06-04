@@ -195,13 +195,7 @@ class FilterPresetAdmin {
 	private function render_list( array $presets ) {
 		$all_presets = $presets;
 		$search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
-		$draft_count = 0;
-
-		foreach ( $all_presets as $preset ) {
-			if ( empty( $preset['filters'] ?? [] ) ) {
-				$draft_count++;
-			}
-		}
+		$summary = $this->preset_library_summary( $all_presets );
 
 		if ( '' !== $search ) {
 			$needle = strtolower( $search );
@@ -215,6 +209,7 @@ class FilterPresetAdmin {
 								$id,
 								$preset['name'] ?? '',
 								$preset['slug'] ?? '',
+								$this->preset_source_label( $preset ),
 								$this->filter_labels( $preset['filters'] ?? [] ),
 							]
 						)
@@ -229,8 +224,8 @@ class FilterPresetAdmin {
 		<div class="eit-panel eit-panel--table">
 			<div class="eit-panel__header">
 				<div>
-					<h3><?php esc_html_e( 'Filter Presets', 'elementor-implementation-toolkit' ); ?></h3>
-					<p><?php esc_html_e( 'Reusable filter behavior for Elementor archive and listing templates.', 'elementor-implementation-toolkit' ); ?></p>
+					<h3><?php esc_html_e( 'Preset Library', 'elementor-implementation-toolkit' ); ?></h3>
+					<p><?php esc_html_e( 'Saved filter configurations, reuse metadata, and health signals. Build visually in Elementor; use wp-admin to audit and recover.', 'elementor-implementation-toolkit' ); ?></p>
 				</div>
 				<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=' . AdminPages::FILTERS_SLUG . '&view=new' ) ); ?>">
 					<?php esc_html_e( 'Add New', 'elementor-implementation-toolkit' ); ?>
@@ -243,7 +238,10 @@ class FilterPresetAdmin {
 					<span class="description">(<?php echo esc_html( count( $all_presets ) ); ?>)</span>
 					<span class="description"> | </span>
 					<span><?php esc_html_e( 'Draft', 'elementor-implementation-toolkit' ); ?></span>
-					<span class="description">(<?php echo esc_html( $draft_count ); ?>)</span>
+					<span class="description">(<?php echo esc_html( $summary['draft'] ); ?>)</span>
+					<span class="description"> | </span>
+					<span><?php esc_html_e( 'Needs attention', 'elementor-implementation-toolkit' ); ?></span>
+					<span class="description">(<?php echo esc_html( $summary['attention'] ); ?>)</span>
 				</div>
 				<form class="eit-search-box" method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
 					<input type="hidden" name="page" value="<?php echo esc_attr( AdminPages::FILTERS_SLUG ); ?>" />
@@ -252,11 +250,30 @@ class FilterPresetAdmin {
 				</form>
 			</div>
 
+			<div class="eit-library-summary" aria-label="<?php echo esc_attr__( 'Preset library summary', 'elementor-implementation-toolkit' ); ?>">
+				<div class="eit-library-summary__item">
+					<strong><?php echo esc_html( count( $all_presets ) ); ?></strong>
+					<span><?php esc_html_e( 'Saved presets', 'elementor-implementation-toolkit' ); ?></span>
+				</div>
+				<div class="eit-library-summary__item">
+					<strong><?php echo esc_html( $summary['widget'] ); ?></strong>
+					<span><?php esc_html_e( 'From Elementor widgets', 'elementor-implementation-toolkit' ); ?></span>
+				</div>
+				<div class="eit-library-summary__item">
+					<strong><?php echo esc_html( $summary['filters'] ); ?></strong>
+					<span><?php esc_html_e( 'Total filters', 'elementor-implementation-toolkit' ); ?></span>
+				</div>
+				<div class="eit-library-summary__item">
+					<strong><?php echo esc_html( $summary['attention'] ); ?></strong>
+					<span><?php esc_html_e( 'Diagnostics to review', 'elementor-implementation-toolkit' ); ?></span>
+				</div>
+			</div>
+
 			<?php if ( empty( $all_presets ) ) : ?>
 				<?php
 				$this->renderer->render_empty_state(
 					__( 'No filter presets yet', 'elementor-implementation-toolkit' ),
-					__( 'Create one preset here, then select it in the Elementor widget when multiple pages need the same filter behavior.', 'elementor-implementation-toolkit' ),
+					__( 'Build filters directly in the Elementor widget, save them as a preset, then use this screen as the library and recovery point.', 'elementor-implementation-toolkit' ),
 					admin_url( 'admin.php?page=' . AdminPages::FILTERS_SLUG . '&view=new' ),
 					__( 'Create preset', 'elementor-implementation-toolkit' )
 				);
@@ -269,15 +286,16 @@ class FilterPresetAdmin {
 				);
 				?>
 			<?php else : ?>
+				<?php $preview_modals = []; ?>
 				<table class="widefat striped eit-admin-table">
 					<thead>
 						<tr>
-							<th class="check-column"><input type="checkbox" /></th>
 							<th><?php esc_html_e( 'Preset', 'elementor-implementation-toolkit' ); ?></th>
+							<th><?php esc_html_e( 'Source', 'elementor-implementation-toolkit' ); ?></th>
 							<th><?php esc_html_e( 'Filters', 'elementor-implementation-toolkit' ); ?></th>
-							<th><?php esc_html_e( 'Elementor handoff', 'elementor-implementation-toolkit' ); ?></th>
-							<th><?php esc_html_e( 'Data source', 'elementor-implementation-toolkit' ); ?></th>
-							<th><?php esc_html_e( 'Status', 'elementor-implementation-toolkit' ); ?></th>
+							<th><?php esc_html_e( 'Selectors', 'elementor-implementation-toolkit' ); ?></th>
+							<th><?php esc_html_e( 'Updated', 'elementor-implementation-toolkit' ); ?></th>
+							<th><?php esc_html_e( 'Health', 'elementor-implementation-toolkit' ); ?></th>
 							<th><?php esc_html_e( 'Actions', 'elementor-implementation-toolkit' ); ?></th>
 						</tr>
 					</thead>
@@ -287,44 +305,57 @@ class FilterPresetAdmin {
 							$templates = FilterTemplateManager::get_templates( $id );
 							$first_template = ! empty( $templates ) ? reset( $templates ) : null;
 							$filter_labels = $this->filter_labels( $preset['filters'] ?? [] );
-							$status = empty( $preset['filters'] ?? [] ) ? __( 'Draft', 'elementor-implementation-toolkit' ) : __( 'Ready', 'elementor-implementation-toolkit' );
+							$diagnostics = $this->preset_diagnostics( $preset );
+							$health = $this->preset_health( $diagnostics );
+							$modal_id = 'eit-preset-preview-' . sanitize_html_class( $id );
+							$preview_modals[] = [
+								'id'          => $id,
+								'modal_id'    => $modal_id,
+								'preset'      => $preset,
+								'diagnostics' => $diagnostics,
+							];
 							?>
 							<tr>
-								<td><input type="checkbox" /></td>
 								<td>
 									<a class="eit-row-title" href="<?php echo esc_url( admin_url( 'admin.php?page=' . AdminPages::FILTERS_SLUG . '&preset=' . rawurlencode( $id ) ) ); ?>"><?php echo esc_html( $preset['name'] ?? $id ); ?></a>
 									<span class="eit-row-sub"><?php echo esc_html( $preset['slug'] ?? $id ); ?></span>
+									<span class="eit-row-sub"><?php echo esc_html( sprintf( __( 'Key: %s', 'elementor-implementation-toolkit' ), $id ) ); ?></span>
 								</td>
-								<td><?php echo esc_html( $filter_labels ?: __( 'No filters yet', 'elementor-implementation-toolkit' ) ); ?></td>
 								<td>
-									<?php
-									if ( $first_template ) {
-										printf(
-											/* translators: %d: linked Elementor template count. */
-											esc_html( _n( '%d template linked', '%d templates linked', count( $templates ), 'elementor-implementation-toolkit' ) ),
-											absint( count( $templates ) )
-										);
-									} else {
-										esc_html_e( 'Not linked', 'elementor-implementation-toolkit' );
-									}
-									?>
+									<span class="eit-source-mark"><?php echo esc_html( $this->preset_source_label( $preset ) ); ?></span>
+									<span class="eit-row-sub"><?php echo esc_html( $this->preset_source_detail( $preset ) ); ?></span>
 								</td>
-								<td><?php echo esc_html( FilterPresets::provider_modes()[ $preset['provider_mode'] ?? 'dom' ] ?? __( 'DOM provider', 'elementor-implementation-toolkit' ) ); ?></td>
-								<td><span class="eit-status-pill <?php echo empty( $preset['filters'] ?? [] ) ? 'is-neutral' : ''; ?>"><?php echo esc_html( $status ); ?></span></td>
+								<td>
+									<strong><?php echo esc_html( count( $preset['filters'] ?? [] ) ); ?></strong>
+									<span class="eit-row-sub"><?php echo esc_html( $filter_labels ?: __( 'No filters yet', 'elementor-implementation-toolkit' ) ); ?></span>
+								</td>
+								<td>
+									<?php $this->render_selector_summary( $preset ); ?>
+								</td>
+								<td>
+									<?php echo esc_html( $this->preset_updated_label( $preset ) ); ?>
+								</td>
+								<td>
+									<span class="<?php echo esc_attr( $health['class'] ); ?>"><?php echo esc_html( $health['label'] ); ?></span>
+									<span class="eit-row-sub"><?php echo esc_html( $health['summary'] ); ?></span>
+								</td>
 								<td class="eit-row-actions">
 									<a class="eit-mini-button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . AdminPages::FILTERS_SLUG . '&preset=' . rawurlencode( $id ) ) ); ?>"><?php esc_html_e( 'Edit', 'elementor-implementation-toolkit' ); ?></a>
+									<button type="button" class="eit-mini-button" data-eit-open-modal="<?php echo esc_attr( $modal_id ); ?>"><?php esc_html_e( 'Preview', 'elementor-implementation-toolkit' ); ?></button>
 									<?php if ( $first_template ) : ?>
 										<a class="eit-mini-button" href="<?php echo esc_url( FilterTemplateManager::get_edit_url( $first_template->ID ) ); ?>"><?php esc_html_e( 'Open in Elementor', 'elementor-implementation-toolkit' ); ?></a>
-									<?php else : ?>
-										<a class="eit-mini-button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=' . self::DUPLICATE_ACTION . '&preset=' . rawurlencode( $id ) ), self::DUPLICATE_ACTION . '_' . $id ) ); ?>"><?php esc_html_e( 'Duplicate', 'elementor-implementation-toolkit' ); ?></a>
 									<?php endif; ?>
+									<a class="eit-mini-button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=' . self::DUPLICATE_ACTION . '&preset=' . rawurlencode( $id ) ), self::DUPLICATE_ACTION . '_' . $id ) ); ?>"><?php esc_html_e( 'Duplicate', 'elementor-implementation-toolkit' ); ?></a>
 									<a class="eit-mini-button is-danger" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=' . self::DELETE_ACTION . '&preset=' . rawurlencode( $id ) ), self::DELETE_ACTION . '_' . $id ) ); ?>"><?php esc_html_e( 'Delete', 'elementor-implementation-toolkit' ); ?></a>
 								</td>
 							</tr>
 						<?php endforeach; ?>
 					</tbody>
 				</table>
-				<p class="description eit-panel-footnote"><?php esc_html_e( 'Presets describe filter behavior. Elementor handles layout and visual placement.', 'elementor-implementation-toolkit' ); ?></p>
+				<?php foreach ( $preview_modals as $modal ) : ?>
+					<?php $this->render_preset_preview_modal( $modal['modal_id'], $modal['id'], $modal['preset'], $modal['diagnostics'] ); ?>
+				<?php endforeach; ?>
+				<p class="description eit-panel-footnote"><?php esc_html_e( 'Presets describe filter behavior. Elementor handles layout and visual placement; this library shows reuse and health, not final visual QA.', 'elementor-implementation-toolkit' ); ?></p>
 			<?php endif; ?>
 		</div>
 		<div class="eit-savebar">
@@ -359,6 +390,607 @@ class FilterPresetAdmin {
 		return implode( ', ', $labels );
 	}
 
+	private function preset_library_summary( array $presets ) {
+		$summary = [
+			'draft'     => 0,
+			'widget'    => 0,
+			'filters'   => 0,
+			'attention' => 0,
+		];
+
+		foreach ( $presets as $preset ) {
+			$filters = is_array( $preset['filters'] ?? null ) ? $preset['filters'] : [];
+			$summary['filters'] += count( $filters );
+
+			if ( empty( $filters ) ) {
+				$summary['draft']++;
+			}
+
+			if ( 'elementor_widget' === ( $preset['created_from']['source'] ?? '' ) ) {
+				$summary['widget']++;
+			}
+
+			$health = $this->preset_health( $this->preset_diagnostics( $preset ) );
+
+			if ( 'ok' !== $health['severity'] ) {
+				$summary['attention']++;
+			}
+		}
+
+		return $summary;
+	}
+
+	private function preset_source_label( array $preset ) {
+		$source = $preset['created_from']['source'] ?? 'legacy';
+
+		if ( 'elementor_widget' === $source ) {
+			return __( 'Elementor widget', 'elementor-implementation-toolkit' );
+		}
+
+		if ( 'admin' === $source ) {
+			return __( 'Admin preset', 'elementor-implementation-toolkit' );
+		}
+
+		return __( 'Legacy / unknown', 'elementor-implementation-toolkit' );
+	}
+
+	private function preset_source_detail( array $preset ) {
+		$source = $preset['created_from'] ?? [];
+
+		if ( 'elementor_widget' === ( $source['source'] ?? '' ) ) {
+			$parts = [];
+
+			if ( ! empty( $source['document_id'] ) ) {
+				$parts[] = sprintf(
+					/* translators: %d: Elementor document ID. */
+					__( 'Document #%d', 'elementor-implementation-toolkit' ),
+					absint( $source['document_id'] )
+				);
+			}
+
+			if ( ! empty( $source['element_id'] ) ) {
+				$parts[] = sprintf(
+					/* translators: %s: Elementor element ID. */
+					__( 'Element %s', 'elementor-implementation-toolkit' ),
+					$source['element_id']
+				);
+			}
+
+			return ! empty( $parts ) ? implode( ' - ', $parts ) : __( 'Saved from the Elementor editor', 'elementor-implementation-toolkit' );
+		}
+
+		if ( 'admin' === ( $source['source'] ?? '' ) ) {
+			return __( 'Created or edited in wp-admin', 'elementor-implementation-toolkit' );
+		}
+
+		return __( 'No source metadata saved yet', 'elementor-implementation-toolkit' );
+	}
+
+	private function preset_updated_label( array $preset ) {
+		if ( empty( $preset['updated_at'] ) ) {
+			return __( 'Not saved yet', 'elementor-implementation-toolkit' );
+		}
+
+		return mysql2date(
+			get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+			$preset['updated_at']
+		);
+	}
+
+	private function preset_health( array $diagnostics ) {
+		$error_count = 0;
+		$warning_count = 0;
+
+		foreach ( $diagnostics as $diagnostic ) {
+			if ( 'error' === ( $diagnostic['severity'] ?? '' ) ) {
+				$error_count++;
+			}
+
+			if ( 'warning' === ( $diagnostic['severity'] ?? '' ) ) {
+				$warning_count++;
+			}
+		}
+
+		if ( $error_count > 0 ) {
+			return [
+				'severity' => 'error',
+				'label'    => __( 'Critical', 'elementor-implementation-toolkit' ),
+				'class'    => 'eit-status-pill is-error',
+				'summary'  => sprintf(
+					/* translators: %d: diagnostic count. */
+					_n( '%d blocking issue', '%d blocking issues', $error_count, 'elementor-implementation-toolkit' ),
+					$error_count
+				),
+			];
+		}
+
+		if ( $warning_count > 0 ) {
+			return [
+				'severity' => 'warning',
+				'label'    => __( 'Review', 'elementor-implementation-toolkit' ),
+				'class'    => 'eit-status-pill is-warning',
+				'summary'  => sprintf(
+					/* translators: %d: diagnostic count. */
+					_n( '%d warning', '%d warnings', $warning_count, 'elementor-implementation-toolkit' ),
+					$warning_count
+				),
+			];
+		}
+
+		return [
+			'severity' => 'ok',
+			'label'    => __( 'Healthy', 'elementor-implementation-toolkit' ),
+			'class'    => 'eit-status-pill',
+			'summary'  => __( 'Ready for reuse', 'elementor-implementation-toolkit' ),
+		];
+	}
+
+	private function preset_diagnostics( array $preset ) {
+		$diagnostics = [];
+		$filters = is_array( $preset['filters'] ?? null ) ? $preset['filters'] : [];
+		$unknown_preset_keys = array_diff( array_keys( $preset ), $this->expected_preset_keys() );
+
+		if ( ! empty( $unknown_preset_keys ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'error',
+				__( 'Unsupported preset fields', 'elementor-implementation-toolkit' ),
+				sprintf(
+					/* translators: %s: comma-separated field names. */
+					__( 'Unknown fields are saved in this preset: %s.', 'elementor-implementation-toolkit' ),
+					implode( ', ', $unknown_preset_keys )
+				)
+			);
+		}
+
+		if ( empty( trim( (string) ( $preset['target_selector'] ?? '' ) ) ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'warning',
+				__( 'Missing target selector', 'elementor-implementation-toolkit' ),
+				__( 'The preset can still be linked from a widget, but the admin library cannot identify a default listing target.', 'elementor-implementation-toolkit' )
+			);
+		} else {
+			$this->add_diagnostic(
+				$diagnostics,
+				'info',
+				__( 'Selector not verified', 'elementor-implementation-toolkit' ),
+				__( 'Selectors are stored as text. Confirm the actual DOM in Elementor or on the frontend page.', 'elementor-implementation-toolkit' )
+			);
+		}
+
+		if ( empty( $filters ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'warning',
+				__( 'No filters configured', 'elementor-implementation-toolkit' ),
+				__( 'This preset is a draft until at least one filter is saved.', 'elementor-implementation-toolkit' )
+			);
+		}
+
+		foreach ( $filters as $index => $filter ) {
+			if ( ! is_array( $filter ) ) {
+				$this->add_diagnostic(
+					$diagnostics,
+					'error',
+					__( 'Invalid filter row', 'elementor-implementation-toolkit' ),
+					sprintf(
+						/* translators: %d: filter row number. */
+						__( 'Filter row %d is not a valid object.', 'elementor-implementation-toolkit' ),
+						$index + 1
+					)
+				);
+				continue;
+			}
+
+			$this->diagnose_filter( $diagnostics, $filter, $index );
+		}
+
+		return $diagnostics;
+	}
+
+	private function diagnose_filter( array &$diagnostics, array $filter, $index ) {
+		$row_number = $index + 1;
+		$type = sanitize_key( $filter['type'] ?? 'search' );
+		$filter_types = array_keys( FilterPresets::filter_types() );
+		$sources = array_keys( FilterPresets::source_types() );
+		$compares = array_keys( FilterPresets::compare_types() );
+		$data_types = array_keys( FilterPresets::data_types() );
+		$unknown_filter_keys = array_diff( array_keys( $filter ), $this->expected_filter_keys() );
+
+		if ( ! empty( $unknown_filter_keys ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'error',
+				__( 'Unsupported filter fields', 'elementor-implementation-toolkit' ),
+				sprintf(
+					/* translators: 1: row number, 2: comma-separated field names. */
+					__( 'Filter %1$d contains unknown fields: %2$s.', 'elementor-implementation-toolkit' ),
+					$row_number,
+					implode( ', ', $unknown_filter_keys )
+				)
+			);
+		}
+
+		if ( ! in_array( $type, $filter_types, true ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'error',
+				__( 'Unknown filter type', 'elementor-implementation-toolkit' ),
+				sprintf(
+					/* translators: 1: row number, 2: filter type. */
+					__( 'Filter %1$d uses unsupported type "%2$s".', 'elementor-implementation-toolkit' ),
+					$row_number,
+					$type
+				)
+			);
+		}
+
+		if ( ! in_array( sanitize_key( $filter['source'] ?? 'visible_text' ), $sources, true ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'error',
+				__( 'Unknown data source', 'elementor-implementation-toolkit' ),
+				sprintf(
+					/* translators: %d: row number. */
+					__( 'Filter %d uses a source that the runtime does not recognize.', 'elementor-implementation-toolkit' ),
+					$row_number
+				)
+			);
+		}
+
+		if ( ! in_array( sanitize_key( $filter['compare'] ?? 'contains' ), $compares, true ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'error',
+				__( 'Unknown compare operator', 'elementor-implementation-toolkit' ),
+				sprintf(
+					/* translators: %d: row number. */
+					__( 'Filter %d uses a compare operator that the runtime does not recognize.', 'elementor-implementation-toolkit' ),
+					$row_number
+				)
+			);
+		}
+
+		if ( ! in_array( sanitize_key( $filter['data_type'] ?? 'string' ), $data_types, true ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'error',
+				__( 'Unknown data type', 'elementor-implementation-toolkit' ),
+				sprintf(
+					/* translators: %d: row number. */
+					__( 'Filter %d uses a data type that the runtime does not recognize.', 'elementor-implementation-toolkit' ),
+					$row_number
+				)
+			);
+		}
+
+		if ( in_array( $type, $this->option_based_filter_types(), true ) && 0 === $this->option_count( $filter['options'] ?? '' ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'warning',
+				__( 'Empty filter options', 'elementor-implementation-toolkit' ),
+				sprintf(
+					/* translators: %d: row number. */
+					__( 'Filter %d needs options before users can choose anything.', 'elementor-implementation-toolkit' ),
+					$row_number
+				)
+			);
+		}
+
+		if ( 'search' !== $type && empty( trim( (string) ( $filter['key'] ?? '' ) ) ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'warning',
+				__( 'Missing data key', 'elementor-implementation-toolkit' ),
+				sprintf(
+					/* translators: %d: row number. */
+					__( 'Filter %d has no field, taxonomy, or data key.', 'elementor-implementation-toolkit' ),
+					$row_number
+				)
+			);
+		}
+
+		if ( 'range' === $type ) {
+			$min = $filter['range_min'] ?? 0;
+			$max = $filter['range_max'] ?? 100;
+			$step = $filter['range_step'] ?? 1;
+
+			if ( is_numeric( $min ) && is_numeric( $max ) && (float) $min > (float) $max ) {
+				$this->add_diagnostic(
+					$diagnostics,
+					'error',
+					__( 'Invalid range bounds', 'elementor-implementation-toolkit' ),
+					sprintf(
+						/* translators: %d: row number. */
+						__( 'Filter %d has a minimum value greater than the maximum value.', 'elementor-implementation-toolkit' ),
+						$row_number
+					)
+				);
+			}
+
+			if ( is_numeric( $step ) && (float) $step <= 0 ) {
+				$this->add_diagnostic(
+					$diagnostics,
+					'warning',
+					__( 'Invalid range step', 'elementor-implementation-toolkit' ),
+					sprintf(
+						/* translators: %d: row number. */
+						__( 'Filter %d should use a positive range step.', 'elementor-implementation-toolkit' ),
+						$row_number
+					)
+				);
+			}
+		}
+
+		if ( empty( $filter['enabled'] ) ) {
+			$this->add_diagnostic(
+				$diagnostics,
+				'info',
+				__( 'Disabled filter', 'elementor-implementation-toolkit' ),
+				sprintf(
+					/* translators: %d: row number. */
+					__( 'Filter %d is saved but disabled.', 'elementor-implementation-toolkit' ),
+					$row_number
+				)
+			);
+		}
+	}
+
+	private function add_diagnostic( array &$diagnostics, $severity, $title, $message ) {
+		$diagnostics[] = [
+			'severity' => $severity,
+			'title'    => $title,
+			'message'  => $message,
+		];
+	}
+
+	private function render_selector_summary( array $preset ) {
+		$target = trim( (string) ( $preset['target_selector'] ?? '' ) );
+		$item = trim( (string) ( $preset['item_selector'] ?? '' ) );
+		?>
+		<div class="eit-selector-stack">
+			<span><?php echo esc_html( $target ?: __( 'No target selector', 'elementor-implementation-toolkit' ) ); ?></span>
+			<span><?php echo esc_html( $item ?: __( 'Auto item detection', 'elementor-implementation-toolkit' ) ); ?></span>
+		</div>
+		<?php
+	}
+
+	private function render_preset_preview_modal( $modal_id, $preset_id, array $preset, array $diagnostics ) {
+		$this->renderer->render_modal_open(
+			$modal_id,
+			sprintf(
+				/* translators: %s: preset name. */
+				__( 'Preset preview: %s', 'elementor-implementation-toolkit' ),
+				$preset['name'] ?? $preset_id
+			),
+			'eit-modal--wide'
+		);
+		?>
+		<div class="eit-preview-grid">
+			<section>
+				<h4><?php esc_html_e( 'Structure loaded by the widget', 'elementor-implementation-toolkit' ); ?></h4>
+				<?php $this->render_preset_preview( $preset ); ?>
+			</section>
+			<section>
+				<h4><?php esc_html_e( 'Diagnostics', 'elementor-implementation-toolkit' ); ?></h4>
+				<?php $this->render_diagnostics_list( $diagnostics ); ?>
+			</section>
+		</div>
+		<?php
+		$this->renderer->render_modal_close();
+	}
+
+	private function render_preset_observability_panel( array $preset ) {
+		$diagnostics = $this->preset_diagnostics( $preset );
+		$health = $this->preset_health( $diagnostics );
+		?>
+		<section class="eit-panel eit-panel--observability">
+			<div class="eit-panel__header">
+				<div>
+					<h3><?php esc_html_e( 'Library preview and diagnostics', 'elementor-implementation-toolkit' ); ?></h3>
+					<p><?php esc_html_e( 'This is the reusable preset shape the widget loads. Visual styling remains in Elementor.', 'elementor-implementation-toolkit' ); ?></p>
+				</div>
+				<span class="<?php echo esc_attr( $health['class'] ); ?>"><?php echo esc_html( $health['label'] ); ?></span>
+			</div>
+			<div class="eit-preview-grid eit-panel__body">
+				<section>
+					<h4><?php esc_html_e( 'Source and reuse', 'elementor-implementation-toolkit' ); ?></h4>
+					<dl class="eit-definition-list">
+						<div>
+							<dt><?php esc_html_e( 'Source', 'elementor-implementation-toolkit' ); ?></dt>
+							<dd><?php echo esc_html( $this->preset_source_label( $preset ) ); ?></dd>
+						</div>
+						<div>
+							<dt><?php esc_html_e( 'Source detail', 'elementor-implementation-toolkit' ); ?></dt>
+							<dd><?php echo esc_html( $this->preset_source_detail( $preset ) ); ?></dd>
+						</div>
+						<div>
+							<dt><?php esc_html_e( 'Updated', 'elementor-implementation-toolkit' ); ?></dt>
+							<dd><?php echo esc_html( $this->preset_updated_label( $preset ) ); ?></dd>
+						</div>
+						<div>
+							<dt><?php esc_html_e( 'Provider', 'elementor-implementation-toolkit' ); ?></dt>
+							<dd><?php echo esc_html( FilterPresets::provider_modes()[ $preset['provider_mode'] ?? 'dom' ] ?? __( 'DOM provider', 'elementor-implementation-toolkit' ) ); ?></dd>
+						</div>
+					</dl>
+				</section>
+				<section>
+					<h4><?php esc_html_e( 'Structure preview', 'elementor-implementation-toolkit' ); ?></h4>
+					<?php $this->render_preset_preview( $preset ); ?>
+				</section>
+				<section>
+					<h4><?php esc_html_e( 'Diagnostics', 'elementor-implementation-toolkit' ); ?></h4>
+					<?php $this->render_diagnostics_list( $diagnostics ); ?>
+				</section>
+			</div>
+		</section>
+		<?php
+	}
+
+	private function render_preset_preview( array $preset ) {
+		$filters = is_array( $preset['filters'] ?? null ) ? $preset['filters'] : [];
+		?>
+		<div class="eit-preset-preview">
+			<div class="eit-preview-meta">
+				<span><?php echo esc_html( FilterPresets::apply_modes()[ $preset['apply_mode'] ?? 'auto' ] ?? __( 'Auto apply', 'elementor-implementation-toolkit' ) ); ?></span>
+				<span><?php echo esc_html( sprintf( __( '%d per page', 'elementor-implementation-toolkit' ), absint( $preset['per_page'] ?? 9 ) ) ); ?></span>
+				<span><?php echo ! empty( $preset['sync_url'] ) ? esc_html__( 'URL sync on', 'elementor-implementation-toolkit' ) : esc_html__( 'URL sync off', 'elementor-implementation-toolkit' ); ?></span>
+			</div>
+
+			<?php if ( empty( $filters ) ) : ?>
+				<p class="description"><?php esc_html_e( 'No filters are saved in this preset yet.', 'elementor-implementation-toolkit' ); ?></p>
+			<?php else : ?>
+				<ol class="eit-preview-filters">
+					<?php foreach ( $filters as $filter ) : ?>
+						<?php
+						$type = $filter['type'] ?? 'search';
+						$type_label = FilterPresets::filter_types()[ $type ] ?? $type;
+						?>
+						<li class="eit-preview-filter <?php echo empty( $filter['enabled'] ) ? 'is-disabled' : ''; ?>">
+							<span class="eit-filter-icon <?php echo esc_attr( $this->filter_icon_class( $type ) ); ?>" aria-hidden="true"></span>
+							<div>
+								<strong><?php echo esc_html( $filter['label'] ?? __( 'Filter', 'elementor-implementation-toolkit' ) ); ?></strong>
+								<span class="eit-preview-chip"><?php echo esc_html( $type_label ); ?></span>
+								<dl class="eit-definition-list eit-definition-list--compact">
+									<div>
+										<dt><?php esc_html_e( 'Key', 'elementor-implementation-toolkit' ); ?></dt>
+										<dd><?php echo esc_html( $filter['key'] ?? __( 'None', 'elementor-implementation-toolkit' ) ); ?></dd>
+									</div>
+									<div>
+										<dt><?php esc_html_e( 'Source', 'elementor-implementation-toolkit' ); ?></dt>
+										<dd><?php echo esc_html( FilterPresets::source_types()[ $filter['source'] ?? 'visible_text' ] ?? __( 'Visible text', 'elementor-implementation-toolkit' ) ); ?></dd>
+									</div>
+									<div>
+										<dt><?php esc_html_e( 'Compare', 'elementor-implementation-toolkit' ); ?></dt>
+										<dd><?php echo esc_html( FilterPresets::compare_types()[ $filter['compare'] ?? 'contains' ] ?? __( 'Contains', 'elementor-implementation-toolkit' ) ); ?></dd>
+									</div>
+									<?php if ( 'range' === $type ) : ?>
+										<div>
+											<dt><?php esc_html_e( 'Range', 'elementor-implementation-toolkit' ); ?></dt>
+											<dd><?php echo esc_html( ( $filter['range_min'] ?? 0 ) . ' - ' . ( $filter['range_max'] ?? 100 ) ); ?></dd>
+										</div>
+									<?php endif; ?>
+									<?php if ( in_array( $type, $this->option_based_filter_types(), true ) ) : ?>
+										<div>
+											<dt><?php esc_html_e( 'Options', 'elementor-implementation-toolkit' ); ?></dt>
+											<dd><?php echo esc_html( sprintf( __( '%d saved', 'elementor-implementation-toolkit' ), $this->option_count( $filter['options'] ?? '' ) ) ); ?></dd>
+										</div>
+									<?php endif; ?>
+								</dl>
+							</div>
+						</li>
+					<?php endforeach; ?>
+				</ol>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	private function render_diagnostics_list( array $diagnostics ) {
+		$visible = array_filter(
+			$diagnostics,
+			function ( $diagnostic ) {
+				return 'info' !== ( $diagnostic['severity'] ?? '' );
+			}
+		);
+
+		if ( empty( $visible ) ) {
+			?>
+			<div class="eit-diagnostic is-ok">
+				<strong><?php esc_html_e( 'No blocking issues found', 'elementor-implementation-toolkit' ); ?></strong>
+				<p><?php esc_html_e( 'Selectors still need real page confirmation in Elementor or on the frontend.', 'elementor-implementation-toolkit' ); ?></p>
+			</div>
+			<?php
+		}
+
+		?>
+		<ul class="eit-diagnostic-list">
+			<?php foreach ( $diagnostics as $diagnostic ) : ?>
+				<li class="eit-diagnostic is-<?php echo esc_attr( $diagnostic['severity'] ?? 'info' ); ?>">
+					<strong><?php echo esc_html( $diagnostic['title'] ?? '' ); ?></strong>
+					<p><?php echo esc_html( $diagnostic['message'] ?? '' ); ?></p>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+		<?php
+	}
+
+	private function option_based_filter_types() {
+		return [ 'checkbox', 'radio', 'select', 'chips', 'toggle', 'swatch', 'rating' ];
+	}
+
+	private function option_count( $options ) {
+		$options = trim( (string) $options );
+
+		if ( '' === $options ) {
+			return 0;
+		}
+
+		$lines = preg_split( '/\r\n|\r|\n/', $options );
+		$lines = array_filter(
+			array_map( 'trim', $lines ),
+			function ( $line ) {
+				return '' !== $line;
+			}
+		);
+
+		return count( $lines );
+	}
+
+	private function expected_preset_keys() {
+		return [
+			'id',
+			'name',
+			'slug',
+			'description',
+			'provider_mode',
+			'target_selector',
+			'item_selector',
+			'apply_mode',
+			'sync_url',
+			'per_page',
+			'show_result_count',
+			'result_count_text',
+			'show_active_chips',
+			'show_sort',
+			'sort_label',
+			'sort_options',
+			'apply_text',
+			'reset_text',
+			'empty_text',
+			'pagination_type',
+			'previous_text',
+			'next_text',
+			'filters',
+			'created_from',
+			'created_at',
+			'updated_at',
+		];
+	}
+
+	private function expected_filter_keys() {
+		return [
+			'enabled',
+			'label',
+			'type',
+			'key',
+			'source',
+			'query_var',
+			'compare',
+			'data_type',
+			'placeholder',
+			'options',
+			'range_min',
+			'range_max',
+			'range_step',
+			'default_value',
+			'empty_behavior',
+			'show_count',
+			'show_label',
+		];
+	}
+
 	private function render_form( array $preset ) {
 		$is_existing = ! empty( $preset['id'] );
 		$templates = $is_existing ? FilterTemplateManager::get_templates( $preset['id'] ?? '' ) : [];
@@ -391,6 +1023,8 @@ class FilterPresetAdmin {
 					<?php $this->render_template_handoff_card( $preset, $templates ); ?>
 				</div>
 			</section>
+
+			<?php $this->render_preset_observability_panel( $preset ); ?>
 
 			<?php $this->render_filter_rows( $preset['filters'] ?? [] ); ?>
 

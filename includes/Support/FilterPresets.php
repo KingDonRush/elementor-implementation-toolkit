@@ -119,6 +119,27 @@ class FilterPresets {
 			$id = self::unique_id( $id, $presets );
 		}
 
+		$existing = isset( $presets[ $id ] ) && is_array( $presets[ $id ] ) ? $presets[ $id ] : [];
+
+		if ( empty( $raw['created_from'] ) && ! empty( $existing['created_from'] ) ) {
+			$raw['created_from'] = $existing['created_from'];
+		}
+
+		if ( empty( $raw['created_at'] ) && ! empty( $existing['created_at'] ) ) {
+			$raw['created_at'] = $existing['created_at'];
+		}
+
+		if ( empty( $raw['created_from'] ) ) {
+			$raw['created_from'] = [
+				'source'    => 'admin',
+				'saved_via' => 'admin_form',
+			];
+		}
+
+		if ( empty( $raw['created_at'] ) ) {
+			$raw['created_at'] = current_time( 'mysql' );
+		}
+
 		$preset = self::sanitize_preset( $raw, $id );
 		$presets[ $id ] = $preset;
 
@@ -241,6 +262,8 @@ class FilterPresets {
 			'previous_text'     => sanitize_text_field( $raw['previous_text'] ?? __( 'Previous', 'elementor-implementation-toolkit' ) ),
 			'next_text'         => sanitize_text_field( $raw['next_text'] ?? __( 'Next', 'elementor-implementation-toolkit' ) ),
 			'filters'           => self::sanitize_filters( $raw['filters'] ?? [] ),
+			'created_from'      => self::sanitize_created_from( $raw['created_from'] ?? [] ),
+			'created_at'        => sanitize_text_field( $raw['created_at'] ?? current_time( 'mysql' ) ),
 			'updated_at'        => current_time( 'mysql' ),
 		];
 	}
@@ -294,6 +317,17 @@ class FilterPresets {
 		$value = sanitize_key( $value );
 
 		return in_array( $value, $allowed, true ) ? $value : $fallback;
+	}
+
+	private static function sanitize_created_from( $raw ) {
+		$raw = is_array( $raw ) ? $raw : [];
+
+		return [
+			'source'      => self::allowed_value( $raw['source'] ?? 'admin', [ 'admin', 'elementor_widget', 'legacy' ], 'admin' ),
+			'saved_via'   => self::allowed_value( $raw['saved_via'] ?? 'admin_form', [ 'admin_form', 'elementor_editor', 'migration' ], 'admin_form' ),
+			'document_id' => absint( $raw['document_id'] ?? 0 ),
+			'element_id'  => sanitize_text_field( $raw['element_id'] ?? '' ),
+		];
 	}
 
 	private static function normalize_options_payload( array $filter ) {

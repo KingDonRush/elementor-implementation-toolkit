@@ -74,6 +74,11 @@ class FilterPresetEndpoint {
 		'show_label',
 	];
 
+	private $source_widget_keys = [
+		'element_id',
+		'document_id',
+	];
+
 	public function init_hooks() {
 		add_action( 'rest_api_init', [ $this, 'register_routes' ] );
 	}
@@ -155,6 +160,12 @@ class FilterPresetEndpoint {
 			return $preset;
 		}
 
+		$source_widget = $this->validate_source_widget( $payload['source_widget'] ?? [] );
+
+		if ( is_wp_error( $source_widget ) ) {
+			return $source_widget;
+		}
+
 		if ( 'update' === $operation ) {
 			$preset_id = sanitize_key( $route_id ?: ( $payload['preset_id'] ?? '' ) );
 
@@ -177,6 +188,7 @@ class FilterPresetEndpoint {
 			$preset['id'] = $preset_id;
 		} else {
 			unset( $preset['id'] );
+			$preset['created_from'] = $source_widget;
 		}
 
 		$id = FilterPresets::save( $preset );
@@ -236,6 +248,25 @@ class FilterPresetEndpoint {
 		}
 
 		return $preset;
+	}
+
+	private function validate_source_widget( $source_widget ) {
+		if ( ! is_array( $source_widget ) ) {
+			return $this->field_error( 'source_widget', __( 'Source widget must be an object.', 'elementor-implementation-toolkit' ) );
+		}
+
+		$unknown = $this->unknown_keys( $source_widget, $this->source_widget_keys );
+
+		if ( ! empty( $unknown ) ) {
+			return $this->field_error( 'source_widget', __( 'Unknown source widget fields.', 'elementor-implementation-toolkit' ), $unknown );
+		}
+
+		return [
+			'source'      => 'elementor_widget',
+			'saved_via'   => 'elementor_editor',
+			'document_id' => absint( $source_widget['document_id'] ?? 0 ),
+			'element_id'  => sanitize_text_field( $source_widget['element_id'] ?? '' ),
+		];
 	}
 
 	private function validate_filters( $filters ) {
