@@ -35,6 +35,22 @@
     gap: 16px;
 }
 
+.eit-filter-controller__notice {
+    display: grid;
+    gap: 3px;
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-left: 4px solid #996800;
+    background: #fcf9e8;
+    color: var(--eit-text);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.eit-filter-controller__notice strong {
+    font-weight: 700;
+}
+
 .eit-filter-group {
     flex-direction: column;
     gap: 10px;

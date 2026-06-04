@@ -67,6 +67,7 @@ class FilterController extends Widget_Base {
 			[
 				'class' => 'eit-filter-controller',
 				'data-eit-instance' => $this->get_id(),
+				'data-eit-preset-state' => sanitize_key( $settings['preset_resolution_state'] ?? 'widget' ),
 				'data-eit-config' => wp_json_encode( $config ),
 				'data-eit-filters' => wp_json_encode( $filters ),
 			]
@@ -75,6 +76,7 @@ class FilterController extends Widget_Base {
 		?>
 		<div <?php $this->print_render_attribute_string( 'wrapper' ); ?>>
 			<div class="eit-editor-target-helper" hidden></div>
+			<?php $this->render_preset_state_notice( $settings ); ?>
 			<form class="eit-filter-controller__form" action="#" method="get">
 				<?php foreach ( $filters as $index => $filter ) : ?>
 					<?php $this->render_filter( $filter, $index, $settings ); ?>
@@ -116,6 +118,19 @@ class FilterController extends Widget_Base {
 
 			<div class="eit-empty-state" data-eit-empty hidden><?php echo esc_html( $config['emptyText'] ); ?></div>
 			<nav class="eit-pagination" data-eit-pagination aria-label="<?php echo esc_attr__( 'Filtered listing pagination', 'elementor-implementation-toolkit' ); ?>"></nav>
+		</div>
+		<?php
+	}
+
+	private function render_preset_state_notice( array $settings ) {
+		if ( 'missing' !== ( $settings['preset_resolution_state'] ?? '' ) || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		?>
+		<div class="eit-filter-controller__notice is-warning">
+			<strong><?php esc_html_e( 'Linked filter preset is missing.', 'elementor-implementation-toolkit' ); ?></strong>
+			<span><?php esc_html_e( 'Select another preset or import a local copy in the Elementor widget controls.', 'elementor-implementation-toolkit' ); ?></span>
 		</div>
 		<?php
 	}

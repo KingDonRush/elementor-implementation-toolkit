@@ -95,8 +95,12 @@
         };
     }
 
-    function setSavePresetStatus($button, message, state) {
-        var $status = $button.closest('.eit-editor-save-preset').find('[data-eit-save-preset-status]');
+    function setEditorActionStatus($button, message, state) {
+        var $status = $button.closest('[data-eit-editor-action]').find('[data-eit-action-status]');
+
+        if (!$status.length) {
+            $status = $button.closest('.eit-editor-save-preset').find('[data-eit-save-preset-status]');
+        }
 
         $status
             .removeClass('is-error is-success is-loading')
@@ -127,9 +131,10 @@
 
         Object.keys(settings).forEach(function (controlId) {
             var input = document.querySelector('[data-setting="' + controlId + '"]');
+            var value = settings[controlId];
 
-            if (input && input.value !== settings[controlId]) {
-                input.value = settings[controlId];
+            if (input && 'object' !== typeof value && input.value !== value) {
+                input.value = value;
                 $(input).trigger('input').trigger('change');
             }
         });
@@ -164,17 +169,17 @@
         var payload = buildPresetPayload(settings);
 
         if (!config.canManagePresets) {
-            setSavePresetStatus($button, i18n.presetSaveFailed || 'Could not save preset.', 'error');
+            setEditorActionStatus($button, i18n.presetSaveFailed || 'Could not save preset.', 'error');
             return;
         }
 
         if (!payload.preset.name || !String(payload.preset.name).trim()) {
-            setSavePresetStatus($button, i18n.presetNameRequired || 'Add a preset name before saving.', 'error');
+            setEditorActionStatus($button, i18n.presetNameRequired || 'Add a preset name before saving.', 'error');
             return;
         }
 
         $button.prop('disabled', true);
-        setSavePresetStatus($button, i18n.presetSaving || 'Saving preset...', 'loading');
+        setEditorActionStatus($button, i18n.presetSaving || 'Saving preset...', 'loading');
 
         $.ajax({
             url: config.presetSaveUrl || ((config.restUrl || '') + 'filter-presets'),
@@ -190,10 +195,56 @@
             response = response || {};
             upsertPresetOption(response.preset);
             setEditorSettings(container, response.editor_update || {});
-            setSavePresetStatus($button, i18n.presetSaved || 'Preset saved.', 'success');
+            setEditorActionStatus($button, i18n.presetSaved || 'Preset saved.', 'success');
         }).fail(function (xhr) {
             var response = xhr && xhr.responseJSON ? xhr.responseJSON : {};
-            setSavePresetStatus($button, response.message || i18n.presetSaveFailed || 'Could not save preset.', 'error');
+            setEditorActionStatus($button, response.message || i18n.presetSaveFailed || 'Could not save preset.', 'error');
+        }).always(function () {
+            $button.prop('disabled', false);
+        });
+    }
+
+    function handleImportPreset(event) {
+        event.preventDefault();
+
+        var $button = $(event.currentTarget);
+        var container = getEditedFilterControllerContainer();
+        var settings = getContainerSettings(container);
+        var presetId = getSetting(settings, 'filter_preset', '');
+        var localFilters = getSetting(settings, 'filters', []);
+
+        if (!config.canManagePresets) {
+            setEditorActionStatus($button, i18n.presetImportFailed || 'Could not import preset.', 'error');
+            return;
+        }
+
+        if (!presetId) {
+            setEditorActionStatus($button, i18n.presetSelectRequired || 'Select a preset first.', 'error');
+            return;
+        }
+
+        if (Array.isArray(localFilters) && localFilters.length && !window.confirm(i18n.presetImportConfirm || 'Importing this preset will replace the current local widget filter controls. Continue?')) {
+            return;
+        }
+
+        $button.prop('disabled', true);
+        setEditorActionStatus($button, i18n.presetImporting || 'Importing preset...', 'loading');
+
+        $.ajax({
+            url: (config.restUrl || '') + 'filter-presets/' + encodeURIComponent(presetId),
+            method: 'GET',
+            beforeSend: function (xhr) {
+                if (config.restNonce) {
+                    xhr.setRequestHeader('X-WP-Nonce', config.restNonce);
+                }
+            }
+        }).done(function (response) {
+            response = response || {};
+            setEditorSettings(container, response.widget_settings || {});
+            setEditorActionStatus($button, i18n.presetImported || 'Preset imported as local widget controls.', 'success');
+        }).fail(function (xhr) {
+            var response = xhr && xhr.responseJSON ? xhr.responseJSON : {};
+            setEditorActionStatus($button, response.message || i18n.presetImportFailed || 'Could not import preset.', 'error');
         }).always(function () {
             $button.prop('disabled', false);
         });
@@ -622,6 +673,7 @@
 
     $(document).on('input change click', '.elementor-control-filters', scheduleFilterTypeSync);
     $(document).on('click', '[data-eit-save-preset]', handleSavePreset);
+    $(document).on('click', '[data-eit-import-preset]', handleImportPreset);
 
     $(window).on('elementor:init', function () {
         bindFilterTypeHooks();

@@ -26,6 +26,9 @@ class RuntimeConfig {
 			'resultText'      => sanitize_text_field( $settings['result_count_text'] ?? __( '{count} results', 'elementor-implementation-toolkit' ) ),
 			'showResultCount' => ( $settings['show_result_count'] ?? 'yes' ) === 'yes',
 			'showActiveChips' => ( $settings['show_active_chips'] ?? 'yes' ) === 'yes',
+			'presetState'     => sanitize_key( $settings['preset_resolution_state'] ?? 'widget' ),
+			'presetId'        => sanitize_key( $settings['resolved_filter_preset'] ?? ( $settings['filter_preset'] ?? '' ) ),
+			'presetName'      => sanitize_text_field( $settings['resolved_filter_preset_name'] ?? '' ),
 		];
 	}
 }

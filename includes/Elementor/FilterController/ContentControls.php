@@ -34,25 +34,40 @@ class ContentControls {
 		$widget->add_control(
 			'configuration_source',
 			[
-				'label'   => esc_html__( 'Configuration Source', 'elementor-implementation-toolkit' ),
-				'type'    => Controls_Manager::SELECT,
-				'default' => 'widget',
-				'options' => [
-					'widget' => esc_html__( 'Widget controls', 'elementor-implementation-toolkit' ),
-					'preset' => esc_html__( 'Admin filter preset', 'elementor-implementation-toolkit' ),
-				],
-			]
-		);
+					'label'   => esc_html__( 'Configuration Source', 'elementor-implementation-toolkit' ),
+					'type'    => Controls_Manager::SELECT,
+					'default' => 'widget',
+					'options' => [
+						'widget' => esc_html__( 'Local widget controls', 'elementor-implementation-toolkit' ),
+						'preset' => esc_html__( 'Link shared preset', 'elementor-implementation-toolkit' ),
+					],
+				]
+			);
 
 		$widget->add_control(
 			'filter_preset',
 			[
-				'label'       => esc_html__( 'Filter Preset', 'elementor-implementation-toolkit' ),
-				'type'        => Controls_Manager::SELECT,
-				'default'     => '',
-				'options'     => FilterPresets::options(),
-				'description' => esc_html__( 'Create and tune presets in Implementation Toolkit > Filter Presets.', 'elementor-implementation-toolkit' ),
-				'condition'   => [
+					'label'       => esc_html__( 'Filter Preset', 'elementor-implementation-toolkit' ),
+					'type'        => Controls_Manager::SELECT,
+					'default'     => '',
+					'options'     => FilterPresets::options(),
+					'description' => esc_html__( 'Linked presets load shared filter behavior. Use import when this widget needs an editable local copy.', 'elementor-implementation-toolkit' ),
+					'condition'   => [
+						'configuration_source' => 'preset',
+					],
+				]
+			);
+
+		$import_preset_raw = current_user_can( AdminPages::CAPABILITY )
+			? '<div class="eit-editor-action" data-eit-editor-action><button type="button" class="elementor-button elementor-button-default" data-eit-import-preset>' . esc_html__( 'Import preset as local copy', 'elementor-implementation-toolkit' ) . '</button><div class="eit-editor-action__status" data-eit-action-status aria-live="polite"></div></div>'
+			: '<div class="eit-editor-action"><p class="elementor-control-field-description">' . esc_html__( 'Only administrators can import shared presets into local widget controls.', 'elementor-implementation-toolkit' ) . '</p></div>';
+
+		$widget->add_control(
+			'preset_import_action',
+			[
+				'type'      => Controls_Manager::RAW_HTML,
+				'raw'       => $import_preset_raw,
+				'condition' => [
 					'configuration_source' => 'preset',
 				],
 			]
@@ -88,8 +103,8 @@ class ContentControls {
 		);
 
 		$save_preset_raw = current_user_can( AdminPages::CAPABILITY )
-			? '<div class="eit-editor-save-preset"><button type="button" class="elementor-button elementor-button-default" data-eit-save-preset>' . esc_html__( 'Save current filters as preset', 'elementor-implementation-toolkit' ) . '</button><div class="eit-editor-save-preset__status" data-eit-save-preset-status aria-live="polite"></div></div>'
-			: '<div class="eit-editor-save-preset"><p class="elementor-control-field-description">' . esc_html__( 'Only administrators can create global filter presets.', 'elementor-implementation-toolkit' ) . '</p></div>';
+			? '<div class="eit-editor-action eit-editor-save-preset" data-eit-editor-action><button type="button" class="elementor-button elementor-button-default" data-eit-save-preset>' . esc_html__( 'Save current filters as preset', 'elementor-implementation-toolkit' ) . '</button><div class="eit-editor-action__status eit-editor-save-preset__status" data-eit-action-status data-eit-save-preset-status aria-live="polite"></div></div>'
+			: '<div class="eit-editor-action eit-editor-save-preset"><p class="elementor-control-field-description">' . esc_html__( 'Only administrators can create global filter presets.', 'elementor-implementation-toolkit' ) . '</p></div>';
 
 		$widget->add_control(
 			'preset_save_action',

@@ -6,6 +6,7 @@
 namespace EIT\Rest;
 
 use EIT\Admin\AdminPages;
+use EIT\Elementor\FilterController\FilterSettings;
 use EIT\Support\FilterPresets;
 use WP_Error;
 use WP_REST_Request;
@@ -98,6 +99,16 @@ class FilterPresetEndpoint {
 			'eit/v1',
 			self::UPDATE_ROUTE,
 			[
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'get' ],
+				'permission_callback' => [ $this, 'can_manage' ],
+			]
+		);
+
+		register_rest_route(
+			'eit/v1',
+			self::UPDATE_ROUTE,
+			[
 				'methods'             => WP_REST_Server::EDITABLE,
 				'callback'            => [ $this, 'update' ],
 				'permission_callback' => [ $this, 'can_manage' ],
@@ -119,6 +130,21 @@ class FilterPresetEndpoint {
 
 	public function create( WP_REST_Request $request ) {
 		return $this->save( $request, 'create' );
+	}
+
+	public function get( WP_REST_Request $request ) {
+		$id = sanitize_key( $request['id'] ?? '' );
+		$preset = '' !== $id ? FilterPresets::get( $id ) : null;
+
+		if ( ! $preset ) {
+			return $this->error(
+				'eit_filter_preset_not_found',
+				__( 'Filter preset not found.', 'elementor-implementation-toolkit' ),
+				404
+			);
+		}
+
+		return new WP_REST_Response( $this->response_payload( $id, $preset, 'none' ), 200 );
 	}
 
 	public function update( WP_REST_Request $request ) {
@@ -202,7 +228,11 @@ class FilterPresetEndpoint {
 			);
 		}
 
-		$response = [
+		return new WP_REST_Response( $this->response_payload( $id, $saved, $after_save ), 'create' === $operation ? 201 : 200 );
+	}
+
+	private function response_payload( $id, array $saved, $after_save ) {
+		return [
 			'ok'            => true,
 			'preset'        => [
 				'id'           => $id,
@@ -211,15 +241,14 @@ class FilterPresetEndpoint {
 				'updated_at'   => $saved['updated_at'] ?? '',
 				'filter_count' => count( $saved['filters'] ?? [] ),
 				'edit_url'     => admin_url( 'admin.php?page=' . AdminPages::FILTERS_SLUG . '&preset=' . rawurlencode( $id ) ),
-			],
-			'editor_update' => 'link' === $after_save ? [
-				'configuration_source' => 'preset',
-				'filter_preset'        => $id,
-			] : [],
-			'warnings'      => $this->warnings_for_preset( $saved ),
-		];
-
-		return new WP_REST_Response( $response, 'create' === $operation ? 201 : 200 );
+				],
+				'editor_update' => 'link' === $after_save ? [
+					'configuration_source' => 'preset',
+					'filter_preset'        => $id,
+				] : [],
+				'widget_settings' => FilterSettings::preset_to_widget_settings( $saved ),
+				'warnings'        => $this->warnings_for_preset( $saved ),
+			];
 	}
 
 	private function validate_preset( $preset ) {

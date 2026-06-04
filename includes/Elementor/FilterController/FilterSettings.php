@@ -14,17 +14,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 class FilterSettings {
 
 	public static function resolve_preset_settings( array $settings ) {
-		if ( 'preset' !== ( $settings['configuration_source'] ?? 'widget' ) || empty( $settings['filter_preset'] ) ) {
+		if ( 'preset' !== ( $settings['configuration_source'] ?? 'widget' ) ) {
+			$settings['preset_resolution_state'] = 'widget';
+			return $settings;
+		}
+
+		if ( empty( $settings['filter_preset'] ) ) {
+			$settings['preset_resolution_state'] = 'unselected';
 			return $settings;
 		}
 
 		$preset = FilterPresets::get( $settings['filter_preset'] );
 
 		if ( ! $preset ) {
+			$settings['preset_resolution_state'] = 'missing';
+			$settings['preset_missing'] = true;
 			return $settings;
 		}
 
 		$resolved = $settings;
+		$resolved['preset_resolution_state'] = 'linked';
+		$resolved['resolved_filter_preset'] = $settings['filter_preset'];
+		$resolved['resolved_filter_preset_name'] = $preset['name'] ?? $settings['filter_preset'];
 		$resolved['filters']           = self::map_preset_filters_to_widget_filters( $preset['filters'] ?? [] );
 		$resolved['target_selector']   = ! empty( $settings['target_selector'] ) ? $settings['target_selector'] : ( $preset['target_selector'] ?? '' );
 		$resolved['item_selector']     = ! empty( $settings['item_selector'] ) ? $settings['item_selector'] : ( $preset['item_selector'] ?? '' );
@@ -46,6 +57,32 @@ class FilterSettings {
 		$resolved['next_text']         = $preset['next_text'] ?? ( $settings['next_text'] ?? '' );
 
 		return $resolved;
+	}
+
+	public static function preset_to_widget_settings( array $preset ) {
+		return [
+			'configuration_source' => 'widget',
+			'filter_preset'        => '',
+			'filters'              => self::map_preset_filters_to_widget_filters( $preset['filters'] ?? [] ),
+			'target_selector'      => $preset['target_selector'] ?? '',
+			'item_selector'        => $preset['item_selector'] ?? '',
+			'auto_apply'           => 'auto' === ( $preset['apply_mode'] ?? 'auto' ) ? 'yes' : '',
+			'show_apply'           => 'button' === ( $preset['apply_mode'] ?? 'auto' ) ? 'yes' : '',
+			'sync_url'             => ! empty( $preset['sync_url'] ) ? 'yes' : '',
+			'per_page'             => $preset['per_page'] ?? 9,
+			'show_result_count'    => ! empty( $preset['show_result_count'] ) ? 'yes' : '',
+			'result_count_text'    => $preset['result_count_text'] ?? '',
+			'show_active_chips'    => ! empty( $preset['show_active_chips'] ) ? 'yes' : '',
+			'show_sort'            => ! empty( $preset['show_sort'] ) ? 'yes' : '',
+			'sort_label'           => $preset['sort_label'] ?? '',
+			'sort_options'         => $preset['sort_options'] ?? '',
+			'apply_text'           => $preset['apply_text'] ?? '',
+			'reset_text'           => $preset['reset_text'] ?? '',
+			'empty_text'           => $preset['empty_text'] ?? '',
+			'pagination_type'      => $preset['pagination_type'] ?? 'numbers',
+			'previous_text'        => $preset['previous_text'] ?? '',
+			'next_text'            => $preset['next_text'] ?? '',
+		];
 	}
 
 	public static function normalize_filters( array $filters ) {
@@ -77,7 +114,7 @@ class FilterSettings {
 		return $normalized;
 	}
 
-	private static function map_preset_filters_to_widget_filters( array $filters ) {
+	public static function map_preset_filters_to_widget_filters( array $filters ) {
 		$mapped = [];
 
 		foreach ( $filters as $index => $filter ) {

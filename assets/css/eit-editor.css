@@ -43,11 +43,13 @@
     line-height: 1.4;
 }
 
+.eit-editor-action,
 .eit-editor-save-preset {
     display: grid;
     gap: 8px;
 }
 
+.eit-editor-action__status,
 .eit-editor-save-preset__status {
     min-height: 16px;
     color: #6b7280;
@@ -55,10 +57,12 @@
     line-height: 1.35;
 }
 
+.eit-editor-action__status.is-success,
 .eit-editor-save-preset__status.is-success {
     color: #0a7f42;
 }
 
+.eit-editor-action__status.is-error,
 .eit-editor-save-preset__status.is-error {
     color: #b32d2e;
 }
