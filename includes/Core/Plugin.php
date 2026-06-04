@@ -9,6 +9,7 @@ use EIT\Admin\AdminPages;
 use EIT\CPT\CptManager;
 use EIT\Elementor\ElementorIntegration;
 use EIT\Rest\FilterControllerEndpoint;
+use EIT\Rest\FilterPresetEndpoint;
 use EIT\Support\Assets;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -22,6 +23,7 @@ class Plugin {
 		( new Assets() )->init_hooks();
 		( new AdminPages() )->init_hooks();
 		( new FilterControllerEndpoint() )->init_hooks();
+		( new FilterPresetEndpoint() )->init_hooks();
 		( new ElementorIntegration() )->init_hooks();
 	}
 }

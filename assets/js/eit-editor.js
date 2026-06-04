@@ -14,6 +14,191 @@
         'eit_filter_has_rating_controls'
     ];
 
+    function isTruthy(value) {
+        return true === value || 1 === value || '1' === value || 'yes' === value || 'on' === value || 'true' === value;
+    }
+
+    function getContainerSettings(container) {
+        var settings = {};
+
+        if (!container || !container.settings) {
+            return settings;
+        }
+
+        if (container.settings.toJSON) {
+            settings = container.settings.toJSON() || {};
+        }
+
+        return settings;
+    }
+
+    function getSetting(settings, key, fallback) {
+        return undefined !== settings[key] && null !== settings[key] ? settings[key] : fallback;
+    }
+
+    function mapWidgetFiltersToPreset(filters) {
+        if (!Array.isArray(filters)) {
+            return [];
+        }
+
+        return filters.map(function (filter) {
+            filter = filter || {};
+
+            return {
+                enabled: true,
+                label: getSetting(filter, 'label', 'Filter'),
+                type: getSetting(filter, 'type', 'search'),
+                key: getSetting(filter, 'key', ''),
+                placeholder: getSetting(filter, 'placeholder', ''),
+                options: getSetting(filter, 'options', ''),
+                range_min: getSetting(filter, 'range_min', 0),
+                range_max: getSetting(filter, 'range_max', 100),
+                range_step: getSetting(filter, 'range_step', 1),
+                show_label: isTruthy(getSetting(filter, 'show_label', 'yes'))
+            };
+        });
+    }
+
+    function buildPresetPayload(settings) {
+        var showApply = isTruthy(getSetting(settings, 'show_apply', ''));
+
+        return {
+            operation: 'create',
+            after_save: getSetting(settings, 'preset_save_behavior', 'link') || 'link',
+            preset: {
+                name: getSetting(settings, 'preset_save_name', ''),
+                slug: '',
+                description: '',
+                target_selector: getSetting(settings, 'target_selector', ''),
+                item_selector: getSetting(settings, 'item_selector', ''),
+                apply_mode: showApply ? 'button' : 'auto',
+                sync_url: isTruthy(getSetting(settings, 'sync_url', 'yes')),
+                per_page: getSetting(settings, 'per_page', 9),
+                show_result_count: isTruthy(getSetting(settings, 'show_result_count', 'yes')),
+                result_count_text: getSetting(settings, 'result_count_text', '{count} results'),
+                show_active_chips: isTruthy(getSetting(settings, 'show_active_chips', 'yes')),
+                show_sort: isTruthy(getSetting(settings, 'show_sort', 'yes')),
+                sort_label: getSetting(settings, 'sort_label', 'Sort by'),
+                sort_options: getSetting(settings, 'sort_options', ''),
+                apply_text: getSetting(settings, 'apply_text', 'Apply filters'),
+                reset_text: getSetting(settings, 'reset_text', 'Reset'),
+                empty_text: getSetting(settings, 'empty_text', 'No matching items found.'),
+                pagination_type: getSetting(settings, 'pagination_type', 'numbers'),
+                previous_text: getSetting(settings, 'previous_text', 'Previous'),
+                next_text: getSetting(settings, 'next_text', 'Next'),
+                filters: mapWidgetFiltersToPreset(getSetting(settings, 'filters', []))
+            },
+            source_widget: {
+                element_id: getSetting(settings, '_element_id', ''),
+                document_id: window.elementor && elementor.config && elementor.config.document ? elementor.config.document.id || 0 : 0
+            }
+        };
+    }
+
+    function setSavePresetStatus($button, message, state) {
+        var $status = $button.closest('.eit-editor-save-preset').find('[data-eit-save-preset-status]');
+
+        $status
+            .removeClass('is-error is-success is-loading')
+            .addClass(state ? 'is-' + state : '')
+            .text(message || '');
+    }
+
+    function upsertPresetOption(preset) {
+        if (!preset || !preset.id) {
+            return;
+        }
+
+        $('select[data-setting="filter_preset"]').each(function () {
+            var exists = Array.prototype.some.call(this.options, function (option) {
+                return option.value === preset.id;
+            });
+
+            if (!exists) {
+                this.add(new Option(preset.name || preset.id, preset.id));
+            }
+        });
+    }
+
+    function setEditorSettings(container, settings) {
+        if (!container || !settings) {
+            return;
+        }
+
+        Object.keys(settings).forEach(function (controlId) {
+            var input = document.querySelector('[data-setting="' + controlId + '"]');
+
+            if (input && input.value !== settings[controlId]) {
+                input.value = settings[controlId];
+                $(input).trigger('input').trigger('change');
+            }
+        });
+
+        if (window.$e && $e.run) {
+            try {
+                $e.run('document/elements/settings', {
+                    container: container,
+                    settings: settings,
+                    options: {
+                        render: false,
+                        renderUI: true
+                    }
+                });
+                return;
+            } catch (error) {
+                // Fall through to the legacy model path when Elementor changes the command contract.
+            }
+        }
+
+        if (container.settings && container.settings.set) {
+            container.settings.set(settings);
+        }
+    }
+
+    function handleSavePreset(event) {
+        event.preventDefault();
+
+        var $button = $(event.currentTarget);
+        var container = getEditedFilterControllerContainer();
+        var settings = getContainerSettings(container);
+        var payload = buildPresetPayload(settings);
+
+        if (!config.canManagePresets) {
+            setSavePresetStatus($button, i18n.presetSaveFailed || 'Could not save preset.', 'error');
+            return;
+        }
+
+        if (!payload.preset.name || !String(payload.preset.name).trim()) {
+            setSavePresetStatus($button, i18n.presetNameRequired || 'Add a preset name before saving.', 'error');
+            return;
+        }
+
+        $button.prop('disabled', true);
+        setSavePresetStatus($button, i18n.presetSaving || 'Saving preset...', 'loading');
+
+        $.ajax({
+            url: config.presetSaveUrl || ((config.restUrl || '') + 'filter-presets'),
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            beforeSend: function (xhr) {
+                if (config.restNonce) {
+                    xhr.setRequestHeader('X-WP-Nonce', config.restNonce);
+                }
+            }
+        }).done(function (response) {
+            response = response || {};
+            upsertPresetOption(response.preset);
+            setEditorSettings(container, response.editor_update || {});
+            setSavePresetStatus($button, i18n.presetSaved || 'Preset saved.', 'success');
+        }).fail(function (xhr) {
+            var response = xhr && xhr.responseJSON ? xhr.responseJSON : {};
+            setSavePresetStatus($button, response.message || i18n.presetSaveFailed || 'Could not save preset.', 'error');
+        }).always(function () {
+            $button.prop('disabled', false);
+        });
+    }
+
     function getPreviewDocument() {
         var iframe = document.querySelector('#elementor-preview-iframe');
         return iframe && iframe.contentDocument ? iframe.contentDocument : null;
@@ -436,6 +621,7 @@
     }
 
     $(document).on('input change click', '.elementor-control-filters', scheduleFilterTypeSync);
+    $(document).on('click', '[data-eit-save-preset]', handleSavePreset);
 
     $(window).on('elementor:init', function () {
         bindFilterTypeHooks();

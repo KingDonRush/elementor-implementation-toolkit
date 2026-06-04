@@ -5,6 +5,7 @@
 
 namespace EIT\Support;
 
+use EIT\Admin\AdminPages;
 use EIT\CPT\CptManager;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -89,11 +90,19 @@ class Assets {
 			'eit-editor',
 			'eitEditorConfig',
 			[
-				'i18n' => [
-					'detectedTargets' => __( 'Detected listings', 'elementor-implementation-toolkit' ),
-					'noTargets'       => __( 'No listings detected on this canvas yet.', 'elementor-implementation-toolkit' ),
-					'useTarget'       => __( 'Use this listing', 'elementor-implementation-toolkit' ),
-					'fallback'        => __( 'Manual selector remains available for difficult cases.', 'elementor-implementation-toolkit' ),
+				'restUrl'          => esc_url_raw( rest_url( 'eit/v1/' ) ),
+				'presetSaveUrl'    => esc_url_raw( rest_url( 'eit/v1/filter-presets' ) ),
+				'restNonce'        => wp_create_nonce( 'wp_rest' ),
+				'canManagePresets' => current_user_can( AdminPages::CAPABILITY ),
+				'i18n'             => [
+					'detectedTargets'     => __( 'Detected listings', 'elementor-implementation-toolkit' ),
+					'noTargets'           => __( 'No listings detected on this canvas yet.', 'elementor-implementation-toolkit' ),
+					'useTarget'           => __( 'Use this listing', 'elementor-implementation-toolkit' ),
+					'fallback'            => __( 'Manual selector remains available for difficult cases.', 'elementor-implementation-toolkit' ),
+					'presetNameRequired'  => __( 'Add a preset name before saving.', 'elementor-implementation-toolkit' ),
+					'presetSaving'        => __( 'Saving preset...', 'elementor-implementation-toolkit' ),
+					'presetSaved'         => __( 'Preset saved.', 'elementor-implementation-toolkit' ),
+					'presetSaveFailed'    => __( 'Could not save preset.', 'elementor-implementation-toolkit' ),
 				],
 			]
 		);

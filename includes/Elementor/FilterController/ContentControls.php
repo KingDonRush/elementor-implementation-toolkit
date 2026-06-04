@@ -8,6 +8,7 @@ namespace EIT\Elementor\FilterController;
 use Elementor\Controls_Manager;
 use Elementor\Repeater;
 use Elementor\Widget_Base;
+use EIT\Admin\AdminPages;
 use EIT\Support\FilterPresets;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -53,6 +54,50 @@ class ContentControls {
 				'description' => esc_html__( 'Create and tune presets in Implementation Toolkit > Filter Presets.', 'elementor-implementation-toolkit' ),
 				'condition'   => [
 					'configuration_source' => 'preset',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'preset_save_name',
+			[
+				'label'       => esc_html__( 'New Preset Name', 'elementor-implementation-toolkit' ),
+				'type'        => Controls_Manager::TEXT,
+				'placeholder' => esc_html__( 'Shop filters', 'elementor-implementation-toolkit' ),
+				'description' => esc_html__( 'Build filters below, then save this widget setup as a reusable preset.', 'elementor-implementation-toolkit' ),
+				'condition'   => [
+					'configuration_source' => 'widget',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'preset_save_behavior',
+			[
+				'label'     => esc_html__( 'After Save', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => 'link',
+				'options'   => [
+					'link'   => esc_html__( 'Save and link this widget', 'elementor-implementation-toolkit' ),
+					'detach' => esc_html__( 'Save only', 'elementor-implementation-toolkit' ),
+				],
+				'condition' => [
+					'configuration_source' => 'widget',
+				],
+			]
+		);
+
+		$save_preset_raw = current_user_can( AdminPages::CAPABILITY )
+			? '<div class="eit-editor-save-preset"><button type="button" class="elementor-button elementor-button-default" data-eit-save-preset>' . esc_html__( 'Save current filters as preset', 'elementor-implementation-toolkit' ) . '</button><div class="eit-editor-save-preset__status" data-eit-save-preset-status aria-live="polite"></div></div>'
+			: '<div class="eit-editor-save-preset"><p class="elementor-control-field-description">' . esc_html__( 'Only administrators can create global filter presets.', 'elementor-implementation-toolkit' ) . '</p></div>';
+
+		$widget->add_control(
+			'preset_save_action',
+			[
+				'type'      => Controls_Manager::RAW_HTML,
+				'raw'       => $save_preset_raw,
+				'condition' => [
+					'configuration_source' => 'widget',
 				],
 			]
 		);

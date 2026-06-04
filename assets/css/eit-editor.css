@@ -42,3 +42,23 @@
     color: #6b7280;
     line-height: 1.4;
 }
+
+.eit-editor-save-preset {
+    display: grid;
+    gap: 8px;
+}
+
+.eit-editor-save-preset__status {
+    min-height: 16px;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.eit-editor-save-preset__status.is-success {
+    color: #0a7f42;
+}
+
+.eit-editor-save-preset__status.is-error {
+    color: #b32d2e;
+}
