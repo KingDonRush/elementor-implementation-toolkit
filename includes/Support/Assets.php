@@ -105,9 +105,11 @@ class Assets {
 					'presetSaveFailed'     => __( 'Could not save preset.', 'elementor-implementation-toolkit' ),
 					'presetSelectRequired' => __( 'Select a preset first.', 'elementor-implementation-toolkit' ),
 					'presetImportConfirm'  => __( 'Importing this preset will replace the current local widget filter controls. Continue?', 'elementor-implementation-toolkit' ),
-					'presetImporting'      => __( 'Importing preset...', 'elementor-implementation-toolkit' ),
-					'presetImported'       => __( 'Preset imported as local widget controls.', 'elementor-implementation-toolkit' ),
-					'presetImportFailed'   => __( 'Could not import preset.', 'elementor-implementation-toolkit' ),
+					'presetImporting'           => __( 'Importing preset...', 'elementor-implementation-toolkit' ),
+					'presetImported'            => __( 'Preset imported as local widget controls.', 'elementor-implementation-toolkit' ),
+					'presetImportFailed'        => __( 'Could not import preset.', 'elementor-implementation-toolkit' ),
+					'editorCompatFallbackTitle' => __( 'Compatibility fallback active', 'elementor-implementation-toolkit' ),
+					'editorCompatFallback'      => __( 'Elementor did not refresh this panel natively, so the toolkit applied its editor fallback. The frontend output remains controlled by the widget settings.', 'elementor-implementation-toolkit' ),
 				],
 			]
 		);

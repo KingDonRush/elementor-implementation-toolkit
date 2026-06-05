@@ -43,6 +43,25 @@
     line-height: 1.4;
 }
 
+.eit-editor-compat-warning {
+    display: grid;
+    gap: 4px;
+    margin: 10px 0;
+    padding: 9px 10px;
+    border: 1px solid #f1c232;
+    border-left-width: 4px;
+    border-radius: 5px;
+    background: #fff8e5;
+    color: #5f3b00;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.eit-editor-compat-warning strong {
+    color: #3f2a00;
+    font-weight: 700;
+}
+
 .eit-editor-action,
 .eit-editor-save-preset {
     display: grid;

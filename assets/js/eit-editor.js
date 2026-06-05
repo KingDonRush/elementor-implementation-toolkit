@@ -8,6 +8,7 @@
     var filterTypeSyncTimer = null;
     var filterTypeFollowupTimer = null;
     var filterTypeHooksBound = false;
+    var editorCompatFallbacks = {};
     var filterTypeStateControls = [
         'eit_filter_has_field_controls',
         'eit_filter_has_option_controls',
@@ -271,6 +272,60 @@
             .text(message || '');
     }
 
+    function editorCompatFallbackMessage() {
+        return i18n.editorCompatFallback || 'Elementor editor compatibility fallback is active. The widget still works, but this panel is being synchronized by the toolkit because Elementor did not refresh it natively.';
+    }
+
+    function markEditorCompatFallback(reason) {
+        if (!reason || editorCompatFallbacks[reason]) {
+            return;
+        }
+
+        editorCompatFallbacks[reason] = true;
+
+        if (window.console && console.warn) {
+            console.warn('[EIT] ' + editorCompatFallbackMessage() + ' Reason: ' + reason);
+        }
+
+        renderEditorCompatWarning();
+    }
+
+    function renderEditorCompatWarning() {
+        var reasons = Object.keys(editorCompatFallbacks);
+        var $anchor;
+        var $warning;
+
+        if (!reasons.length) {
+            return;
+        }
+
+        $anchor = $('.elementor-control-target_selector, .elementor-control-filters, .elementor-control-section_sort, .elementor-control').filter(':visible').first();
+
+        if (!$anchor.length) {
+            return;
+        }
+
+        $warning = $('.eit-editor-compat-warning').first();
+
+        if (!$warning.length) {
+            $warning = $('<div/>', {
+                class: 'eit-editor-compat-warning',
+                role: 'status'
+            }).append(
+                $('<strong/>', {
+                    text: i18n.editorCompatFallbackTitle || 'Compatibility fallback active'
+                }),
+                $('<span/>', {
+                    text: editorCompatFallbackMessage()
+                })
+            );
+        }
+
+        if (!$warning.parent().length || $warning.next().get(0) !== $anchor.get(0)) {
+            $warning.insertBefore($anchor);
+        }
+    }
+
     function upsertPresetOption(preset) {
         if (!preset || !preset.id) {
             return;
@@ -319,6 +374,7 @@
                 }
                 return;
             } catch (error) {
+                markEditorCompatFallback('settings-command');
                 // Fall through to the legacy model path when Elementor changes the command contract.
             }
         }
@@ -837,6 +893,8 @@
     }
 
     function setPanelControlGroupVisible(controlIds, isVisible) {
+        var didTouchControls = false;
+
         $('.elementor-control').each(function () {
             var element = this;
             var className = element.className || '';
@@ -848,6 +906,7 @@
                 return;
             }
 
+            didTouchControls = true;
             element.style.display = isVisible ? '' : 'none';
 
             if (isVisible) {
@@ -856,12 +915,20 @@
                 element.setAttribute('aria-hidden', 'true');
             }
         });
+
+        return didTouchControls;
     }
 
     function applyStylePanelCadence(flags) {
-        setPanelControlGroupVisible(styleCadenceControls.options, 'yes' === flags.eit_filter_has_option_controls);
-        setPanelControlGroupVisible(styleCadenceControls.range, 'yes' === flags.eit_filter_has_range_controls);
-        setPanelControlGroupVisible(styleCadenceControls.rating, 'yes' === flags.eit_filter_has_rating_controls);
+        var didTouchControls = false;
+
+        didTouchControls = setPanelControlGroupVisible(styleCadenceControls.options, 'yes' === flags.eit_filter_has_option_controls) || didTouchControls;
+        didTouchControls = setPanelControlGroupVisible(styleCadenceControls.range, 'yes' === flags.eit_filter_has_range_controls) || didTouchControls;
+        didTouchControls = setPanelControlGroupVisible(styleCadenceControls.rating, 'yes' === flags.eit_filter_has_rating_controls) || didTouchControls;
+
+        if (didTouchControls) {
+            markEditorCompatFallback('style-panel-dom-cadence');
+        }
     }
 
     function syncFilterTypeState() {
@@ -901,6 +968,7 @@
                 });
                 return;
             } catch (error) {
+                markEditorCompatFallback('style-state-command');
                 // Fall through to the legacy input/model path if Elementor changes the command contract.
             }
         }
@@ -956,9 +1024,13 @@
             return;
         }
 
-        panelTimer = window.setInterval(renderPanelHelper, 900);
+        panelTimer = window.setInterval(function () {
+            renderPanelHelper();
+            renderEditorCompatWarning();
+        }, 900);
         window.setInterval(syncFilterTypeState, 900);
         renderPanelHelper();
+        renderEditorCompatWarning();
         bindFilterTypeHooks();
         scheduleFilterTypeSync();
     }
