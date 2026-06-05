@@ -510,14 +510,84 @@
         return view && view.container ? view.container : null;
     }
 
-    function getFilterRows(container) {
-        var filters = container && container.settings && container.settings.get ? container.settings.get('filters') : null;
-
-        if (Array.isArray(filters)) {
-            return filters;
+    function readModelValue(model, key) {
+        if (!model) {
+            return undefined;
         }
 
-        return readFilterRowsFromPanel();
+        if (model.get) {
+            return model.get(key);
+        }
+
+        if (model.attributes && undefined !== model.attributes[key]) {
+            return model.attributes[key];
+        }
+
+        return model[key];
+    }
+
+    function normalizeFilterRows(filters) {
+        var rows = [];
+
+        if (!filters) {
+            return null;
+        }
+
+        if (filters.toJSON) {
+            filters = filters.toJSON();
+        } else if (filters.models) {
+            filters = filters.models;
+        }
+
+        if (!Array.isArray(filters) && 'object' === typeof filters && undefined !== readModelValue(filters, 'type')) {
+            filters = [filters];
+        }
+
+        if (!Array.isArray(filters) && 'object' === typeof filters) {
+            filters = Object.keys(filters).map(function (key) {
+                return filters[key];
+            });
+        }
+
+        if (!Array.isArray(filters)) {
+            return null;
+        }
+
+        filters.forEach(function (filter) {
+            var type;
+
+            if (!filter) {
+                return;
+            }
+
+            if (filter.toJSON) {
+                filter = filter.toJSON();
+            } else if (filter.attributes) {
+                filter = filter.attributes;
+            }
+
+            type = readModelValue(filter, 'type') || 'search';
+
+            rows.push({
+                type: type
+            });
+        });
+
+        return rows;
+    }
+
+    function getFilterRows(container) {
+        var filters = container && container.settings && container.settings.get ? container.settings.get('filters') : null;
+        var normalized = normalizeFilterRows(filters);
+        var panelRows;
+
+        if (normalized) {
+            return normalized;
+        }
+
+        panelRows = readFilterRowsFromPanel();
+
+        return panelRows.length ? panelRows : null;
     }
 
     function readFilterRowsFromPanel() {
@@ -593,6 +663,7 @@
 
     function syncFilterTypeState() {
         var container = getEditedFilterControllerContainer();
+        var filters;
         var flags;
         var current;
 
@@ -600,7 +671,13 @@
             return;
         }
 
-        flags = computeFilterTypeFlags(getFilterRows(container));
+        filters = getFilterRows(container);
+
+        if (!filters) {
+            return;
+        }
+
+        flags = computeFilterTypeFlags(filters);
         current = getCurrentFilterTypeFlags(container);
         setHiddenFilterTypeInputs(flags, false);
 
