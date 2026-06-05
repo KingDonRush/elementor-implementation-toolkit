@@ -12,6 +12,7 @@
     --eit-range-thumb-border-color: var(--eit-surface);
     --eit-range-thumb-border-width: 2px;
     --eit-range-thumb-icon-color: var(--eit-surface);
+    --eit-range-thumb-icon-max-size: max(6px, calc(var(--eit-range-thumb-size) - (var(--eit-range-thumb-border-width) * 2) - 2px));
     --eit-range-thumb-icon-size: 12px;
     --eit-range-track-size: 6px;
     --eit-range-thumb-size: 18px;
@@ -315,6 +316,7 @@
     left: var(--eit-range-position, 0%);
     z-index: 1;
     display: grid;
+    box-sizing: border-box;
     width: var(--eit-range-thumb-size);
     height: var(--eit-range-thumb-size);
     border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
@@ -322,6 +324,7 @@
     background: var(--eit-range-thumb-color);
     color: var(--eit-range-thumb-icon-color);
     box-shadow: 0 2px 8px rgba(15, 23, 42, .16);
+    overflow: hidden;
     place-items: center;
     pointer-events: none;
     transform: translate(-50%, -50%);
@@ -330,8 +333,10 @@
 .eit-range__handle-icon-glyph,
 .eit-range__handle-icon svg {
     display: block;
-    width: var(--eit-range-thumb-icon-size);
-    height: var(--eit-range-thumb-icon-size);
+    width: min(var(--eit-range-thumb-icon-size), var(--eit-range-thumb-icon-max-size));
+    max-width: var(--eit-range-thumb-icon-max-size);
+    height: min(var(--eit-range-thumb-icon-size), var(--eit-range-thumb-icon-max-size));
+    max-height: var(--eit-range-thumb-icon-max-size);
     fill: currentColor;
 }
 
