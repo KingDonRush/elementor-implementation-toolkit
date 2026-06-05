@@ -5,9 +5,10 @@
     --eit-muted: #667085;
     --eit-accent: #0f766e;
     --eit-accent-contrast: #ffffff;
+    --eit-range-accent-color: var(--eit-accent);
     --eit-range-track-color: var(--eit-border);
-    --eit-range-fill-color: var(--eit-accent);
-    --eit-range-thumb-color: var(--eit-accent);
+    --eit-range-fill-color: var(--eit-range-accent-color);
+    --eit-range-thumb-color: var(--eit-range-accent-color);
     --eit-range-track-size: 6px;
     --eit-range-thumb-size: 18px;
     --eit-range-thumb-radius: 999px;

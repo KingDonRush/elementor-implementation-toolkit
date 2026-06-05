@@ -544,14 +544,14 @@ class StyleControls {
 		$widget->add_control(
 			'range_track_color',
 			[
-				'label'     => esc_html__( 'Selected Track', 'elementor-implementation-toolkit' ),
-				'type'      => Controls_Manager::COLOR,
-				'selectors' => [
-					'{{WRAPPER}} .eit-range-input'                  => 'accent-color: {{VALUE}};',
-					'{{WRAPPER}} .eit-range'                        => '--eit-range-fill-color: {{VALUE}}; --eit-range-thumb-color: {{VALUE}};',
-					'{{WRAPPER}} .eit-rating-option input:checked + span' => 'color: {{VALUE}};',
+				'label'       => esc_html__( 'Range Accent', 'elementor-implementation-toolkit' ),
+				'description' => esc_html__( 'Colors the browser-native range accent where supported. It does not create a custom min-max interval fill.', 'elementor-implementation-toolkit' ),
+				'type'        => Controls_Manager::COLOR,
+				'selectors'   => [
+					'{{WRAPPER}} .eit-range-input' => 'accent-color: {{VALUE}};',
+					'{{WRAPPER}} .eit-range'       => '--eit-range-accent-color: {{VALUE}}; --eit-range-fill-color: {{VALUE}}; --eit-range-thumb-color: {{VALUE}};',
 				],
-				'condition' => [
+				'condition'   => [
 					'eit_filter_has_range_controls' => 'yes',
 				],
 			]
