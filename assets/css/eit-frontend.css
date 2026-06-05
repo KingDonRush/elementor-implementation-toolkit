@@ -21,7 +21,6 @@
     --eit-range-vertical-height: 180px;
     --eit-range-vertical-item-alignment: center;
     --eit-range-input-width: 140px;
-    --eit-range-horizontal-input-width: minmax(0, 1fr);
     --eit-range-input-gap: 10px;
     color: var(--eit-text);
 }
@@ -83,6 +82,8 @@
 .eit-input,
 .eit-select {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: 44px;
     border: 1px solid var(--eit-border);
     border-radius: 8px;
@@ -176,6 +177,8 @@
 .eit-date-range {
     display: grid;
     gap: 10px;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .eit-range__labels,
@@ -206,7 +209,6 @@
     text-align: right;
 }
 
-.eit-range__values,
 .eit-range__sliders,
 .eit-date-range {
     display: grid;
@@ -215,8 +217,17 @@
 }
 
 .eit-range__values {
-    grid-template-columns: repeat(2, var(--eit-range-horizontal-input-width));
-    justify-content: start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--eit-range-input-gap);
+    width: 100%;
+    max-width: 100%;
+}
+
+.eit-range__values .eit-range-number {
+    flex: 1 1 min(100%, var(--eit-range-input-width));
+    width: min(100%, var(--eit-range-input-width));
+    max-width: 100%;
 }
 
 .eit-range--horizontal.eit-range--inputs-after .eit-range__values {
@@ -472,10 +483,12 @@
 
 .eit-range--vertical .eit-range__values {
     grid-area: values;
+    display: grid;
     grid-template-columns: 1fr;
     align-self: var(--eit-range-vertical-item-alignment);
     min-width: 0;
-    width: var(--eit-range-input-width);
+    width: min(100%, var(--eit-range-input-width));
+    max-width: 100%;
 }
 
 .eit-range--vertical .eit-range__sliders {

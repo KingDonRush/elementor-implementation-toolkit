@@ -17,6 +17,14 @@
         'eit_filter_has_rating_controls'
     ];
     var styleCadenceControls = {
+        fields: [
+            'field_typography',
+            'field_text_color',
+            'field_background',
+            'field_border',
+            'field_radius',
+            'field_padding'
+        ],
         options: [
             'section_option_style',
             'option_typography',
@@ -865,7 +873,7 @@
             });
         });
 
-        return rows;
+        return rows.length ? rows : null;
     }
 
     function hasType(types, type) {
@@ -972,6 +980,7 @@
     }
 
     function applyStylePanelCadence(flags) {
+        setPanelControlGroupVisible(styleCadenceControls.fields, 'yes' === flags.eit_filter_has_field_controls);
         setPanelControlGroupVisible(styleCadenceControls.options, 'yes' === flags.eit_filter_has_option_controls);
         setPanelControlGroupVisible(styleCadenceControls.range, 'yes' === flags.eit_filter_has_range_controls);
         setPanelControlGroupVisible(styleCadenceControls.rating, 'yes' === flags.eit_filter_has_rating_controls);

@@ -123,23 +123,15 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_fail( 'TEST-FC-ROBUSTNESS-001', 'Elementor loaded', [ 'reason' => 'Elementor is not loaded.' ] );
 } else {
 	list( $widget, $controls ) = eit_fc_controls();
+	$editor_js = file_get_contents( EIT_PATH . 'assets/js/eit-editor.js' );
 
-	$no_filters = eit_fc_visibility_values( [] );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section hidden with no range filter', false === eit_fc_control_visible( $widget, $controls, 'section_range_style', $no_filters ) );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating section hidden with no rating filter', false === eit_fc_control_visible( $widget, $controls, 'section_rating_style', $no_filters ) );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Option section hidden with no option filter', false === eit_fc_control_visible( $widget, $controls, 'section_option_style', $no_filters ) );
-
-	$range_only = eit_fc_visibility_values( [ 'range' ] );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section visible for range filter', true === eit_fc_control_visible( $widget, $controls, 'section_range_style', $range_only ) );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating section hidden for range filter', false === eit_fc_control_visible( $widget, $controls, 'section_rating_style', $range_only ) );
-
-	$rating_only = eit_fc_visibility_values( [ 'rating' ] );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating section visible for rating filter', true === eit_fc_control_visible( $widget, $controls, 'section_rating_style', $rating_only ) );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section hidden for rating filter', false === eit_fc_control_visible( $widget, $controls, 'section_range_style', $rating_only ) );
-
-	$search_only = eit_fc_visibility_values( [ 'search' ] );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Field typography visible for search filter', true === eit_fc_control_visible( $widget, $controls, 'field_text_color', $search_only ) );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Option section hidden for search filter', false === eit_fc_control_visible( $widget, $controls, 'section_option_style', $search_only ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section remains registered for editor cadence', isset( $controls['section_range_style'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating section remains registered for editor cadence', isset( $controls['section_rating_style'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Option section remains registered for editor cadence', isset( $controls['section_option_style'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Field controls remain registered for editor cadence', isset( $controls['field_text_color'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Style controls no longer depend on hidden filter flags', false === strpos( file_get_contents( EIT_PATH . 'includes/Elementor/FilterController/StyleControls.php' ), 'eit_filter_has_' ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence falls back from empty repeater DOM to widget model', false !== strpos( $editor_js, 'return rows.length ? rows : null;' ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence controls field input styles separately', false !== strpos( $editor_js, 'styleCadenceControls.fields' ) && false !== strpos( $editor_js, 'eit_filter_has_field_controls' ) );
 
 	eit_fc_assert(
 		'TEST-FC-ROBUSTNESS-001',

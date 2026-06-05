@@ -206,9 +206,6 @@ class StyleControls {
 			[
 				'name'     => 'field_typography',
 				'selector' => '{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select',
-				'condition' => [
-					'eit_filter_has_field_controls' => 'yes',
-				],
 			]
 		);
 
@@ -219,9 +216,6 @@ class StyleControls {
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => [
 					'{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select' => 'color: {{VALUE}};',
-				],
-				'condition' => [
-					'eit_filter_has_field_controls' => 'yes',
 				],
 			]
 		);
@@ -234,9 +228,6 @@ class StyleControls {
 				'selectors' => [
 					'{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select' => 'background-color: {{VALUE}};',
 				],
-				'condition' => [
-					'eit_filter_has_field_controls' => 'yes',
-				],
 			]
 		);
 
@@ -245,9 +236,6 @@ class StyleControls {
 			[
 				'name'     => 'field_border',
 				'selector' => '{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select',
-				'condition' => [
-					'eit_filter_has_field_controls' => 'yes',
-				],
 			]
 		);
 
@@ -259,9 +247,6 @@ class StyleControls {
 				'size_units' => [ 'px', '%' ],
 				'selectors'  => [
 					'{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
-				],
-				'condition'  => [
-					'eit_filter_has_field_controls' => 'yes',
 				],
 			]
 		);
@@ -275,9 +260,6 @@ class StyleControls {
 				'selectors'  => [
 					'{{WRAPPER}} .eit-input, {{WRAPPER}} .eit-select' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				],
-				'condition'  => [
-					'eit_filter_has_field_controls' => 'yes',
-				],
 			]
 		);
 
@@ -290,9 +272,6 @@ class StyleControls {
 			[
 				'label'     => esc_html__( 'Options, Chips & Swatches', 'elementor-implementation-toolkit' ),
 				'tab'       => Controls_Manager::TAB_STYLE,
-				'condition' => [
-					'eit_filter_has_option_controls' => 'yes',
-				],
 			]
 		);
 
@@ -389,9 +368,6 @@ class StyleControls {
 			[
 				'label'     => esc_html__( 'Range', 'elementor-implementation-toolkit' ),
 				'tab'       => Controls_Manager::TAB_STYLE,
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -411,9 +387,6 @@ class StyleControls {
 						'icon'  => 'eicon-editor-list-ul',
 					],
 				],
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -425,9 +398,6 @@ class StyleControls {
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => '',
-				'condition'    => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -439,9 +409,6 @@ class StyleControls {
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => '',
-				'condition'    => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -469,7 +436,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range' => '--eit-range-vertical-alignment: {{VALUE}};',
 				],
 				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_orientation'             => 'vertical',
 				],
 			]
@@ -499,7 +465,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range' => '--eit-range-vertical-item-alignment: {{VALUE}};',
 				],
 				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_orientation'             => 'vertical',
 				],
 			]
@@ -511,9 +476,6 @@ class StyleControls {
 				'label'     => esc_html__( 'Number Inputs', 'elementor-implementation-toolkit' ),
 				'type'      => Controls_Manager::HEADING,
 				'separator' => 'before',
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -525,9 +487,6 @@ class StyleControls {
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => 'yes',
-				'condition'    => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -548,7 +507,6 @@ class StyleControls {
 					],
 				],
 				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_orientation'             => 'horizontal',
 					'range_show_inputs'             => 'yes',
 				],
@@ -572,7 +530,6 @@ class StyleControls {
 					],
 				],
 				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_orientation'             => 'vertical',
 					'range_show_inputs'             => 'yes',
 				],
@@ -592,10 +549,9 @@ class StyleControls {
 					],
 				],
 				'selectors'  => [
-					'{{WRAPPER}} .eit-range' => '--eit-range-input-width: {{SIZE}}{{UNIT}}; --eit-range-horizontal-input-width: minmax(0, {{SIZE}}{{UNIT}});',
+					'{{WRAPPER}} .eit-range' => '--eit-range-input-width: {{SIZE}}{{UNIT}};',
 				],
 				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_show_inputs'             => 'yes',
 				],
 			]
@@ -621,7 +577,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range' => '--eit-range-input-gap: {{SIZE}}{{UNIT}};',
 				],
 				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_show_inputs'             => 'yes',
 				],
 			]
@@ -643,7 +598,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range-number' => 'min-height: {{SIZE}}{{UNIT}};',
 				],
 				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_show_inputs'             => 'yes',
 				],
 			]
@@ -658,7 +612,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range-number' => 'color: {{VALUE}};',
 				],
 				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_show_inputs'             => 'yes',
 				],
 			]
@@ -673,7 +626,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range-number' => 'background-color: {{VALUE}};',
 				],
 				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_show_inputs'             => 'yes',
 				],
 			]
@@ -688,7 +640,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range-number' => 'border-color: {{VALUE}};',
 				],
 				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_show_inputs'             => 'yes',
 				],
 			]
@@ -704,7 +655,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range-number' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				],
 				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_show_inputs'             => 'yes',
 				],
 			]
@@ -720,7 +670,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range-number' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				],
 				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_show_inputs'             => 'yes',
 				],
 			]
@@ -737,9 +686,6 @@ class StyleControls {
 					'dashed'    => esc_html__( 'Dashed', 'elementor-implementation-toolkit' ),
 					'segmented' => esc_html__( 'Segmented', 'elementor-implementation-toolkit' ),
 				],
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -753,9 +699,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range-input' => 'accent-color: {{VALUE}};',
 					'{{WRAPPER}} .eit-range'       => '--eit-range-accent-color: {{VALUE}}; --eit-range-fill-color: {{VALUE}}; --eit-range-thumb-color: {{VALUE}};',
 				],
-				'condition'   => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -766,9 +709,6 @@ class StyleControls {
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => [
 					'{{WRAPPER}} .eit-range' => '--eit-range-track-color: {{VALUE}};',
-				],
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 				],
 			]
 		);
@@ -791,9 +731,6 @@ class StyleControls {
 				],
 				'selectors'  => [
 					'{{WRAPPER}} .eit-range' => '--eit-range-track-size: {{SIZE}}{{UNIT}};',
-				],
-				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
 				],
 			]
 		);
@@ -818,7 +755,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range' => '--eit-range-vertical-height: {{SIZE}}{{UNIT}};',
 				],
 				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_orientation'             => 'vertical',
 				],
 			]
@@ -843,9 +779,6 @@ class StyleControls {
 				'selectors'  => [
 					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-size: {{SIZE}}{{UNIT}};',
 				],
-				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -867,9 +800,6 @@ class StyleControls {
 				'selectors' => [
 					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-radius: {{VALUE}};',
 				],
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -881,9 +811,6 @@ class StyleControls {
 				'selectors' => [
 					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-color: {{VALUE}};',
 				],
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -894,9 +821,6 @@ class StyleControls {
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => [
 					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-border-color: {{VALUE}};',
-				],
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 				],
 			]
 		);
@@ -916,9 +840,6 @@ class StyleControls {
 				'selectors'  => [
 					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-border-width: {{SIZE}}{{UNIT}};',
 				],
-				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -928,9 +849,6 @@ class StyleControls {
 				'label'     => esc_html__( 'Handle Icon', 'elementor-implementation-toolkit' ),
 				'type'      => Controls_Manager::HEADING,
 				'separator' => 'before',
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -942,9 +860,6 @@ class StyleControls {
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => '',
-				'condition'    => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -956,7 +871,6 @@ class StyleControls {
 				'label_block' => false,
 				'skin'        => 'inline',
 				'condition'   => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_handle_icon_enabled'     => 'yes',
 				],
 			]
@@ -982,7 +896,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-icon-size: {{SIZE}}{{UNIT}};',
 				],
 				'condition'  => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_handle_icon_enabled'     => 'yes',
 				],
 			]
@@ -997,7 +910,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-icon-color: {{VALUE}};',
 				],
 				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_handle_icon_enabled'     => 'yes',
 				],
 			]
@@ -1011,9 +923,6 @@ class StyleControls {
 				'selectors' => [
 					'{{WRAPPER}} .eit-range__labels' => 'color: {{VALUE}};',
 				],
-				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
-				],
 			]
 		);
 
@@ -1026,7 +935,6 @@ class StyleControls {
 					'{{WRAPPER}} .eit-range__ticks' => 'color: {{VALUE}};',
 				],
 				'condition' => [
-					'eit_filter_has_range_controls' => 'yes',
 					'range_show_ticks'              => 'yes',
 				],
 			]
@@ -1041,9 +949,6 @@ class StyleControls {
 			[
 				'label'     => esc_html__( 'Rating', 'elementor-implementation-toolkit' ),
 				'tab'       => Controls_Manager::TAB_STYLE,
-				'condition' => [
-					'eit_filter_has_rating_controls' => 'yes',
-				],
 			]
 		);
 
