@@ -9,11 +9,17 @@
     --eit-range-track-color: var(--eit-border);
     --eit-range-fill-color: var(--eit-range-accent-color);
     --eit-range-thumb-color: var(--eit-range-accent-color);
+    --eit-range-thumb-border-color: var(--eit-surface);
+    --eit-range-thumb-border-width: 2px;
+    --eit-range-thumb-icon-color: var(--eit-surface);
+    --eit-range-thumb-icon-size: 12px;
     --eit-range-track-size: 6px;
     --eit-range-thumb-size: 18px;
     --eit-range-thumb-radius: 999px;
     --eit-range-vertical-height: 180px;
     --eit-range-input-width: 140px;
+    --eit-range-horizontal-input-width: minmax(0, 1fr);
+    --eit-range-input-gap: 10px;
     color: var(--eit-text);
 }
 
@@ -195,7 +201,27 @@
 .eit-date-range {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 10px;
+    gap: var(--eit-range-input-gap);
+}
+
+.eit-range__values {
+    grid-template-columns: repeat(2, var(--eit-range-horizontal-input-width));
+    justify-content: start;
+}
+
+.eit-range--horizontal.eit-range--inputs-after .eit-range__values {
+    order: 3;
+}
+
+.eit-range--horizontal.eit-range--inputs-after .eit-range__ticks {
+    order: 4;
+}
+
+.eit-range__slider {
+    position: relative;
+    display: grid;
+    align-items: center;
+    min-width: 0;
 }
 
 .eit-range:not(.eit-range--show-inputs) .eit-range__values {
@@ -245,7 +271,7 @@
     width: var(--eit-range-thumb-size);
     height: var(--eit-range-thumb-size);
     margin-top: calc((var(--eit-range-track-size) - var(--eit-range-thumb-size)) / 2);
-    border: 2px solid var(--eit-surface);
+    border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
     border-radius: var(--eit-range-thumb-radius);
     background: var(--eit-range-thumb-color);
     box-shadow: 0 2px 8px rgba(15, 23, 42, .16);
@@ -256,7 +282,7 @@
 .eit-range-input::-moz-range-thumb {
     width: var(--eit-range-thumb-size);
     height: var(--eit-range-thumb-size);
-    border: 2px solid var(--eit-surface);
+    border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
     border-radius: var(--eit-range-thumb-radius);
     background: var(--eit-range-thumb-color);
     box-shadow: 0 2px 8px rgba(15, 23, 42, .16);
@@ -269,6 +295,44 @@
 
 .eit-range-input:active::-moz-range-thumb {
     cursor: grabbing;
+}
+
+.eit-range--handle-icon .eit-range-input::-webkit-slider-thumb {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+}
+
+.eit-range--handle-icon .eit-range-input::-moz-range-thumb {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+}
+
+.eit-range__handle-icon {
+    position: absolute;
+    top: 50%;
+    left: var(--eit-range-position, 0%);
+    z-index: 1;
+    display: grid;
+    width: var(--eit-range-thumb-size);
+    height: var(--eit-range-thumb-size);
+    border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
+    border-radius: var(--eit-range-thumb-radius);
+    background: var(--eit-range-thumb-color);
+    color: var(--eit-range-thumb-icon-color);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .16);
+    place-items: center;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.eit-range__handle-icon-glyph,
+.eit-range__handle-icon svg {
+    display: block;
+    width: var(--eit-range-thumb-icon-size);
+    height: var(--eit-range-thumb-icon-size);
+    fill: currentColor;
 }
 
 .eit-range--track-dashed .eit-range-input::-webkit-slider-runnable-track {
@@ -427,6 +491,11 @@
     height: var(--eit-range-vertical-height);
     writing-mode: vertical-lr;
     direction: rtl;
+}
+
+.eit-range--vertical .eit-range__handle-icon {
+    top: calc(100% - var(--eit-range-position, 0%));
+    left: 50%;
 }
 
 .eit-filter-actions {

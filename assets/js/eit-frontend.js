@@ -40,6 +40,30 @@
         });
     }
 
+    function syncRangeHandle($handle, input) {
+        var min;
+        var max;
+        var value;
+        var percent;
+
+        if (!$handle.length || !input) {
+            return;
+        }
+
+        min = parseFloat(input.min);
+        max = parseFloat(input.max);
+        value = parseFloat(input.value);
+
+        if (!isFinite(min) || !isFinite(max) || !isFinite(value) || max <= min) {
+            percent = 0;
+        } else {
+            percent = ((value - min) / (max - min)) * 100;
+        }
+
+        percent = Math.max(0, Math.min(100, percent));
+        $handle.css('--eit-range-position', percent + '%');
+    }
+
     function Controller(root) {
         this.$root = $(root);
         this.config = safeJson(this.$root.attr('data-eit-config'), {});
@@ -545,6 +569,8 @@
 
             $range.find('[data-eit-range-min-label]').text(minNumber.val());
             $range.find('[data-eit-range-max-label]').text(maxNumber.val());
+            syncRangeHandle($range.find('[data-eit-range-min-handle]'), minSlider.get(0));
+            syncRangeHandle($range.find('[data-eit-range-max-handle]'), maxSlider.get(0));
         });
     };
 

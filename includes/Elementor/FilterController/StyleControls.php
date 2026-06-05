@@ -445,6 +445,18 @@ class StyleControls {
 		);
 
 		$widget->add_control(
+			'range_input_heading',
+			[
+				'label'     => esc_html__( 'Number Inputs', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::HEADING,
+				'separator' => 'before',
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
 			'range_show_inputs',
 			[
 				'label'        => esc_html__( 'Show Number Inputs', 'elementor-implementation-toolkit' ),
@@ -454,6 +466,30 @@ class StyleControls {
 				'default'      => 'yes',
 				'condition'    => [
 					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_input_flow',
+			[
+				'label'     => esc_html__( 'Horizontal Input Placement', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'default'   => 'before',
+				'options'   => [
+					'before' => [
+						'title' => esc_html__( 'Above', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-v-align-top',
+					],
+					'after'  => [
+						'title' => esc_html__( 'Below', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-v-align-bottom',
+					],
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_orientation'             => 'horizontal',
+					'range_show_inputs'             => 'yes',
 				],
 			]
 		);
@@ -494,16 +530,136 @@ class StyleControls {
 						'max' => 280,
 					],
 				],
-				'default'    => [
-					'size' => 140,
-					'unit' => 'px',
-				],
 				'selectors'  => [
-					'{{WRAPPER}} .eit-range' => '--eit-range-input-width: {{SIZE}}{{UNIT}};',
+					'{{WRAPPER}} .eit-range' => '--eit-range-input-width: {{SIZE}}{{UNIT}}; --eit-range-horizontal-input-width: minmax(0, {{SIZE}}{{UNIT}});',
 				],
 				'condition'  => [
 					'eit_filter_has_range_controls' => 'yes',
-					'range_orientation'             => 'vertical',
+					'range_show_inputs'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_input_gap',
+			[
+				'label'      => esc_html__( 'Number Input Gap', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => [ 'px' ],
+				'range'      => [
+					'px' => [
+						'min' => 0,
+						'max' => 32,
+					],
+				],
+				'default'    => [
+					'size' => 10,
+					'unit' => 'px',
+				],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-input-gap: {{SIZE}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_show_inputs'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_input_height',
+			[
+				'label'      => esc_html__( 'Number Input Height', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => [ 'px' ],
+				'range'      => [
+					'px' => [
+						'min' => 28,
+						'max' => 72,
+					],
+				],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range-number' => 'min-height: {{SIZE}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_show_inputs'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_input_text_color',
+			[
+				'label'     => esc_html__( 'Number Text', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range-number' => 'color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_show_inputs'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_input_background',
+			[
+				'label'     => esc_html__( 'Number Background', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range-number' => 'background-color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_show_inputs'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_input_border_color',
+			[
+				'label'     => esc_html__( 'Number Border', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range-number' => 'border-color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_show_inputs'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_input_radius',
+			[
+				'label'      => esc_html__( 'Number Radius', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', '%' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range-number' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_show_inputs'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_input_padding',
+			[
+				'label'      => esc_html__( 'Number Padding', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', 'em' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range-number' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
 					'range_show_inputs'             => 'yes',
 				],
 			]
@@ -640,8 +796,12 @@ class StyleControls {
 				'default'   => '999px',
 				'options'   => [
 					'999px' => esc_html__( 'Circle', 'elementor-implementation-toolkit' ),
+					'16px'  => esc_html__( 'Soft Circle', 'elementor-implementation-toolkit' ),
+					'12px'  => esc_html__( 'Squircle', 'elementor-implementation-toolkit' ),
 					'8px'   => esc_html__( 'Rounded', 'elementor-implementation-toolkit' ),
+					'4px'   => esc_html__( 'Soft Square', 'elementor-implementation-toolkit' ),
 					'2px'   => esc_html__( 'Square', 'elementor-implementation-toolkit' ),
+					'0px'   => esc_html__( 'Sharp', 'elementor-implementation-toolkit' ),
 				],
 				'selectors' => [
 					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-radius: {{VALUE}};',
@@ -662,6 +822,122 @@ class StyleControls {
 				],
 				'condition' => [
 					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_handle_border_color',
+			[
+				'label'     => esc_html__( 'Handle Border', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-border-color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_handle_border_width',
+			[
+				'label'      => esc_html__( 'Handle Border Width', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => [ 'px' ],
+				'range'      => [
+					'px' => [
+						'min' => 0,
+						'max' => 8,
+					],
+				],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-border-width: {{SIZE}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_handle_icon_heading',
+			[
+				'label'     => esc_html__( 'Handle Icon', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::HEADING,
+				'separator' => 'before',
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_handle_icon_enabled',
+			[
+				'label'        => esc_html__( 'Use Icon or SVG Handle', 'elementor-implementation-toolkit' ),
+				'description'  => esc_html__( 'Uses Elementor Icon Library or SVG upload as a visual overlay while keeping the native range input interactive.', 'elementor-implementation-toolkit' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+				'condition'    => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_handle_icon',
+			[
+				'label'       => esc_html__( 'Handle Icon', 'elementor-implementation-toolkit' ),
+				'type'        => Controls_Manager::ICONS,
+				'label_block' => false,
+				'skin'        => 'inline',
+				'condition'   => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_handle_icon_enabled'     => 'yes',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_handle_icon_size',
+			[
+				'label'      => esc_html__( 'Icon Size', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => [ 'px' ],
+				'range'      => [
+					'px' => [
+						'min' => 8,
+						'max' => 32,
+					],
+				],
+				'default'    => [
+					'size' => 12,
+					'unit' => 'px',
+				],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-icon-size: {{SIZE}}{{UNIT}};',
+				],
+				'condition'  => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_handle_icon_enabled'     => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_handle_icon_color',
+			[
+				'label'     => esc_html__( 'Icon Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-thumb-icon-color: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_handle_icon_enabled'     => 'yes',
 				],
 			]
 		);
