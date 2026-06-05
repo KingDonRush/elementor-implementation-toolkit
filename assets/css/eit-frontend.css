@@ -12,8 +12,8 @@
     --eit-range-thumb-border-color: var(--eit-surface);
     --eit-range-thumb-border-width: 2px;
     --eit-range-thumb-icon-color: var(--eit-surface);
-    --eit-range-thumb-icon-max-size: max(6px, calc(var(--eit-range-thumb-size) - (var(--eit-range-thumb-border-width) * 2) - 2px));
     --eit-range-thumb-icon-size: 12px;
+    --eit-range-thumb-visual-size: max(var(--eit-range-thumb-size), calc(var(--eit-range-thumb-icon-size) + var(--eit-range-thumb-border-width) + var(--eit-range-thumb-border-width) + 2px));
     --eit-range-track-size: 6px;
     --eit-range-thumb-size: 18px;
     --eit-range-thumb-radius: 999px;
@@ -231,7 +231,7 @@
 
 .eit-range-input {
     width: 100%;
-    height: var(--eit-range-thumb-size);
+    height: var(--eit-range-thumb-visual-size);
     accent-color: var(--eit-range-fill-color);
     appearance: none;
     -webkit-appearance: none;
@@ -269,9 +269,9 @@
 }
 
 .eit-range-input::-webkit-slider-thumb {
-    width: var(--eit-range-thumb-size);
-    height: var(--eit-range-thumb-size);
-    margin-top: calc((var(--eit-range-track-size) - var(--eit-range-thumb-size)) / 2);
+    width: var(--eit-range-thumb-visual-size);
+    height: var(--eit-range-thumb-visual-size);
+    margin-top: calc((var(--eit-range-track-size) - var(--eit-range-thumb-visual-size)) / 2);
     border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
     border-radius: var(--eit-range-thumb-radius);
     background: var(--eit-range-thumb-color);
@@ -281,8 +281,8 @@
 }
 
 .eit-range-input::-moz-range-thumb {
-    width: var(--eit-range-thumb-size);
-    height: var(--eit-range-thumb-size);
+    width: var(--eit-range-thumb-visual-size);
+    height: var(--eit-range-thumb-visual-size);
     border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
     border-radius: var(--eit-range-thumb-radius);
     background: var(--eit-range-thumb-color);
@@ -317,8 +317,8 @@
     z-index: 1;
     display: grid;
     box-sizing: border-box;
-    width: var(--eit-range-thumb-size);
-    height: var(--eit-range-thumb-size);
+    width: var(--eit-range-thumb-visual-size);
+    height: var(--eit-range-thumb-visual-size);
     border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
     border-radius: var(--eit-range-thumb-radius);
     background: var(--eit-range-thumb-color);
@@ -333,11 +333,13 @@
 .eit-range__handle-icon-glyph,
 .eit-range__handle-icon svg {
     display: block;
-    width: min(var(--eit-range-thumb-icon-size), var(--eit-range-thumb-icon-max-size));
-    max-width: var(--eit-range-thumb-icon-max-size);
-    height: min(var(--eit-range-thumb-icon-size), var(--eit-range-thumb-icon-max-size));
-    max-height: var(--eit-range-thumb-icon-max-size);
+    width: var(--eit-range-thumb-icon-size);
+    max-width: calc(var(--eit-range-thumb-visual-size) - var(--eit-range-thumb-border-width) - var(--eit-range-thumb-border-width) - 2px);
+    height: var(--eit-range-thumb-icon-size);
+    max-height: calc(var(--eit-range-thumb-visual-size) - var(--eit-range-thumb-border-width) - var(--eit-range-thumb-border-width) - 2px);
     fill: currentColor;
+    font-size: var(--eit-range-thumb-icon-size);
+    line-height: 1;
 }
 
 .eit-range--track-dashed .eit-range-input::-webkit-slider-runnable-track {
@@ -492,7 +494,7 @@
 }
 
 .eit-range--vertical .eit-range-input {
-    width: var(--eit-range-thumb-size);
+    width: var(--eit-range-thumb-visual-size);
     height: var(--eit-range-vertical-height);
     writing-mode: vertical-lr;
     direction: rtl;
