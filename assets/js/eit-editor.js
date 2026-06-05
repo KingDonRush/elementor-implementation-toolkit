@@ -6,6 +6,7 @@
     var currentTargets = [];
     var panelTimer = null;
     var filterTypeSyncTimer = null;
+    var filterTypeFollowupTimer = null;
     var filterTypeHooksBound = false;
     var filterTypeStateControls = [
         'eit_filter_has_field_controls',
@@ -13,6 +14,42 @@
         'eit_filter_has_range_controls',
         'eit_filter_has_rating_controls'
     ];
+    var styleCadenceControls = {
+        options: [
+            'section_option_style',
+            'option_typography',
+            'option_color',
+            'option_background',
+            'option_active_color',
+            'option_active_background',
+            'option_border',
+            'option_radius',
+            'option_padding'
+        ],
+        range: [
+            'section_range_style',
+            'range_orientation',
+            'range_show_values',
+            'range_show_ticks',
+            'range_show_inputs',
+            'range_input_position',
+            'range_input_width',
+            'range_track_style',
+            'range_track_color',
+            'range_track_base_color',
+            'range_track_height',
+            'range_vertical_height',
+            'range_handle_size',
+            'range_handle_shape',
+            'range_handle_color',
+            'range_value_color',
+            'range_tick_color'
+        ],
+        rating: [
+            'section_rating_style',
+            'rating_color'
+        ]
+    };
 
     function isTruthy(value) {
         return true === value || 1 === value || '1' === value || 'yes' === value || 'on' === value || 'true' === value;
@@ -577,17 +614,24 @@
     }
 
     function getFilterRows(container) {
-        var filters = container && container.settings && container.settings.get ? container.settings.get('filters') : null;
-        var normalized = normalizeFilterRows(filters);
         var panelRows;
+        var filters;
+        var normalized;
+
+        panelRows = readFilterRowsFromPanel();
+
+        if (panelRows.length) {
+            return panelRows;
+        }
+
+        filters = container && container.settings && container.settings.get ? container.settings.get('filters') : null;
+        normalized = normalizeFilterRows(filters);
 
         if (normalized) {
             return normalized;
         }
 
-        panelRows = readFilterRowsFromPanel();
-
-        return panelRows.length ? panelRows : null;
+        return null;
     }
 
     function readFilterRowsFromPanel() {
@@ -661,6 +705,34 @@
         });
     }
 
+    function setPanelControlGroupVisible(controlIds, isVisible) {
+        $('.elementor-control').each(function () {
+            var element = this;
+            var className = element.className || '';
+            var matches = controlIds.some(function (controlId) {
+                return className.indexOf('elementor-control-' + controlId) !== -1;
+            });
+
+            if (!matches) {
+                return;
+            }
+
+            element.style.display = isVisible ? '' : 'none';
+
+            if (isVisible) {
+                element.removeAttribute('aria-hidden');
+            } else {
+                element.setAttribute('aria-hidden', 'true');
+            }
+        });
+    }
+
+    function applyStylePanelCadence(flags) {
+        setPanelControlGroupVisible(styleCadenceControls.options, 'yes' === flags.eit_filter_has_option_controls);
+        setPanelControlGroupVisible(styleCadenceControls.range, 'yes' === flags.eit_filter_has_range_controls);
+        setPanelControlGroupVisible(styleCadenceControls.rating, 'yes' === flags.eit_filter_has_rating_controls);
+    }
+
     function syncFilterTypeState() {
         var container = getEditedFilterControllerContainer();
         var filters;
@@ -680,6 +752,7 @@
         flags = computeFilterTypeFlags(filters);
         current = getCurrentFilterTypeFlags(container);
         setHiddenFilterTypeInputs(flags, false);
+        applyStylePanelCadence(flags);
 
         if (!hasFilterTypeFlagChanges(current, flags)) {
             return;
@@ -710,7 +783,9 @@
 
     function scheduleFilterTypeSync() {
         window.clearTimeout(filterTypeSyncTimer);
+        window.clearTimeout(filterTypeFollowupTimer);
         filterTypeSyncTimer = window.setTimeout(syncFilterTypeState, 80);
+        filterTypeFollowupTimer = window.setTimeout(syncFilterTypeState, 320);
     }
 
     function bindFilterTypeHooks() {
@@ -758,6 +833,7 @@
     }
 
     $(document).on('input change click', '.elementor-control-filters', scheduleFilterTypeSync);
+    $(document).on('click', '.elementor-panel-navigation-tab, .elementor-tab-control-content, .elementor-tab-control-style, .elementor-tab-control-advanced', scheduleFilterTypeSync);
     $(document).on('click', '[data-eit-save-preset]', handleSavePreset);
     $(document).on('click', '[data-eit-import-preset]', handleImportPreset);
 
