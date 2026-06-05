@@ -258,6 +258,22 @@ class ContentControls {
 		);
 
 		$repeater->add_control(
+			'compare',
+			[
+				'type'    => Controls_Manager::HIDDEN,
+				'default' => '',
+			]
+		);
+
+		$repeater->add_control(
+			'data_type',
+			[
+				'type'    => Controls_Manager::HIDDEN,
+				'default' => '',
+			]
+		);
+
+		$repeater->add_control(
 			'key',
 			[
 				'label'       => esc_html__( 'Manual Data Key', 'elementor-implementation-toolkit' ),

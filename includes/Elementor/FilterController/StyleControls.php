@@ -24,6 +24,7 @@ class StyleControls {
 		self::register_option_controls( $widget );
 		self::register_range_controls( $widget );
 		self::register_rating_controls( $widget );
+		self::register_sort_controls( $widget );
 		self::register_button_controls( $widget );
 		self::register_chip_controls( $widget );
 		self::register_pagination_controls( $widget );
@@ -1053,6 +1054,102 @@ class StyleControls {
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => [
 					'{{WRAPPER}} .eit-rating-option span' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->end_controls_section();
+	}
+
+	private static function register_sort_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_sort_style',
+			[
+				'label'     => esc_html__( 'Sort', 'elementor-implementation-toolkit' ),
+				'tab'       => Controls_Manager::TAB_STYLE,
+				'condition' => [
+					'show_sort' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Typography::get_type(),
+			[
+				'name'     => 'sort_label_typography',
+				'selector' => '{{WRAPPER}} .eit-filter-group--sort .eit-filter-group__label',
+			]
+		);
+
+		$widget->add_control(
+			'sort_label_color',
+			[
+				'label'     => esc_html__( 'Label Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-filter-group--sort .eit-filter-group__label' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Typography::get_type(),
+			[
+				'name'     => 'sort_select_typography',
+				'selector' => '{{WRAPPER}} .eit-filter-group--sort .eit-select',
+			]
+		);
+
+		$widget->add_control(
+			'sort_select_text_color',
+			[
+				'label'     => esc_html__( 'Text Color', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-filter-group--sort .eit-select' => 'color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'sort_select_background',
+			[
+				'label'     => esc_html__( 'Background', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => [
+					'{{WRAPPER}} .eit-filter-group--sort .eit-select' => 'background-color: {{VALUE}};',
+				],
+			]
+		);
+
+		$widget->add_group_control(
+			Group_Control_Border::get_type(),
+			[
+				'name'     => 'sort_select_border',
+				'selector' => '{{WRAPPER}} .eit-filter-group--sort .eit-select',
+			]
+		);
+
+		$widget->add_responsive_control(
+			'sort_select_radius',
+			[
+				'label'      => esc_html__( 'Radius', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', '%' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-filter-group--sort .eit-select' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'sort_select_padding',
+			[
+				'label'      => esc_html__( 'Padding', 'elementor-implementation-toolkit' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => [ 'px', 'em' ],
+				'selectors'  => [
+					'{{WRAPPER}} .eit-filter-group--sort .eit-select' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				],
 			]
 		);

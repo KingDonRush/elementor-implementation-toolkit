@@ -96,15 +96,21 @@ class FilterResolver {
 			$key = sanitize_key( $filter['key'] ?? '' );
 			$type = sanitize_key( $filter['type'] ?? '' );
 			$value = $filter['value'] ?? null;
+			$compare = $this->normalize_compare( $filter['compare'] ?? '' );
+			$source = $this->normalize_source( $filter['source'] ?? '' );
+			$data_type = $this->normalize_data_type( $filter['dataType'] ?? $filter['data_type'] ?? '' );
 
-			if ( '' === $type || $this->is_empty_value( $value ) ) {
+			if ( '' === $type || ( 'exists' !== $compare && $this->is_empty_value( $value ) ) ) {
 				continue;
 			}
 
 			$normalized[] = [
-				'key'   => $key,
-				'type'  => $type,
-				'value' => $this->normalize_filter_value( $value ),
+				'key'      => $key,
+				'type'     => $type,
+				'value'    => $this->normalize_filter_value( $value ),
+				'compare'  => $compare,
+				'source'   => $source,
+				'dataType' => $data_type,
 			];
 		}
 
@@ -209,9 +215,16 @@ class FilterResolver {
 		$type = $filter['type'];
 		$key = $filter['key'];
 		$value = $filter['value'];
+		$compare = $filter['compare'] ?? '';
+		$source = $filter['source'] ?? '';
+		$data_type = $this->data_type_for_filter( $filter );
 
 		if ( 'search' === $type ) {
 			return $this->contains( $item['text'] . ' ' . $item['title'], (string) $value );
+		}
+
+		if ( '' !== $compare ) {
+			return $this->matches_compare( $this->get_item_value_for_source( $item, $key, $source ), $value, $compare, $data_type );
 		}
 
 		$haystack = $this->get_item_value( $item, $key );
@@ -233,7 +246,7 @@ class FilterResolver {
 		}
 
 		if ( 'range' === $type ) {
-			$number = $this->to_number( $haystack );
+			$number = $this->to_number( $this->get_item_primary_value( $item, $key ) );
 			$min = isset( $value['min'] ) && '' !== $value['min'] ? (float) $value['min'] : null;
 			$max = isset( $value['max'] ) && '' !== $value['max'] ? (float) $value['max'] : null;
 
@@ -241,7 +254,7 @@ class FilterResolver {
 		}
 
 		if ( 'date' === $type ) {
-			$date = strtotime( $haystack );
+			$date = strtotime( $this->get_item_primary_value( $item, $key ) );
 			$from = ! empty( $value['from'] ) ? strtotime( $value['from'] ) : null;
 			$to = ! empty( $value['to'] ) ? strtotime( $value['to'] ) : null;
 
@@ -253,7 +266,7 @@ class FilterResolver {
 		}
 
 		if ( 'rating' === $type ) {
-			return $this->to_number( $haystack ) >= (float) $value;
+			return $this->to_number( $this->get_item_primary_value( $item, $key ) ) >= (float) $value;
 		}
 
 		return true;
@@ -332,6 +345,167 @@ class FilterResolver {
 		$values[] = $item['text'];
 
 		return implode( ' ', array_filter( array_map( 'strval', $values ) ) );
+	}
+
+	private function get_item_primary_value( array $item, $key ) {
+		$key = sanitize_key( $key );
+
+		if ( '' !== $key && isset( $item['data'][ $key ] ) ) {
+			return $item['data'][ $key ];
+		}
+
+		return $this->get_item_value( $item, $key );
+	}
+
+	private function get_item_value_for_source( array $item, $key, $source ) {
+		$key = sanitize_key( $key );
+		$source = $this->normalize_source( $source );
+
+		if ( 'visible_text' === $source ) {
+			return trim( $item['title'] . ' ' . $item['text'] );
+		}
+
+		if ( 'post_field' === $source && 'title' === $key ) {
+			return $item['title'];
+		}
+
+		if ( in_array( $source, [ 'data_attr', 'taxonomy', 'meta', 'post_field' ], true ) && '' !== $key && isset( $item['data'][ $key ] ) ) {
+			return $item['data'][ $key ];
+		}
+
+		return $this->get_item_value( $item, $key );
+	}
+
+	private function matches_compare( $haystack, $value, $compare, $data_type ) {
+		if ( 'exists' === $compare ) {
+			return ! $this->is_empty_value( $haystack );
+		}
+
+		if ( 'between' === $compare ) {
+			return $this->matches_between_compare( $haystack, $value, $data_type );
+		}
+
+		if ( 'gte' === $compare || 'lte' === $compare ) {
+			return $this->matches_boundary_compare( $haystack, $value, $compare, $data_type );
+		}
+
+		if ( 'equals' === $compare ) {
+			return $this->values_equal( $haystack, $value, $data_type );
+		}
+
+		if ( 'in' === $compare ) {
+			$values = is_array( $value ) ? $value : preg_split( '/\s*,\s*/', (string) $value );
+
+			foreach ( $values as $candidate ) {
+				if ( $this->values_equal( $haystack, $candidate, $data_type ) ) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		return $this->contains( $haystack, is_array( $value ) ? implode( ' ', array_map( 'strval', $value ) ) : (string) $value );
+	}
+
+	private function matches_between_compare( $haystack, $value, $data_type ) {
+		$value = is_array( $value ) ? $value : [];
+		$min = $value['min'] ?? $value['from'] ?? null;
+		$max = $value['max'] ?? $value['to'] ?? null;
+
+		if ( 'date' === $data_type ) {
+			$date = strtotime( (string) $haystack );
+			$from = ! empty( $min ) ? strtotime( (string) $min ) : null;
+			$to = ! empty( $max ) ? strtotime( (string) $max ) : null;
+
+			return $date && ( ! $from || $date >= $from ) && ( ! $to || $date <= $to );
+		}
+
+		$number = $this->to_number( $haystack );
+		$lower = null !== $min && '' !== $min ? (float) $min : null;
+		$upper = null !== $max && '' !== $max ? (float) $max : null;
+
+		return ( null === $lower || $number >= $lower ) && ( null === $upper || $number <= $upper );
+	}
+
+	private function matches_boundary_compare( $haystack, $value, $compare, $data_type ) {
+		if ( is_array( $value ) ) {
+			$value = $value['value'] ?? $value['min'] ?? $value['from'] ?? $value['max'] ?? $value['to'] ?? '';
+		}
+
+		if ( 'date' === $data_type ) {
+			$left = strtotime( (string) $haystack );
+			$right = strtotime( (string) $value );
+
+			if ( ! $left || ! $right ) {
+				return false;
+			}
+
+			return 'gte' === $compare ? $left >= $right : $left <= $right;
+		}
+
+		$left = $this->to_number( $haystack );
+		$right = $this->to_number( $value );
+
+		return 'gte' === $compare ? $left >= $right : $left <= $right;
+	}
+
+	private function values_equal( $left, $right, $data_type ) {
+		if ( is_array( $right ) ) {
+			$right = reset( $right );
+		}
+
+		if ( 'number' === $data_type ) {
+			return $this->to_number( $left ) === $this->to_number( $right );
+		}
+
+		if ( 'date' === $data_type ) {
+			$left_time = strtotime( (string) $left );
+			$right_time = strtotime( (string) $right );
+
+			return $left_time && $right_time && $left_time === $right_time;
+		}
+
+		return mb_strtolower( trim( (string) $left ) ) === mb_strtolower( trim( (string) $right ) );
+	}
+
+	private function data_type_for_filter( array $filter ) {
+		$data_type = $this->normalize_data_type( $filter['dataType'] ?? '' );
+
+		if ( '' !== $data_type ) {
+			return $data_type;
+		}
+
+		if ( in_array( $filter['type'] ?? '', [ 'range', 'rating' ], true ) ) {
+			return 'number';
+		}
+
+		if ( 'date' === ( $filter['type'] ?? '' ) ) {
+			return 'date';
+		}
+
+		return 'string';
+	}
+
+	private function normalize_compare( $value ) {
+		$value = sanitize_key( $value );
+		$allowed = [ 'contains', 'equals', 'in', 'between', 'gte', 'lte', 'exists' ];
+
+		return in_array( $value, $allowed, true ) ? $value : '';
+	}
+
+	private function normalize_source( $value ) {
+		$value = sanitize_key( $value );
+		$allowed = [ 'visible_text', 'data_attr', 'taxonomy', 'meta', 'post_field' ];
+
+		return in_array( $value, $allowed, true ) ? $value : '';
+	}
+
+	private function normalize_data_type( $value ) {
+		$value = sanitize_key( $value );
+		$allowed = [ 'string', 'number', 'date', 'boolean' ];
+
+		return in_array( $value, $allowed, true ) ? $value : '';
 	}
 
 	private function normalize_string_list( $value ) {

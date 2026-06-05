@@ -107,6 +107,8 @@ class FilterSettings {
 				'resolvedKey' => $field_contract['resolved_key'],
 				'keySource'   => $field_contract['key_source'],
 				'source'      => $field_contract['source'],
+				'compare'     => self::normalize_compare( $filter['compare'] ?? '' ),
+				'dataType'    => self::normalize_data_type( $filter['data_type'] ?? $filter['dataType'] ?? '' ),
 				'placeholder' => sanitize_text_field( $filter['placeholder'] ?? '' ),
 				'options'     => FilterOptions::parse( $filter['options'] ?? '' ),
 				'rangeMin'    => is_numeric( $filter['range_min'] ?? null ) ? (float) $filter['range_min'] : 0,
@@ -139,6 +141,8 @@ class FilterSettings {
 				'resolved_key' => $filter['resolved_key'] ?? '',
 				'key_source'  => $filter['key_source'] ?? '',
 				'source'      => $filter['source'] ?? 'visible_text',
+				'compare'     => self::preset_compare_for_widget( $filter ),
+				'data_type'   => self::preset_data_type_for_widget( $filter ),
 				'placeholder' => $filter['placeholder'] ?? '',
 				'options'     => $filter['options'] ?? '',
 				'range_min'   => $filter['range_min'] ?? 0,
@@ -154,6 +158,46 @@ class FilterSettings {
 
 	private static function normalize_layout_width( $value ) {
 		return max( 10, min( 100, absint( $value ) ?: 100 ) );
+	}
+
+	private static function normalize_compare( $value ) {
+		$value = sanitize_key( $value );
+		$allowed = [ 'contains', 'equals', 'in', 'between', 'gte', 'lte', 'exists' ];
+
+		return in_array( $value, $allowed, true ) ? $value : '';
+	}
+
+	private static function normalize_data_type( $value ) {
+		$value = sanitize_key( $value );
+		$allowed = [ 'string', 'number', 'date', 'boolean' ];
+
+		return in_array( $value, $allowed, true ) ? $value : '';
+	}
+
+	private static function preset_compare_for_widget( array $filter ) {
+		$compare = self::normalize_compare( $filter['compare'] ?? '' );
+		$type = FilterTypeRegistry::normalize_type( $filter['type'] ?? 'search' );
+
+		if ( 'contains' === $compare && in_array( $type, [ 'range', 'date', 'rating' ], true ) ) {
+			return '';
+		}
+
+		return $compare;
+	}
+
+	private static function preset_data_type_for_widget( array $filter ) {
+		$data_type = self::normalize_data_type( $filter['data_type'] ?? '' );
+		$type = FilterTypeRegistry::normalize_type( $filter['type'] ?? 'search' );
+
+		if ( '' === $data_type && in_array( $type, [ 'range', 'rating' ], true ) ) {
+			return 'number';
+		}
+
+		if ( '' === $data_type && 'date' === $type ) {
+			return 'date';
+		}
+
+		return $data_type;
 	}
 
 	private static function widget_dynamic_settings_for_filter( array $filter ) {

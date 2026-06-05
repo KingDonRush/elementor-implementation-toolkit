@@ -64,6 +64,27 @@
         $handle.css('--eit-range-position', percent + '%');
     }
 
+    function addFilterMeta(filter, $control) {
+        var $group = $control.closest('[data-eit-filter-group]');
+        var source = $group.attr('data-eit-field-source') || '';
+        var compare = $group.attr('data-eit-compare') || '';
+        var dataType = $group.attr('data-eit-data-type') || '';
+
+        if (source) {
+            filter.source = source;
+        }
+
+        if (compare) {
+            filter.compare = compare;
+        }
+
+        if (dataType) {
+            filter.dataType = dataType;
+        }
+
+        return filter;
+    }
+
     function Controller(root) {
         this.$root = $(root);
         this.config = safeJson(this.$root.attr('data-eit-config'), {});
@@ -202,20 +223,20 @@
                 }
 
                 if ('toggle' === type || 'radio' === type || 'rating' === type) {
-                    filters.push({
+                    filters.push(addFilterMeta({
                         type: type,
                         key: key,
                         value: control.value
-                    });
+                    }, $control));
                     return;
                 }
 
                 if (!grouped[groupKey]) {
-                    grouped[groupKey] = {
+                    grouped[groupKey] = addFilterMeta({
                         type: type,
                         key: key,
                         value: []
-                    };
+                    }, $control);
                 }
 
                 grouped[groupKey].value.push(control.value);
@@ -227,11 +248,11 @@
                     return;
                 }
 
-                filters.push({
+                filters.push(addFilterMeta({
                     type: type,
                     key: key,
                     value: control.value
-                });
+                }, $control));
             }
         });
 
@@ -246,14 +267,14 @@
                 return;
             }
 
-            filters.push({
+            filters.push(addFilterMeta({
                 type: 'range',
                 key: $range.attr('data-eit-key') || '',
                 value: {
                     min: min,
                     max: max
                 }
-            });
+            }, $range));
         });
 
         this.$root.find('.eit-date-range[data-eit-control]').each(function () {
@@ -265,14 +286,14 @@
                 return;
             }
 
-            filters.push({
+            filters.push(addFilterMeta({
                 type: 'date',
                 key: $date.attr('data-eit-key') || '',
                 value: {
                     from: from,
                     to: to
                 }
-            });
+            }, $date));
         });
 
         Object.keys(grouped).forEach(function (groupKey) {
