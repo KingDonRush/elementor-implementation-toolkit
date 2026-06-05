@@ -7,6 +7,7 @@ namespace EIT\Support;
 
 use EIT\Admin\AdminPages;
 use EIT\CPT\CptManager;
+use EIT\Elementor\FilterController\FilterTypeRegistry;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -94,6 +95,7 @@ class Assets {
 				'presetSaveUrl'    => esc_url_raw( rest_url( 'eit/v1/filter-presets' ) ),
 				'restNonce'        => wp_create_nonce( 'wp_rest' ),
 				'canManagePresets' => current_user_can( AdminPages::CAPABILITY ),
+				'filterTypes'      => FilterTypeRegistry::editor_metadata(),
 				'i18n'             => [
 					'detectedTargets'     => __( 'Detected listings', 'elementor-implementation-toolkit' ),
 					'noTargets'           => __( 'No listings detected on this canvas yet.', 'elementor-implementation-toolkit' ),

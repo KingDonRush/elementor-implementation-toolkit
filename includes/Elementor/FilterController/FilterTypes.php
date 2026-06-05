@@ -12,22 +12,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 class FilterTypes {
 
 	public static function keys() {
-		return array_keys( self::labels() );
+		return FilterTypeRegistry::keys();
 	}
 
 	public static function labels() {
-		return [
-			'search'   => esc_html__( 'Search', 'elementor-implementation-toolkit' ),
-			'checkbox' => esc_html__( 'Checkboxes', 'elementor-implementation-toolkit' ),
-			'radio'    => esc_html__( 'Radio', 'elementor-implementation-toolkit' ),
-			'select'   => esc_html__( 'Select', 'elementor-implementation-toolkit' ),
-			'chips'    => esc_html__( 'Chips', 'elementor-implementation-toolkit' ),
-			'toggle'   => esc_html__( 'Toggle', 'elementor-implementation-toolkit' ),
-			'range'    => esc_html__( 'Range / Min Max', 'elementor-implementation-toolkit' ),
-			'date'     => esc_html__( 'Date Range', 'elementor-implementation-toolkit' ),
-			'swatch'   => esc_html__( 'Swatches', 'elementor-implementation-toolkit' ),
-			'rating'   => esc_html__( 'Rating', 'elementor-implementation-toolkit' ),
-		];
+		return FilterTypeRegistry::labels();
 	}
 
 	public static function default_widget_filters() {

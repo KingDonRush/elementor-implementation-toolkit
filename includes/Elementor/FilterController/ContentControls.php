@@ -236,6 +236,28 @@ class ContentControls {
 		);
 
 		$repeater->add_control(
+			'resolved_key',
+			[
+				'type' => Controls_Manager::HIDDEN,
+			]
+		);
+
+		$repeater->add_control(
+			'key_source',
+			[
+				'type' => Controls_Manager::HIDDEN,
+			]
+		);
+
+		$repeater->add_control(
+			'source',
+			[
+				'type'    => Controls_Manager::HIDDEN,
+				'default' => 'visible_text',
+			]
+		);
+
+		$repeater->add_control(
 			'key',
 			[
 				'label'       => esc_html__( 'Manual Data Key', 'elementor-implementation-toolkit' ),
@@ -488,12 +510,14 @@ class ContentControls {
 	}
 
 	private static function register_filter_type_state_controls( Widget_Base $widget ) {
-		$defaults = [
-			'eit_filter_has_field_controls'  => 'yes',
-			'eit_filter_has_option_controls' => 'yes',
-			'eit_filter_has_range_controls'  => 'yes',
-			'eit_filter_has_rating_controls' => '',
-		];
+		$defaults = FilterTypeRegistry::state_flags_for_types(
+			array_map(
+				function ( $filter ) {
+					return $filter['type'] ?? 'search';
+				},
+				FilterTypes::default_widget_filters()
+			)
+		);
 
 		foreach ( $defaults as $control_id => $default ) {
 			$widget->add_control(

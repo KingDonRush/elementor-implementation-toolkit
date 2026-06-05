@@ -3,6 +3,7 @@
 
     var config = window.eitEditorConfig || {};
     var i18n = config.i18n || {};
+    var filterTypeDefinitions = config.filterTypes || {};
     var currentTargets = [];
     var panelTimer = null;
     var filterTypeSyncTimer = null;
@@ -243,6 +244,9 @@
                 field_binding: getSetting(filter, 'field_binding', ''),
                 field_binding_dynamic: getDynamicSetting(filter, 'field_binding') || getSetting(filter, 'field_binding_dynamic', ''),
                 key: getSetting(filter, 'key', ''),
+                resolved_key: getSetting(filter, 'resolved_key', ''),
+                key_source: getSetting(filter, 'key_source', ''),
+                source: getSetting(filter, 'source', 'visible_text'),
                 placeholder: getSetting(filter, 'placeholder', ''),
                 options: getSetting(filter, 'options', ''),
                 range_min: getSetting(filter, 'range_min', 0),
@@ -868,10 +872,27 @@
         return types.indexOf(type) !== -1;
     }
 
+    function typeHasStyleFamily(type, family) {
+        var definition = filterTypeDefinitions[type] || {};
+        var families = definition.styleFamilies || [];
+
+        if (families.indexOf(family) !== -1) {
+            return true;
+        }
+
+        if ('field' === family) {
+            return hasType(['search', 'select', 'range', 'date'], type);
+        }
+
+        if ('option' === family) {
+            return hasType(['checkbox', 'radio', 'chips', 'toggle', 'swatch', 'rating'], type);
+        }
+
+        return false;
+    }
+
     function computeFilterTypeFlags(filters) {
         var types = [];
-        var fieldTypes = ['search', 'select', 'range', 'date'];
-        var optionTypes = ['checkbox', 'radio', 'chips', 'toggle', 'swatch', 'rating'];
 
         filters.forEach(function (filter) {
             var type = filter && filter.type ? filter.type : 'search';
@@ -883,10 +904,10 @@
 
         return {
             eit_filter_has_field_controls: types.some(function (type) {
-                return hasType(fieldTypes, type);
+                return typeHasStyleFamily(type, 'field');
             }) ? 'yes' : '',
             eit_filter_has_option_controls: types.some(function (type) {
-                return hasType(optionTypes, type);
+                return typeHasStyleFamily(type, 'option');
             }) ? 'yes' : '',
             eit_filter_has_range_controls: hasType(types, 'range') ? 'yes' : '',
             eit_filter_has_rating_controls: hasType(types, 'rating') ? 'yes' : ''

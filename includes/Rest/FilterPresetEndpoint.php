@@ -62,6 +62,8 @@ class FilterPresetEndpoint {
 		'field_binding',
 		'field_binding_dynamic',
 		'key',
+		'resolved_key',
+		'key_source',
 		'source',
 		'query_var',
 		'compare',

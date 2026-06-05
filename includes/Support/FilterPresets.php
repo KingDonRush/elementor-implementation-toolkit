@@ -5,6 +5,9 @@
 
 namespace EIT\Support;
 
+use EIT\Elementor\FilterController\FieldBindingResolver;
+use EIT\Elementor\FilterController\FilterTypeRegistry;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -87,6 +90,8 @@ class FilterPresets {
 				'field_binding'  => '',
 				'field_binding_dynamic' => '',
 				'key'            => '',
+				'resolved_key'   => '',
+				'key_source'     => FieldBindingResolver::SOURCE_EMPTY,
 				'source'         => 'visible_text',
 				'query_var'      => '',
 				'compare'        => 'contains',
@@ -162,18 +167,7 @@ class FilterPresets {
 	}
 
 	public static function filter_types() {
-		return [
-			'search'   => __( 'Search', 'elementor-implementation-toolkit' ),
-			'checkbox' => __( 'Checkboxes', 'elementor-implementation-toolkit' ),
-			'radio'    => __( 'Radio', 'elementor-implementation-toolkit' ),
-			'select'   => __( 'Select', 'elementor-implementation-toolkit' ),
-			'chips'    => __( 'Chips', 'elementor-implementation-toolkit' ),
-			'toggle'   => __( 'Toggle', 'elementor-implementation-toolkit' ),
-			'range'    => __( 'Range', 'elementor-implementation-toolkit' ),
-			'date'     => __( 'Date Range', 'elementor-implementation-toolkit' ),
-			'swatch'   => __( 'Swatches', 'elementor-implementation-toolkit' ),
-			'rating'   => __( 'Rating', 'elementor-implementation-toolkit' ),
-		];
+		return FilterTypeRegistry::labels();
 	}
 
 	public static function source_types() {
@@ -283,16 +277,19 @@ class FilterPresets {
 			}
 
 			$type = self::allowed_value( $filter['type'] ?? 'search', $types, 'search' );
+			$field_contract = FieldBindingResolver::resolve_filter( $filter );
 
 			$normalized[] = self::blank_filter(
 				[
 					'enabled'        => self::truthy( $filter['enabled'] ?? false ),
 					'label'          => sanitize_text_field( $filter['label'] ?? __( 'Filter', 'elementor-implementation-toolkit' ) ),
 					'type'           => $type,
-					'field_binding'  => sanitize_text_field( $filter['field_binding'] ?? '' ),
-					'field_binding_dynamic' => self::sanitize_dynamic_binding( $filter['field_binding_dynamic'] ?? '' ),
-					'key'            => sanitize_key( $filter['key'] ?? '' ),
-					'source'         => self::allowed_value( $filter['source'] ?? 'visible_text', $sources, 'visible_text' ),
+					'field_binding'  => $field_contract['field_binding'],
+					'field_binding_dynamic' => $field_contract['field_binding_dynamic'],
+					'key'            => $field_contract['manual_key'],
+					'resolved_key'   => $field_contract['resolved_key'],
+					'key_source'     => $field_contract['key_source'],
+					'source'         => self::allowed_value( $field_contract['source'], $sources, 'visible_text' ),
 					'query_var'      => sanitize_key( $filter['query_var'] ?? '' ),
 					'compare'        => self::allowed_value( $filter['compare'] ?? 'contains', $compares, 'contains' ),
 					'data_type'      => self::allowed_value( $filter['data_type'] ?? 'string', $data_types, 'string' ),
@@ -399,10 +396,6 @@ class FilterPresets {
 	}
 
 	private static function sanitize_dynamic_binding( $value ) {
-		$value = wp_check_invalid_utf8( (string) $value );
-		$value = wp_strip_all_tags( $value );
-		$value = preg_replace( '/[\r\n\t]+/', ' ', $value );
-
-		return substr( trim( $value ), 0, 2000 );
+		return FieldBindingResolver::sanitize_dynamic_binding( $value );
 	}
 }

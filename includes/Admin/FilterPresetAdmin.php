@@ -738,7 +738,7 @@ class FilterPresetAdmin {
 	}
 
 	private function filter_has_field_binding( array $filter ) {
-		foreach ( [ 'field_binding', 'field_binding_dynamic', 'key' ] as $field ) {
+		foreach ( [ 'field_binding', 'field_binding_dynamic', 'key', 'resolved_key' ] as $field ) {
 			if ( '' !== trim( (string) ( $filter[ $field ] ?? '' ) ) ) {
 				return true;
 			}
@@ -993,6 +993,8 @@ class FilterPresetAdmin {
 			'field_binding',
 			'field_binding_dynamic',
 			'key',
+			'resolved_key',
+			'key_source',
 			'source',
 			'query_var',
 			'compare',
@@ -1262,6 +1264,8 @@ class FilterPresetAdmin {
 					<?php $this->text_field( $prefix . '[field_binding]', __( 'Field binding', 'elementor-implementation-toolkit' ), $filter['field_binding'] ?? '', 'Dynamic tag or field key' ); ?>
 					<input type="hidden" name="<?php echo esc_attr( $prefix ); ?>[field_binding_dynamic]" value="<?php echo esc_attr( $filter['field_binding_dynamic'] ?? '' ); ?>" />
 					<?php $this->text_field( $prefix . '[key]', __( 'Field or taxonomy key', 'elementor-implementation-toolkit' ), $filter['key'] ?? '', 'category, price, rating' ); ?>
+					<input type="hidden" name="<?php echo esc_attr( $prefix ); ?>[resolved_key]" value="<?php echo esc_attr( $filter['resolved_key'] ?? '' ); ?>" />
+					<input type="hidden" name="<?php echo esc_attr( $prefix ); ?>[key_source]" value="<?php echo esc_attr( $filter['key_source'] ?? '' ); ?>" />
 					<?php $this->text_field( $prefix . '[placeholder]', __( 'Placeholder', 'elementor-implementation-toolkit' ), $filter['placeholder'] ?? '' ); ?>
 					<?php $this->number_field( $prefix . '[range_min]', __( 'Range min', 'elementor-implementation-toolkit' ), $filter['range_min'] ?? 0, null, null, 'any' ); ?>
 					<?php $this->number_field( $prefix . '[range_max]', __( 'Range max', 'elementor-implementation-toolkit' ), $filter['range_max'] ?? 100, null, null, 'any' ); ?>
@@ -1449,7 +1453,7 @@ class FilterPresetAdmin {
 			return true;
 		}
 
-		foreach ( [ 'label', 'field_binding', 'field_binding_dynamic', 'key', 'query_var', 'options', 'default_value' ] as $field ) {
+		foreach ( [ 'label', 'field_binding', 'field_binding_dynamic', 'key', 'resolved_key', 'query_var', 'options', 'default_value' ] as $field ) {
 			if ( '' !== trim( (string) ( $filter[ $field ] ?? '' ) ) ) {
 				return true;
 			}
