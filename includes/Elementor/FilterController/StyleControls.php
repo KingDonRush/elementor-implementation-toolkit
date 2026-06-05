@@ -23,28 +23,11 @@ class StyleControls {
 		self::register_field_controls( $widget );
 		self::register_option_controls( $widget );
 		self::register_range_controls( $widget );
+		self::register_rating_controls( $widget );
 		self::register_button_controls( $widget );
 		self::register_chip_controls( $widget );
 		self::register_pagination_controls( $widget );
 		self::register_state_controls( $widget );
-	}
-
-	private static function range_or_rating_conditions() {
-		return [
-			'relation' => 'or',
-			'terms'    => [
-				[
-					'name'     => 'eit_filter_has_range_controls',
-					'operator' => '==',
-					'value'    => 'yes',
-				],
-				[
-					'name'     => 'eit_filter_has_rating_controls',
-					'operator' => '==',
-					'value'    => 'yes',
-				],
-			],
-		];
 	}
 
 	private static function count_or_chips_conditions() {
@@ -403,9 +386,11 @@ class StyleControls {
 		$widget->start_controls_section(
 			'section_range_style',
 			[
-				'label'      => esc_html__( 'Range & Rating', 'elementor-implementation-toolkit' ),
-				'tab'        => Controls_Manager::TAB_STYLE,
-				'conditions' => self::range_or_rating_conditions(),
+				'label'     => esc_html__( 'Range', 'elementor-implementation-toolkit' ),
+				'tab'       => Controls_Manager::TAB_STYLE,
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+				],
 			]
 		);
 
@@ -710,6 +695,21 @@ class StyleControls {
 			]
 		);
 
+		$widget->end_controls_section();
+	}
+
+	private static function register_rating_controls( Widget_Base $widget ) {
+		$widget->start_controls_section(
+			'section_rating_style',
+			[
+				'label'     => esc_html__( 'Rating', 'elementor-implementation-toolkit' ),
+				'tab'       => Controls_Manager::TAB_STYLE,
+				'condition' => [
+					'eit_filter_has_rating_controls' => 'yes',
+				],
+			]
+		);
+
 		$widget->add_control(
 			'rating_color',
 			[
@@ -717,9 +717,6 @@ class StyleControls {
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => [
 					'{{WRAPPER}} .eit-rating-option span' => 'color: {{VALUE}};',
-				],
-				'condition' => [
-					'eit_filter_has_rating_controls' => 'yes',
 				],
 			]
 		);

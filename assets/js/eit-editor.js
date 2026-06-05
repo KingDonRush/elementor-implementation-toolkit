@@ -125,6 +125,8 @@
     }
 
     function setEditorSettings(container, settings) {
+        var shouldSyncFilterTypes = settings && Object.prototype.hasOwnProperty.call(settings, 'filters');
+
         if (!container || !settings) {
             return;
         }
@@ -149,6 +151,9 @@
                         renderUI: true
                     }
                 });
+                if (shouldSyncFilterTypes) {
+                    scheduleFilterTypeSync();
+                }
                 return;
             } catch (error) {
                 // Fall through to the legacy model path when Elementor changes the command contract.
@@ -157,6 +162,10 @@
 
         if (container.settings && container.settings.set) {
             container.settings.set(settings);
+        }
+
+        if (shouldSyncFilterTypes) {
+            scheduleFilterTypeSync();
         }
     }
 
@@ -587,7 +596,7 @@
         var flags;
         var current;
 
-        if (!container || !$('.elementor-control-filters').length) {
+        if (!container) {
             return;
         }
 
