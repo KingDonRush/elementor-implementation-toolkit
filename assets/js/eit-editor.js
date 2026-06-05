@@ -936,15 +936,9 @@
     }
 
     function applyStylePanelCadence(flags) {
-        var didTouchControls = false;
-
-        didTouchControls = setPanelControlGroupVisible(styleCadenceControls.options, 'yes' === flags.eit_filter_has_option_controls) || didTouchControls;
-        didTouchControls = setPanelControlGroupVisible(styleCadenceControls.range, 'yes' === flags.eit_filter_has_range_controls) || didTouchControls;
-        didTouchControls = setPanelControlGroupVisible(styleCadenceControls.rating, 'yes' === flags.eit_filter_has_rating_controls) || didTouchControls;
-
-        if (didTouchControls) {
-            markEditorCompatFallback('style-panel-dom-cadence');
-        }
+        setPanelControlGroupVisible(styleCadenceControls.options, 'yes' === flags.eit_filter_has_option_controls);
+        setPanelControlGroupVisible(styleCadenceControls.range, 'yes' === flags.eit_filter_has_range_controls);
+        setPanelControlGroupVisible(styleCadenceControls.rating, 'yes' === flags.eit_filter_has_rating_controls);
     }
 
     function syncFilterTypeState() {
