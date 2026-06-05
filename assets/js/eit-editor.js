@@ -32,6 +32,8 @@
             'range_orientation',
             'range_show_values',
             'range_show_ticks',
+            'range_vertical_alignment',
+            'range_vertical_item_alignment',
             'range_input_heading',
             'range_show_inputs',
             'range_input_flow',

@@ -444,6 +444,66 @@ class StyleControls {
 			]
 		);
 
+		$widget->add_responsive_control(
+			'range_vertical_alignment',
+			[
+				'label'     => esc_html__( 'Vertical Group Alignment', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'default'   => 'center',
+				'options'   => [
+					'start'  => [
+						'title' => esc_html__( 'Left', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-h-align-left',
+					],
+					'center' => [
+						'title' => esc_html__( 'Center', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-h-align-center',
+					],
+					'end'    => [
+						'title' => esc_html__( 'Right', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-h-align-right',
+					],
+				],
+				'selectors' => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-vertical-alignment: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_orientation'             => 'vertical',
+				],
+			]
+		);
+
+		$widget->add_responsive_control(
+			'range_vertical_item_alignment',
+			[
+				'label'     => esc_html__( 'Vertical Item Alignment', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'default'   => 'center',
+				'options'   => [
+					'start'  => [
+						'title' => esc_html__( 'Top', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-v-align-top',
+					],
+					'center' => [
+						'title' => esc_html__( 'Middle', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-v-align-middle',
+					],
+					'end'    => [
+						'title' => esc_html__( 'Bottom', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-v-align-bottom',
+					],
+				],
+				'selectors' => [
+					'{{WRAPPER}} .eit-range' => '--eit-range-vertical-item-alignment: {{VALUE}};',
+				],
+				'condition' => [
+					'eit_filter_has_range_controls' => 'yes',
+					'range_orientation'             => 'vertical',
+				],
+			]
+		);
+
 		$widget->add_control(
 			'range_input_heading',
 			[
