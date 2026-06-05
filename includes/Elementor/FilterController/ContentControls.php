@@ -213,12 +213,35 @@ class ContentControls {
 		);
 
 		$repeater->add_control(
+			'field_binding',
+			[
+				'label'       => esc_html__( 'Field Binding', 'elementor-implementation-toolkit' ),
+				'type'        => Controls_Manager::TEXT,
+				'placeholder' => 'price, category, rating',
+				'description' => esc_html__( 'Use an Elementor Dynamic Tag or enter the field key that represents this filter. Manual Data Key remains the fallback.', 'elementor-implementation-toolkit' ),
+				'dynamic'     => [
+					'active' => true,
+				],
+				'condition'   => [
+					'type!' => 'search',
+				],
+			]
+		);
+
+		$repeater->add_control(
+			'field_binding_dynamic',
+			[
+				'type' => Controls_Manager::HIDDEN,
+			]
+		);
+
+		$repeater->add_control(
 			'key',
 			[
-				'label'       => esc_html__( 'Data Key', 'elementor-implementation-toolkit' ),
+				'label'       => esc_html__( 'Manual Data Key', 'elementor-implementation-toolkit' ),
 				'type'        => Controls_Manager::TEXT,
 				'placeholder' => 'category, price, material, rating',
-				'description' => esc_html__( 'Matches data-eit-{key}, data-{key}, taxonomy slugs, classes, or visible text fallback.', 'elementor-implementation-toolkit' ),
+				'description' => esc_html__( 'Fallback key matched against data-eit-{key}, data-{key}, taxonomy slugs, classes, or visible text.', 'elementor-implementation-toolkit' ),
 				'condition'   => [
 					'type!' => 'search',
 				],

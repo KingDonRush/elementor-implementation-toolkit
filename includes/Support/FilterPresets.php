@@ -84,6 +84,8 @@ class FilterPresets {
 				'enabled'        => true,
 				'label'          => __( 'Filter', 'elementor-implementation-toolkit' ),
 				'type'           => 'search',
+				'field_binding'  => '',
+				'field_binding_dynamic' => '',
 				'key'            => '',
 				'source'         => 'visible_text',
 				'query_var'      => '',
@@ -287,6 +289,8 @@ class FilterPresets {
 					'enabled'        => self::truthy( $filter['enabled'] ?? false ),
 					'label'          => sanitize_text_field( $filter['label'] ?? __( 'Filter', 'elementor-implementation-toolkit' ) ),
 					'type'           => $type,
+					'field_binding'  => sanitize_text_field( $filter['field_binding'] ?? '' ),
+					'field_binding_dynamic' => self::sanitize_dynamic_binding( $filter['field_binding_dynamic'] ?? '' ),
 					'key'            => sanitize_key( $filter['key'] ?? '' ),
 					'source'         => self::allowed_value( $filter['source'] ?? 'visible_text', $sources, 'visible_text' ),
 					'query_var'      => sanitize_key( $filter['query_var'] ?? '' ),
@@ -392,5 +396,13 @@ class FilterPresets {
 		$lines = array_slice( $lines, 0, max( 1, absint( $limit ) ) );
 
 		return implode( "\n", $lines );
+	}
+
+	private static function sanitize_dynamic_binding( $value ) {
+		$value = wp_check_invalid_utf8( (string) $value );
+		$value = wp_strip_all_tags( $value );
+		$value = preg_replace( '/[\r\n\t]+/', ' ', $value );
+
+		return substr( trim( $value ), 0, 2000 );
 	}
 }

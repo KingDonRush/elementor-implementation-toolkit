@@ -59,6 +59,8 @@ class FilterPresetEndpoint {
 		'enabled',
 		'label',
 		'type',
+		'field_binding',
+		'field_binding_dynamic',
 		'key',
 		'source',
 		'query_var',

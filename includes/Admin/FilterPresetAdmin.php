@@ -678,7 +678,7 @@ class FilterPresetAdmin {
 			);
 		}
 
-		if ( 'search' !== $type && empty( trim( (string) ( $filter['key'] ?? '' ) ) ) ) {
+		if ( 'search' !== $type && ! $this->filter_has_field_binding( $filter ) ) {
 			$this->add_diagnostic(
 				$diagnostics,
 				'warning',
@@ -735,6 +735,16 @@ class FilterPresetAdmin {
 				)
 			);
 		}
+	}
+
+	private function filter_has_field_binding( array $filter ) {
+		foreach ( [ 'field_binding', 'field_binding_dynamic', 'key' ] as $field ) {
+			if ( '' !== trim( (string) ( $filter[ $field ] ?? '' ) ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private function add_diagnostic( array &$diagnostics, $severity, $title, $message ) {
@@ -857,6 +867,12 @@ class FilterPresetAdmin {
 										<dt><?php esc_html_e( 'Key', 'elementor-implementation-toolkit' ); ?></dt>
 										<dd><?php echo esc_html( $filter['key'] ?? __( 'None', 'elementor-implementation-toolkit' ) ); ?></dd>
 									</div>
+									<?php if ( ! empty( $filter['field_binding'] ) ) : ?>
+										<div>
+											<dt><?php esc_html_e( 'Binding', 'elementor-implementation-toolkit' ); ?></dt>
+											<dd><?php echo esc_html( $filter['field_binding'] ); ?></dd>
+										</div>
+									<?php endif; ?>
 									<div>
 										<dt><?php esc_html_e( 'Source', 'elementor-implementation-toolkit' ); ?></dt>
 										<dd><?php echo esc_html( FilterPresets::source_types()[ $filter['source'] ?? 'visible_text' ] ?? __( 'Visible text', 'elementor-implementation-toolkit' ) ); ?></dd>
@@ -974,6 +990,8 @@ class FilterPresetAdmin {
 			'enabled',
 			'label',
 			'type',
+			'field_binding',
+			'field_binding_dynamic',
 			'key',
 			'source',
 			'query_var',
@@ -1241,6 +1259,8 @@ class FilterPresetAdmin {
 						<span><?php esc_html_e( 'Label', 'elementor-implementation-toolkit' ); ?></span>
 						<input id="<?php echo esc_attr( 'eit-filter-label-' . $index ); ?>" type="text" name="<?php echo esc_attr( $prefix ); ?>[label]" value="<?php echo esc_attr( $filter['label'] ?? '' ); ?>" placeholder="<?php echo esc_attr__( 'Category', 'elementor-implementation-toolkit' ); ?>" />
 					</label>
+					<?php $this->text_field( $prefix . '[field_binding]', __( 'Field binding', 'elementor-implementation-toolkit' ), $filter['field_binding'] ?? '', 'Dynamic tag or field key' ); ?>
+					<input type="hidden" name="<?php echo esc_attr( $prefix ); ?>[field_binding_dynamic]" value="<?php echo esc_attr( $filter['field_binding_dynamic'] ?? '' ); ?>" />
 					<?php $this->text_field( $prefix . '[key]', __( 'Field or taxonomy key', 'elementor-implementation-toolkit' ), $filter['key'] ?? '', 'category, price, rating' ); ?>
 					<?php $this->text_field( $prefix . '[placeholder]', __( 'Placeholder', 'elementor-implementation-toolkit' ), $filter['placeholder'] ?? '' ); ?>
 					<?php $this->number_field( $prefix . '[range_min]', __( 'Range min', 'elementor-implementation-toolkit' ), $filter['range_min'] ?? 0, null, null, 'any' ); ?>
@@ -1302,6 +1322,14 @@ class FilterPresetAdmin {
 				/* translators: %s: field or taxonomy key. */
 				__( 'Key: %s', 'elementor-implementation-toolkit' ),
 				$filter['key']
+			);
+		}
+
+		if ( ! empty( $filter['field_binding'] ) ) {
+			$parts[] = sprintf(
+				/* translators: %s: dynamic field binding. */
+				__( 'Binding: %s', 'elementor-implementation-toolkit' ),
+				$filter['field_binding']
 			);
 		}
 
@@ -1421,7 +1449,7 @@ class FilterPresetAdmin {
 			return true;
 		}
 
-		foreach ( [ 'label', 'key', 'query_var', 'options', 'default_value' ] as $field ) {
+		foreach ( [ 'label', 'field_binding', 'field_binding_dynamic', 'key', 'query_var', 'options', 'default_value' ] as $field ) {
 			if ( '' !== trim( (string) ( $filter[ $field ] ?? '' ) ) ) {
 				return true;
 			}

@@ -92,6 +92,16 @@
         return undefined !== settings[key] && null !== settings[key] ? settings[key] : fallback;
     }
 
+    function getDynamicSetting(settings, key) {
+        var dynamicSettings = getSetting(settings, '__dynamic__', {});
+
+        if (!dynamicSettings || 'object' !== typeof dynamicSettings) {
+            return '';
+        }
+
+        return getSetting(dynamicSettings, key, '');
+    }
+
     function normalizeRepeaterRows(rows) {
         if (null === rows || undefined === rows) {
             return null;
@@ -230,6 +240,8 @@
                 enabled: true,
                 label: getSetting(filter, 'label', 'Filter'),
                 type: getSetting(filter, 'type', 'search'),
+                field_binding: getSetting(filter, 'field_binding', ''),
+                field_binding_dynamic: getDynamicSetting(filter, 'field_binding') || getSetting(filter, 'field_binding_dynamic', ''),
                 key: getSetting(filter, 'key', ''),
                 placeholder: getSetting(filter, 'placeholder', ''),
                 options: getSetting(filter, 'options', ''),
