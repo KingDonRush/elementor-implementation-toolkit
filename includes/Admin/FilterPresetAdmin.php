@@ -1149,18 +1149,6 @@ class FilterPresetAdmin {
 	private function render_filter_rows( array $filters ) {
 		$filters = array_values( $filters );
 
-		if ( empty( $filters ) ) {
-			$filters[] = FilterPresets::blank_filter(
-				[
-					'label'       => __( 'Search', 'elementor-implementation-toolkit' ),
-					'type'        => 'search',
-					'key'         => 'title',
-					'query_var'   => 'search',
-					'placeholder' => __( 'Search...', 'elementor-implementation-toolkit' ),
-				]
-			);
-		}
-
 		?>
 		<section class="eit-panel eit-panel--filters" data-eit-repeater data-eit-repeater-next-index="<?php echo esc_attr( count( $filters ) ); ?>">
 			<div class="eit-panel__header">

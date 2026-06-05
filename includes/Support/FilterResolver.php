@@ -70,13 +70,14 @@ class FilterResolver {
 			}
 
 			$normalized[] = [
-				'clientId' => $client_id,
-				'postId'   => absint( $item['postId'] ?? 0 ),
-				'url'      => esc_url_raw( $item['url'] ?? '' ),
-				'title'    => sanitize_text_field( $item['title'] ?? '' ),
-				'text'     => $this->limit_text( wp_strip_all_tags( (string) ( $item['text'] ?? '' ) ) ),
-				'classes'  => $this->normalize_string_list( $item['classes'] ?? [] ),
-				'data'     => $this->normalize_data_map( $item['data'] ?? [] ),
+				'clientId'      => $client_id,
+				'originalIndex' => absint( $item['originalIndex'] ?? $index ),
+				'postId'        => absint( $item['postId'] ?? 0 ),
+				'url'           => esc_url_raw( $item['url'] ?? '' ),
+				'title'         => sanitize_text_field( $item['title'] ?? '' ),
+				'text'          => $this->limit_text( wp_strip_all_tags( (string) ( $item['text'] ?? '' ) ) ),
+				'classes'       => $this->normalize_string_list( $item['classes'] ?? [] ),
+				'data'          => $this->normalize_data_map( $item['data'] ?? [] ),
 			];
 		}
 
@@ -114,7 +115,11 @@ class FilterResolver {
 		$sort = sanitize_key( $sort );
 		$allowed = [ '', 'default', 'title_asc', 'title_desc', 'date_asc', 'date_desc', 'numeric_asc', 'numeric_desc', 'rating_desc', 'rating_asc' ];
 
-		return in_array( $sort, $allowed, true ) ? $sort : 'default';
+		if ( in_array( $sort, $allowed, true ) || preg_match( '/^data_[a-z0-9_-]+_(text|number|date)_(asc|desc)$/', $sort ) ) {
+			return $sort;
+		}
+
+		return 'default';
 	}
 
 	private function normalize_filter_value( $value ) {
@@ -244,24 +249,54 @@ class FilterResolver {
 		usort(
 			$items,
 			function ( $a, $b ) use ( $sort ) {
+				$result = 0;
+
 				if ( 'title_asc' === $sort || 'title_desc' === $sort ) {
 					$result = strcasecmp( $a['title'] ?: $a['text'], $b['title'] ?: $b['text'] );
-					return 'title_desc' === $sort ? - $result : $result;
-				}
-
-				if ( 'date_asc' === $sort || 'date_desc' === $sort ) {
+					$result = 'title_desc' === $sort ? - $result : $result;
+				} elseif ( 'date_asc' === $sort || 'date_desc' === $sort ) {
 					$result = strtotime( $a['data']['date'] ?? '' ) <=> strtotime( $b['data']['date'] ?? '' );
-					return 'date_desc' === $sort ? - $result : $result;
+					$result = 'date_desc' === $sort ? - $result : $result;
+				} elseif ( preg_match( '/^data_(.+)_(text|number|date)_(asc|desc)$/', $sort, $matches ) ) {
+					$result = $this->compare_sort_values( $this->get_sort_value( $a, $matches[1] ), $this->get_sort_value( $b, $matches[1] ), $matches[2] );
+					$result = 'desc' === $matches[3] ? - $result : $result;
+				} else {
+					$key = false !== strpos( $sort, 'rating' ) ? 'rating' : 'sort';
+					$result = $this->to_number( $a['data'][ $key ] ?? '' ) <=> $this->to_number( $b['data'][ $key ] ?? '' );
+					$result = false !== strpos( $sort, 'desc' ) ? - $result : $result;
 				}
 
-				$key = false !== strpos( $sort, 'rating' ) ? 'rating' : 'sort';
-				$result = $this->to_number( $a['data'][ $key ] ?? '' ) <=> $this->to_number( $b['data'][ $key ] ?? '' );
+				if ( 0 !== $result ) {
+					return $result;
+				}
 
-				return false !== strpos( $sort, 'desc' ) ? - $result : $result;
+				return ( $a['originalIndex'] ?? 0 ) <=> ( $b['originalIndex'] ?? 0 );
 			}
 		);
 
 		return $items;
+	}
+
+	private function compare_sort_values( $left, $right, $type ) {
+		if ( 'number' === $type ) {
+			return $this->to_number( $left ) <=> $this->to_number( $right );
+		}
+
+		if ( 'date' === $type ) {
+			return strtotime( (string) $left ) <=> strtotime( (string) $right );
+		}
+
+		return strcasecmp( (string) $left, (string) $right );
+	}
+
+	private function get_sort_value( array $item, $key ) {
+		$key = sanitize_key( $key );
+
+		if ( '' !== $key && isset( $item['data'][ $key ] ) ) {
+			return $item['data'][ $key ];
+		}
+
+		return $this->get_item_value( $item, $key );
 	}
 
 	private function get_item_value( array $item, $key ) {

@@ -12,6 +12,7 @@ use EIT\Elementor\FilterController\FilterOptions;
 use EIT\Elementor\FilterController\FilterSettings;
 use EIT\Elementor\FilterController\RuntimeConfig;
 use EIT\Elementor\FilterController\StyleControls;
+use EIT\Support\SortOptions;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -59,7 +60,8 @@ class FilterController extends Widget_Base {
 	protected function render() {
 		$settings = FilterSettings::resolve_preset_settings( $this->get_settings_for_display() );
 		$filters  = FilterSettings::normalize_filters( $settings['filters'] ?? [] );
-		$sort_options = FilterOptions::parse( $settings['sort_options'] ?? '' );
+		$sort_options_raw = SortOptions::resolve_lines( $settings['sort_options_items'] ?? null, $settings['sort_options'] ?? '' );
+		$sort_options = FilterOptions::parse( $sort_options_raw );
 		$config = RuntimeConfig::from_settings( $this->get_id(), $settings );
 
 		$this->add_render_attribute(
@@ -82,7 +84,7 @@ class FilterController extends Widget_Base {
 					<?php $this->render_filter( $filter, $index, $settings ); ?>
 				<?php endforeach; ?>
 
-				<?php if ( ( $settings['show_sort'] ?? 'yes' ) === 'yes' ) : ?>
+				<?php if ( ( $settings['show_sort'] ?? 'yes' ) === 'yes' && ! empty( $sort_options ) ) : ?>
 					<div class="eit-filter-group eit-filter-group--sort">
 						<label class="eit-filter-group__label" for="<?php echo esc_attr( $this->get_id() . '-sort' ); ?>">
 							<?php echo esc_html( $settings['sort_label'] ?? __( 'Sort by', 'elementor-implementation-toolkit' ) ); ?>

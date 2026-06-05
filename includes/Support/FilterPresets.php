@@ -57,7 +57,7 @@ class FilterPresets {
 			'show_active_chips'   => true,
 			'show_sort'           => true,
 			'sort_label'          => __( 'Sort by', 'elementor-implementation-toolkit' ),
-			'sort_options'        => "default|Default\ntitle_asc|Title A-Z\ntitle_desc|Title Z-A\ndate_desc|Newest",
+			'sort_options'        => SortOptions::default_lines(),
 			'apply_text'          => __( 'Apply filters', 'elementor-implementation-toolkit' ),
 			'reset_text'          => __( 'Reset', 'elementor-implementation-toolkit' ),
 			'empty_text'          => __( 'No matching items found.', 'elementor-implementation-toolkit' ),
@@ -232,11 +232,9 @@ class FilterPresets {
 		$provider_modes   = array_keys( self::provider_modes() );
 		$apply_modes      = array_keys( self::apply_modes() );
 		$pagination_types = array_keys( self::pagination_types() );
-		$sort_options     = self::compile_options_lines( $raw['sort_options_items'] ?? [], self::MAX_SORT_OPTIONS, false );
-
-		if ( '' === $sort_options ) {
-			$sort_options = self::limit_lines( sanitize_textarea_field( $raw['sort_options'] ?? '' ), self::MAX_SORT_OPTIONS );
-		}
+		$sort_options     = isset( $raw['sort_options_items'] )
+			? SortOptions::resolve_lines( $raw['sort_options_items'], $raw['sort_options'] ?? '' )
+			: self::limit_lines( sanitize_textarea_field( $raw['sort_options'] ?? '' ), self::MAX_SORT_OPTIONS );
 
 		return [
 			'id'                => sanitize_key( $id ),

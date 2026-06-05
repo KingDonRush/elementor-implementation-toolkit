@@ -6,6 +6,7 @@
 namespace EIT\Elementor\FilterController;
 
 use EIT\Support\FilterPresets;
+use EIT\Support\SortOptions;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -49,6 +50,7 @@ class FilterSettings {
 		$resolved['show_sort']         = ! empty( $preset['show_sort'] ) ? 'yes' : '';
 		$resolved['sort_label']        = $preset['sort_label'] ?? ( $settings['sort_label'] ?? '' );
 		$resolved['sort_options']      = $preset['sort_options'] ?? ( $settings['sort_options'] ?? '' );
+		$resolved['sort_options_items'] = SortOptions::lines_to_widget_items( $preset['sort_options'] ?? '' );
 		$resolved['apply_text']        = $preset['apply_text'] ?? ( $settings['apply_text'] ?? '' );
 		$resolved['reset_text']        = $preset['reset_text'] ?? ( $settings['reset_text'] ?? '' );
 		$resolved['empty_text']        = $preset['empty_text'] ?? ( $settings['empty_text'] ?? '' );
@@ -76,6 +78,7 @@ class FilterSettings {
 			'show_sort'            => ! empty( $preset['show_sort'] ) ? 'yes' : '',
 			'sort_label'           => $preset['sort_label'] ?? '',
 			'sort_options'         => $preset['sort_options'] ?? '',
+			'sort_options_items'   => SortOptions::lines_to_widget_items( $preset['sort_options'] ?? '' ),
 			'apply_text'           => $preset['apply_text'] ?? '',
 			'reset_text'           => $preset['reset_text'] ?? '',
 			'empty_text'           => $preset['empty_text'] ?? '',

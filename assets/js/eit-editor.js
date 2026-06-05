@@ -73,7 +73,133 @@
         return undefined !== settings[key] && null !== settings[key] ? settings[key] : fallback;
     }
 
+    function normalizeRepeaterRows(rows) {
+        if (null === rows || undefined === rows) {
+            return null;
+        }
+
+        if (rows.toJSON) {
+            rows = rows.toJSON();
+        } else if (rows.models) {
+            rows = rows.models;
+        }
+
+        if (!Array.isArray(rows) && 'object' === typeof rows) {
+            rows = Object.keys(rows).map(function (key) {
+                return rows[key];
+            });
+        }
+
+        if (!Array.isArray(rows)) {
+            return null;
+        }
+
+        return rows.map(function (row) {
+            if (!row) {
+                return {};
+            }
+
+            if (row.toJSON) {
+                return row.toJSON();
+            }
+
+            if (row.attributes) {
+                return row.attributes;
+            }
+
+            return row;
+        });
+    }
+
+    function sortValuePart(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+    }
+
+    function sortOptionValue(option) {
+        var source = sortValuePart(getSetting(option, 'source', 'default')) || 'default';
+        var direction = 'desc' === sortValuePart(getSetting(option, 'direction', 'asc')) ? 'desc' : 'asc';
+        var key = sortValuePart(getSetting(option, 'key', ''));
+        var dataType = sortValuePart(getSetting(option, 'data_type', 'text')) || 'text';
+
+        if ('default' === source) {
+            return 'default';
+        }
+
+        if ('title' === source || 'date' === source) {
+            return source + '_' + direction;
+        }
+
+        if ('numeric' === source) {
+            key = key || 'sort';
+            return 'sort' === key ? 'numeric_' + direction : 'data_' + key + '_number_' + direction;
+        }
+
+        if ('rating' === source) {
+            key = key || 'rating';
+            return 'rating' === key ? 'rating_' + direction : 'data_' + key + '_number_' + direction;
+        }
+
+        if ('data' === source && key) {
+            if (['text', 'number', 'date'].indexOf(dataType) === -1) {
+                dataType = 'text';
+            }
+
+            return 'data_' + key + '_' + dataType + '_' + direction;
+        }
+
+        return '';
+    }
+
+    function defaultSortLines() {
+        return 'default|Default\ntitle_asc|Title A-Z\ntitle_desc|Title Z-A\ndate_desc|Newest\nnumeric_asc|Lowest value\nnumeric_desc|Highest value';
+    }
+
+    function normalizeSortLines(lines) {
+        return String(lines || '')
+            .split(/\r\n|\r|\n/)
+            .map(function (line) {
+                return line.trim();
+            })
+            .filter(Boolean)
+            .join('\n');
+    }
+
+    function compileSortOptions(items, fallback) {
+        var rows = normalizeRepeaterRows(items);
+        var lines = [];
+        var compiled;
+        var normalizedFallback = normalizeSortLines(fallback);
+
+        if (null === rows) {
+            return fallback || '';
+        }
+
+        rows.forEach(function (option) {
+            var label = getSetting(option, 'label', '');
+            var value = sortOptionValue(option);
+
+            if (!label || !value) {
+                return;
+            }
+
+            lines.push(value + '|' + label);
+        });
+
+        compiled = lines.join('\n');
+
+        if (normalizeSortLines(compiled) === normalizeSortLines(defaultSortLines()) && normalizedFallback && normalizedFallback !== normalizeSortLines(defaultSortLines())) {
+            return normalizedFallback;
+        }
+
+        return compiled;
+    }
+
     function mapWidgetFiltersToPreset(filters) {
+        filters = normalizeRepeaterRows(filters);
+
         if (!Array.isArray(filters)) {
             return [];
         }
@@ -116,7 +242,7 @@
                 show_active_chips: isTruthy(getSetting(settings, 'show_active_chips', 'yes')),
                 show_sort: isTruthy(getSetting(settings, 'show_sort', 'yes')),
                 sort_label: getSetting(settings, 'sort_label', 'Sort by'),
-                sort_options: getSetting(settings, 'sort_options', ''),
+                sort_options: compileSortOptions(getSetting(settings, 'sort_options_items', null), getSetting(settings, 'sort_options', '')),
                 apply_text: getSetting(settings, 'apply_text', 'Apply filters'),
                 reset_text: getSetting(settings, 'reset_text', 'Reset'),
                 empty_text: getSetting(settings, 'empty_text', 'No matching items found.'),
@@ -620,7 +746,7 @@
 
         panelRows = readFilterRowsFromPanel();
 
-        if (panelRows.length) {
+        if (null !== panelRows) {
             return panelRows;
         }
 
@@ -636,8 +762,13 @@
 
     function readFilterRowsFromPanel() {
         var rows = [];
+        var $control = $('.elementor-control-filters');
 
-        $('.elementor-control-filters select[data-setting="type"]').each(function () {
+        if (!$control.length) {
+            return null;
+        }
+
+        $control.find('select[data-setting="type"]').each(function () {
             rows.push({
                 type: this.value || 'search'
             });
