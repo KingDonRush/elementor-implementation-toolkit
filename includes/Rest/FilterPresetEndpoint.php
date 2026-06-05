@@ -69,6 +69,7 @@ class FilterPresetEndpoint {
 		'range_min',
 		'range_max',
 		'range_step',
+		'layout_width',
 		'default_value',
 		'empty_behavior',
 		'show_count',

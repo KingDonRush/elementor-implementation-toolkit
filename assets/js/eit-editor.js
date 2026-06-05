@@ -236,6 +236,7 @@
                 range_min: getSetting(filter, 'range_min', 0),
                 range_max: getSetting(filter, 'range_max', 100),
                 range_step: getSetting(filter, 'range_step', 1),
+                layout_width: getSetting(filter, 'layout_width', 100),
                 show_label: isTruthy(getSetting(filter, 'show_label', 'yes'))
             };
         });

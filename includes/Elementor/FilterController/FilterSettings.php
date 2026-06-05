@@ -110,6 +110,7 @@ class FilterSettings {
 				'rangeMin'    => is_numeric( $filter['range_min'] ?? null ) ? (float) $filter['range_min'] : 0,
 				'rangeMax'    => is_numeric( $filter['range_max'] ?? null ) ? (float) $filter['range_max'] : 100,
 				'rangeStep'   => is_numeric( $filter['range_step'] ?? null ) ? (float) $filter['range_step'] : 1,
+				'layoutWidth' => self::normalize_layout_width( $filter['layout_width'] ?? 100 ),
 				'showLabel'   => ( $filter['show_label'] ?? 'yes' ) === 'yes',
 			];
 		}
@@ -135,10 +136,15 @@ class FilterSettings {
 				'range_min'   => $filter['range_min'] ?? 0,
 				'range_max'   => $filter['range_max'] ?? 100,
 				'range_step'  => $filter['range_step'] ?? 1,
+				'layout_width' => self::normalize_layout_width( $filter['layout_width'] ?? 100 ),
 				'show_label'  => ! empty( $filter['show_label'] ) ? 'yes' : '',
 			];
 		}
 
 		return $mapped;
+	}
+
+	private static function normalize_layout_width( $value ) {
+		return max( 10, min( 100, absint( $value ) ?: 100 ) );
 	}
 }

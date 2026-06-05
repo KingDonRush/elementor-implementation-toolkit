@@ -42,7 +42,8 @@
 }
 
 .eit-filter-controller__form {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(100, minmax(0, 1fr));
     gap: 16px;
 }
 
@@ -65,7 +66,13 @@
 .eit-filter-group {
     flex-direction: column;
     gap: 10px;
+    grid-column: span var(--eit-filter-column-span, 100);
     min-width: 0;
+}
+
+.eit-filter-group--sort,
+.eit-filter-actions {
+    grid-column: 1 / -1;
 }
 
 .eit-filter-group__label {
@@ -610,6 +617,10 @@
 }
 
 @media (max-width: 767px) {
+    .eit-filter-group {
+        grid-column: 1 / -1;
+    }
+
     .eit-range__values,
     .eit-range__sliders,
     .eit-date-range {

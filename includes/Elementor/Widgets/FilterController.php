@@ -144,8 +144,9 @@ class FilterController extends Widget_Base {
 		$key = $filter['key'];
 		$name = 'eit-' . $this->get_id() . '-' . $index;
 		$options = $filter['options'];
+		$layout_width = max( 10, min( 100, absint( $filter['layoutWidth'] ?? 100 ) ?: 100 ) );
 		?>
-		<div class="eit-filter-group eit-filter-group--<?php echo esc_attr( $type ); ?>" data-eit-filter-group="<?php echo esc_attr( $filter['id'] ); ?>">
+		<div class="eit-filter-group eit-filter-group--<?php echo esc_attr( $type ); ?>" style="--eit-filter-column-span: <?php echo esc_attr( $layout_width ); ?>;" data-eit-filter-group="<?php echo esc_attr( $filter['id'] ); ?>">
 			<?php if ( $filter['showLabel'] ) : ?>
 				<div class="eit-filter-group__label"><?php echo esc_html( $filter['label'] ); ?></div>
 			<?php endif; ?>

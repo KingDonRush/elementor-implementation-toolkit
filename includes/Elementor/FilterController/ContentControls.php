@@ -80,7 +80,7 @@ class ContentControls {
 			[
 				'label'       => esc_html__( 'New Preset Name', 'elementor-implementation-toolkit' ),
 				'type'        => Controls_Manager::TEXT,
-				'placeholder' => esc_html__( 'Shop filters', 'elementor-implementation-toolkit' ),
+				'placeholder' => esc_html__( 'Listing filters', 'elementor-implementation-toolkit' ),
 				'description' => esc_html__( 'Build filters below, then save this widget setup as a reusable preset.', 'elementor-implementation-toolkit' ),
 				'condition'   => [
 					'configuration_source' => 'widget',
@@ -294,6 +294,19 @@ class ContentControls {
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => 'yes',
+			]
+		);
+
+		$repeater->add_control(
+			'layout_width',
+			[
+				'label'       => esc_html__( 'Block Width (%)', 'elementor-implementation-toolkit' ),
+				'description' => esc_html__( 'Controls how much of the filter row this block occupies. Blocks wrap automatically when the row is full.', 'elementor-implementation-toolkit' ),
+				'type'        => Controls_Manager::NUMBER,
+				'min'         => 10,
+				'max'         => 100,
+				'step'        => 1,
+				'default'     => 100,
 			]
 		);
 
