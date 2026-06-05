@@ -172,6 +172,24 @@ class FilterResolver {
 					)
 				);
 			}
+
+			foreach ( ToolkitFieldCatalog::public_meta_fields_for_post_type( $post->post_type ) as $key => $field ) {
+				if ( isset( $item['data'][ $key ] ) && '' !== trim( (string) $item['data'][ $key ] ) ) {
+					continue;
+				}
+
+				$value = get_post_meta( $item['postId'], $key, true );
+
+				if ( '' === $value && ! metadata_exists( 'post', $item['postId'], $key ) && '' !== (string) ( $field['default'] ?? '' ) ) {
+					$value = $field['default'];
+				}
+
+				if ( '' === $value || null === $value ) {
+					continue;
+				}
+
+				$item['data'][ $key ] = $this->normalize_meta_value( $value );
+			}
 		}
 
 		return $item;
@@ -321,6 +339,14 @@ class FilterResolver {
 		$value = array_map( 'sanitize_html_class', $value );
 
 		return array_values( array_filter( array_unique( $value ) ) );
+	}
+
+	private function normalize_meta_value( $value ) {
+		if ( is_array( $value ) ) {
+			$value = implode( ' ', array_map( 'strval', $value ) );
+		}
+
+		return $this->limit_text( sanitize_text_field( (string) $value ) );
 	}
 
 	private function normalize_data_map( $value ) {

@@ -5,6 +5,7 @@
 
 namespace EIT\Elementor;
 
+use EIT\Elementor\DynamicTags\DynamicTagsIntegration;
 use EIT\Elementor\Widgets\FilterController;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -26,6 +27,7 @@ class ElementorIntegration {
 
 		add_action( 'elementor/elements/categories_registered', [ $this, 'register_category' ] );
 		add_action( 'elementor/widgets/register', [ $this, 'register_widgets' ] );
+		( new DynamicTagsIntegration() )->init_hooks();
 	}
 
 	public function register_category( $elements_manager ) {
