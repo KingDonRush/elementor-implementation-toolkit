@@ -39,7 +39,6 @@ $tracked_debt = [
 	'includes/Admin/FilterPresetAdmin.php'                          => 'TASK-019',
 	'includes/CPT/CptManager.php'                                   => 'TASK-024',
 	'includes/Elementor/FilterController/ContentControls.php'       => 'TASK-026',
-	'includes/Elementor/FilterController/StyleControls.php'         => 'TASK-FC-050',
 	'includes/Support/FilterPresets.php'                            => 'TASK-025',
 	'includes/Support/FilterResolver.php'                           => 'TASK-025',
 	'scripts/verify-filter-controller-robustness.php'               => 'TASK-027',
