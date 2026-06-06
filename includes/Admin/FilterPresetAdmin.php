@@ -1279,6 +1279,8 @@ class FilterPresetAdmin {
 								<?php $this->checkbox_field( $prefix . '[show_count]', __( 'Show counts', 'elementor-implementation-toolkit' ), ! empty( $filter['show_count'] ) ); ?>
 								<?php $this->text_field( $prefix . '[query_var]', __( 'URL parameter', 'elementor-implementation-toolkit' ), $filter['query_var'] ?? '' ); ?>
 								<?php $this->text_field( $prefix . '[default_value]', __( 'Default value', 'elementor-implementation-toolkit' ), $filter['default_value'] ?? '' ); ?>
+								<?php $this->checkbox_field( $prefix . '[radio_show_all]', __( 'Radio all option', 'elementor-implementation-toolkit' ), ! empty( $filter['radio_show_all'] ) ); ?>
+								<?php $this->text_field( $prefix . '[radio_all_label]', __( 'Radio all label', 'elementor-implementation-toolkit' ), $filter['radio_all_label'] ?? __( 'All', 'elementor-implementation-toolkit' ) ); ?>
 								<?php $this->number_field( $prefix . '[range_step]', __( 'Step', 'elementor-implementation-toolkit' ), $filter['range_step'] ?? 1, null, null, 'any' ); ?>
 								<?php $this->number_field( $prefix . '[layout_width]', __( 'Block width (%)', 'elementor-implementation-toolkit' ), $filter['layout_width'] ?? 100, 10, 100, 1 ); ?>
 								<?php $this->select_field( $prefix . '[source]', __( 'Source', 'elementor-implementation-toolkit' ), $filter['source'] ?? 'visible_text', FilterPresets::source_types() ); ?>
@@ -1459,6 +1461,10 @@ class FilterPresetAdmin {
 			if ( '' !== trim( (string) ( $filter[ $field ] ?? '' ) ) ) {
 				return true;
 			}
+		}
+
+		if ( ! empty( $filter['radio_show_all'] ) ) {
+			return true;
 		}
 
 		return false;

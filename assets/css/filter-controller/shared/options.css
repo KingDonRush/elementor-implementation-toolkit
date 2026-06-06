@@ -136,3 +136,77 @@
     opacity: 1;
     transform: translate(-50%, -55%) rotate(45deg) scale(1);
 }
+
+.eit-options--radio {
+    gap: var(--eit-radio-gap);
+}
+
+.eit-option--radio {
+    max-width: 100%;
+    min-width: 0;
+    border-radius: var(--eit-radio-radius, 999px);
+    gap: var(--eit-radio-indicator-gap);
+}
+
+.eit-option--radio input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.eit-radio-indicator {
+    position: relative;
+    flex: 0 0 auto;
+    order: var(--eit-radio-indicator-order, 0);
+    width: var(--eit-radio-indicator-size);
+    height: var(--eit-radio-indicator-size);
+    border: 1px solid var(--eit-radio-indicator-border-color);
+    border-radius: 999px;
+    background: var(--eit-radio-indicator-background);
+}
+
+.eit-option--radio .eit-option__label {
+    order: 1;
+}
+
+.eit-option--radio .eit-option-count {
+    order: 3;
+}
+
+.eit-radio-indicator::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--eit-radio-dot-size);
+    height: var(--eit-radio-dot-size);
+    border-radius: 999px;
+    background: var(--eit-radio-dot-color);
+    content: "";
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.45);
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.eit-option--radio:focus-within {
+    border-color: var(--eit-radio-active-border-color);
+    box-shadow: 0 0 0 3px var(--eit-radio-focus-ring-color);
+}
+
+.eit-option--radio.is-active,
+.eit-option--radio:has(input:checked) {
+    border-color: var(--eit-radio-active-border-color);
+    background: var(--eit-radio-active-background);
+    color: var(--eit-radio-active-text-color);
+}
+
+.eit-option--radio.is-active .eit-radio-indicator,
+.eit-option--radio:has(input:checked) .eit-radio-indicator {
+    border-color: var(--eit-radio-indicator-active-border-color);
+}
+
+.eit-option--radio.is-active .eit-radio-indicator::after,
+.eit-option--radio:has(input:checked) .eit-radio-indicator::after {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}

@@ -27,6 +27,18 @@
     --eit-checkbox-active-border-color: var(--eit-accent);
     --eit-checkbox-active-text-color: var(--eit-text);
     --eit-checkbox-focus-ring-color: rgba(15, 118, 110, 0.22);
+    --eit-radio-gap: 8px;
+    --eit-radio-indicator-size: 18px;
+    --eit-radio-dot-size: 8px;
+    --eit-radio-indicator-gap: 9px;
+    --eit-radio-indicator-border-color: var(--eit-border);
+    --eit-radio-indicator-background: var(--eit-surface);
+    --eit-radio-indicator-active-border-color: var(--eit-accent);
+    --eit-radio-dot-color: var(--eit-accent);
+    --eit-radio-active-background: #eef6ff;
+    --eit-radio-active-border-color: var(--eit-accent);
+    --eit-radio-active-text-color: var(--eit-text);
+    --eit-radio-focus-ring-color: rgba(15, 118, 110, 0.22);
     --eit-option-count-background: #eef2f7;
     --eit-option-count-color: var(--eit-muted);
     --eit-range-accent-color: var(--eit-accent);

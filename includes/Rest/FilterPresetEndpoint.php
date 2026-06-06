@@ -71,6 +71,8 @@ class FilterPresetEndpoint {
 		'data_type',
 		'placeholder',
 		'options',
+		'radio_show_all',
+		'radio_all_label',
 		'range_min',
 		'range_max',
 		'range_step',

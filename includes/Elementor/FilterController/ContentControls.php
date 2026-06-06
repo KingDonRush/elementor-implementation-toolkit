@@ -331,6 +331,33 @@ class ContentControls {
 		);
 
 		$repeater->add_control(
+			'radio_show_all',
+			[
+				'label'        => esc_html__( 'Add All Option', 'elementor-implementation-toolkit' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+				'description'  => esc_html__( 'Adds a first radio option that clears only this radio group.', 'elementor-implementation-toolkit' ),
+				'condition'    => [
+					'type' => 'radio',
+				],
+			]
+		);
+
+		$repeater->add_control(
+			'radio_all_label',
+			[
+				'label'     => esc_html__( 'All Option Label', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::TEXT,
+				'default'   => esc_html__( 'All', 'elementor-implementation-toolkit' ),
+				'condition' => [
+					'type'           => 'radio',
+					'radio_show_all' => 'yes',
+				],
+			]
+		);
+
+		$repeater->add_control(
 			'range_min',
 			[
 				'label'     => esc_html__( 'Range Min', 'elementor-implementation-toolkit' ),

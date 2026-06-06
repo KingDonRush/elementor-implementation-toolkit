@@ -14,6 +14,7 @@
         'eit_filter_has_field_controls',
         'eit_filter_has_option_controls',
         'eit_filter_has_checkbox_controls',
+        'eit_filter_has_radio_controls',
         'eit_filter_has_search_controls',
         'eit_filter_has_select_controls',
         'eit_filter_has_range_controls',
@@ -197,6 +198,8 @@
                 source: getSetting(filter, 'source', 'visible_text'),
                 placeholder: getSetting(filter, 'placeholder', ''),
                 options: getSetting(filter, 'options', ''),
+                radio_show_all: isTruthy(getSetting(filter, 'radio_show_all', '')),
+                radio_all_label: getSetting(filter, 'radio_all_label', 'All'),
                 range_min: getSetting(filter, 'range_min', 0),
                 range_max: getSetting(filter, 'range_max', 100),
                 range_step: getSetting(filter, 'range_step', 1),
@@ -859,6 +862,7 @@
                 return typeHasStyleFamily(type, 'option');
             }) ? 'yes' : '',
             eit_filter_has_checkbox_controls: hasType(types, 'checkbox') ? 'yes' : '',
+            eit_filter_has_radio_controls: hasType(types, 'radio') ? 'yes' : '',
             eit_filter_has_search_controls: hasType(types, 'search') ? 'yes' : '',
             eit_filter_has_select_controls: hasType(types, 'select') ? 'yes' : '',
             eit_filter_has_range_controls: hasType(types, 'range') ? 'yes' : '',
@@ -903,6 +907,7 @@
         $body.toggleClass('eit-filter-style-has-field', 'yes' === flags.eit_filter_has_field_controls);
         $body.toggleClass('eit-filter-style-has-option', 'yes' === flags.eit_filter_has_option_controls);
         $body.toggleClass('eit-filter-style-has-checkbox', 'yes' === flags.eit_filter_has_checkbox_controls);
+        $body.toggleClass('eit-filter-style-has-radio', 'yes' === flags.eit_filter_has_radio_controls);
         $body.toggleClass('eit-filter-style-has-search', 'yes' === flags.eit_filter_has_search_controls);
         $body.toggleClass('eit-filter-style-has-select', 'yes' === flags.eit_filter_has_select_controls);
         $body.toggleClass('eit-filter-style-has-range', 'yes' === flags.eit_filter_has_range_controls);
@@ -910,7 +915,7 @@
     }
 
     function clearStylePanelCadence() {
-        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-checkbox eit-filter-style-has-search eit-filter-style-has-select eit-filter-style-has-range eit-filter-style-has-rating');
+        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-checkbox eit-filter-style-has-radio eit-filter-style-has-search eit-filter-style-has-select eit-filter-style-has-range eit-filter-style-has-rating');
     }
 
     function syncFilterTypeState() {

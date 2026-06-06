@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class ChoiceOptionsRenderer {
 
 	public static function render( $type, array $filter, $name, $key ) {
-		$options = $filter['options'] ?? [];
+		$options = self::options_for_render( $type, $filter );
 		?>
 		<div class="eit-options eit-options--<?php echo esc_attr( $type ); ?>" data-eit-options>
 			<?php if ( empty( $options ) ) : ?>
@@ -35,6 +35,9 @@ class ChoiceOptionsRenderer {
 					<?php if ( 'checkbox' === $type ) : ?>
 						<span class="eit-checkbox-indicator" aria-hidden="true"></span>
 					<?php endif; ?>
+					<?php if ( 'radio' === $type ) : ?>
+						<span class="eit-radio-indicator" aria-hidden="true"></span>
+					<?php endif; ?>
 					<?php if ( 'swatch' === $type && $option['visual'] ) : ?>
 						<span class="eit-swatch" style="<?php echo esc_attr( FilterOptions::swatch_style( $option['visual'] ) ); ?>" aria-hidden="true"></span>
 					<?php endif; ?>
@@ -51,5 +54,31 @@ class ChoiceOptionsRenderer {
 			<?php endforeach; ?>
 		</div>
 		<?php
+	}
+
+	private static function options_for_render( $type, array $filter ) {
+		$options = $filter['options'] ?? [];
+
+		if ( 'radio' !== $type || empty( $filter['radioShowAll'] ) ) {
+			return $options;
+		}
+
+		$label = trim( (string) ( $filter['radioAllLabel'] ?? '' ) );
+
+		if ( '' === $label ) {
+			$label = __( 'All', 'elementor-implementation-toolkit' );
+		}
+
+		array_unshift(
+			$options,
+			[
+				'value' => '',
+				'label' => $label,
+				'visual' => '',
+				'count' => null,
+			]
+		);
+
+		return $options;
 	}
 }

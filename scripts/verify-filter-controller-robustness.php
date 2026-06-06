@@ -82,6 +82,7 @@ function eit_fc_visibility_values( array $types, array $overrides = [] ) {
 			'eit_filter_has_field_controls'    => '',
 			'eit_filter_has_option_controls'   => '',
 			'eit_filter_has_checkbox_controls' => '',
+			'eit_filter_has_radio_controls'    => '',
 			'eit_filter_has_search_controls'   => '',
 			'eit_filter_has_select_controls'   => '',
 			'eit_filter_has_range_controls'    => '',
@@ -167,6 +168,8 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Select exposes native note, field height, arrow, and focus controls', isset( $controls['select_native_note'] ) && isset( $controls['select_field_height'] ) && isset( $controls['select_arrow_size'] ) && isset( $controls['select_arrow_color'] ) && isset( $controls['select_focus_ring_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Checkbox section remains registered for editor cadence', isset( $controls['section_checkbox_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Checkbox exposes layout, indicator, and focus style controls', isset( $controls['checkbox_direction'] ) && isset( $controls['checkbox_wrap'] ) && isset( $controls['checkbox_indicator_size'] ) && isset( $controls['checkbox_indicator_position'] ) && isset( $controls['checkbox_focus_ring_color'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Radio section remains registered for editor cadence', isset( $controls['section_radio_style'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Radio exposes layout, segmented, indicator, and focus style controls', isset( $controls['radio_direction'] ) && isset( $controls['radio_segmented'] ) && isset( $controls['radio_indicator_size'] ) && isset( $controls['radio_dot_size'] ) && isset( $controls['radio_focus_ring_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section remains registered for editor cadence', isset( $controls['section_range_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range exposes vertical rail side controls', isset( $controls['range_value_label_position'] ) && isset( $controls['range_tick_position'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating section remains registered for editor cadence', isset( $controls['section_rating_style'] ) );
@@ -179,6 +182,7 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Search as its own style family', false !== strpos( $editor_js, 'eit_filter_has_search_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-search' ) && false !== strpos( $editor_css, '.elementor-control-section_search_style' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Select as its own style family', false !== strpos( $editor_js, 'eit_filter_has_select_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-select' ) && false !== strpos( $editor_css, '.elementor-control-section_select_style' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Checkbox as its own style family', false !== strpos( $editor_js, 'eit_filter_has_checkbox_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-checkbox' ) && false !== strpos( $editor_css, '.elementor-control-section_checkbox_style' ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Radio as its own style family', false !== strpos( $editor_js, 'eit_filter_has_radio_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-radio' ) && false !== strpos( $editor_css, '.elementor-control-section_radio_style' ) );
 
 	eit_fc_assert(
 		'TEST-FC-ROBUSTNESS-001',
@@ -210,6 +214,7 @@ eit_fc_assert( 'TEST-FC-ROBUSTNESS-011', 'Search field CSS anatomy exists', fals
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-011', 'Search frontend JS clear and debounce contract exists', false !== strpos( $frontend_js, 'data-eit-search-clear' ) && false !== strpos( $frontend_js, 'searchDebounceMs' ) && false !== strpos( $frontend_js, 'syncSearchClearButtons' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-012', 'Select field CSS anatomy exists', false !== strpos( $css, '.eit-select-field' ) && false !== strpos( $css, '.eit-select-field__arrow' ) && false !== strpos( $css, '--eit-select-focus-ring-color' ) && false !== strpos( $css, 'text-overflow: ellipsis' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-013', 'Checkbox CSS indicator and count contract exists', false !== strpos( $css, '.eit-checkbox-indicator' ) && false !== strpos( $css, '.eit-option-count' ) && false !== strpos( $css, '--eit-checkbox-indicator-size' ) && false !== strpos( $css, '.eit-options__empty' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-014', 'Radio CSS indicator and segmented contract exists', false !== strpos( $css, '.eit-radio-indicator' ) && false !== strpos( $css, '--eit-radio-indicator-size' ) && false !== strpos( $css, '--eit-radio-dot-size' ) && false !== strpos( $css, '--eit-radio-active-background' ) );
 
 $runtime_config = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 375 ] );
 $runtime_config_clamped = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 5000 ] );
@@ -266,6 +271,22 @@ ob_start();
 ChoiceOptionsRenderer::render( 'checkbox', [ 'options' => [] ], 'eit-empty-checkbox', 'category' );
 $empty_checkbox_markup = ob_get_clean();
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-013', 'Checkbox renderer emits empty options state', false !== strpos( $empty_checkbox_markup, 'data-eit-options-empty' ) );
+
+$radio_options = FilterOptions::parse( "premium|Premium||5\nstandard|Standard||2" );
+ob_start();
+ChoiceOptionsRenderer::render(
+	'radio',
+	[
+		'options'       => $radio_options,
+		'radioShowAll'  => true,
+		'radioAllLabel' => 'All tiers',
+	],
+	'eit-qa-radio',
+	'tier'
+);
+$radio_markup = ob_get_clean();
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-014', 'Radio renderer emits single-choice inputs with custom indicator', false !== strpos( $radio_markup, 'type="radio"' ) && false !== strpos( $radio_markup, 'eit-radio-indicator' ) && false === strpos( $radio_markup, 'name="eit-qa-radio[]"' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-014', 'Radio renderer emits optional all-state as empty value', false !== strpos( $radio_markup, 'value=""' ) && false !== strpos( $radio_markup, 'All tiers' ) );
 
 $original_definitions = get_option( CptManager::OPTION, [] );
 $original_presets     = get_option( FilterPresets::OPTION, [] );
@@ -392,6 +413,31 @@ try {
 
 		$mapped = FilterSettings::map_preset_filters_to_widget_filters( $preset['filters'] ?? [] );
 		eit_fc_assert( 'TEST-FC-ROBUSTNESS-003', 'Preset import restores Elementor __dynamic__ field binding', ! empty( $mapped[0]['__dynamic__']['field_binding'] ) );
+
+		$radio_preset_id = FilterPresets::save(
+			[
+				'name'    => 'QA Radio All Option',
+				'slug'    => 'qa-radio-all-option',
+				'filters' => [
+					FilterPresets::blank_filter(
+						[
+							'enabled'         => true,
+							'label'           => 'Tier',
+							'type'            => 'radio',
+							'key'             => 'qa_select',
+							'options'         => "premium|Premium\nstandard|Standard",
+							'radio_show_all'  => true,
+							'radio_all_label' => 'All tiers',
+						]
+					),
+				],
+			]
+		);
+		$radio_preset = FilterPresets::get( $radio_preset_id );
+		$radio_filter = $radio_preset['filters'][0] ?? [];
+		eit_fc_assert( 'TEST-FC-ROBUSTNESS-014', 'Preset stores Radio all option settings', ! empty( $radio_filter['radio_show_all'] ) && 'All tiers' === ( $radio_filter['radio_all_label'] ?? '' ) );
+		$radio_mapped = FilterSettings::map_preset_filters_to_widget_filters( $radio_preset['filters'] ?? [] );
+		eit_fc_assert( 'TEST-FC-ROBUSTNESS-014', 'Preset import restores Radio all option settings', 'yes' === ( $radio_mapped[0]['radio_show_all'] ?? '' ) && 'All tiers' === ( $radio_mapped[0]['radio_all_label'] ?? '' ) );
 
 		$post_id = wp_insert_post(
 			[
@@ -520,6 +566,7 @@ eit_fc_skip( 'TEST-FC-ROBUSTNESS-010', 'Elementor fallback warning screenshot pa
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-011', 'Search visual and interaction QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend visual QA for icon, clear button, focus state, and typing feel.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-012', 'Select native picker visual QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for closed-field styling, long labels, browser picker behavior, and mobile picker feel.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-013', 'Checkbox visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for indicator feel, multiple checked states, keyboard focus, counts, wrapping, and mobile layout.' ] );
+eit_fc_skip( 'TEST-FC-ROBUSTNESS-014', 'Radio visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for single-choice clarity, segmented mode, All option clearing, keyboard arrows, focus, and mobile wrapping.' ] );
 
 $failures = array_values(
 	array_filter(

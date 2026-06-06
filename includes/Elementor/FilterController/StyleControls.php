@@ -15,6 +15,7 @@ use EIT\Elementor\FilterController\StyleControls\Shared\SortStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Shared\StateStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Checkbox\CheckboxStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Range\RangeStyleControls;
+use EIT\Elementor\FilterController\StyleControls\Types\Radio\RadioStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Rating\RatingStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Select\SelectStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Search\SearchStyleControls;
@@ -31,6 +32,7 @@ class StyleControls {
 		FieldStyleControls::register( $widget );
 		OptionStyleControls::register( $widget );
 		CheckboxStyleControls::register( $widget );
+		RadioStyleControls::register( $widget );
 		SearchStyleControls::register( $widget );
 		SelectStyleControls::register( $widget );
 		RangeStyleControls::register( $widget );
