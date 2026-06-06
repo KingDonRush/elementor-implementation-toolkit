@@ -11,6 +11,53 @@
     padding: 10px 12px;
 }
 
+.eit-select-field {
+    position: relative;
+    display: grid;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.eit-filter-controller .eit-select-field .eit-select {
+    padding-inline-end: calc(var(--eit-select-arrow-size) + 28px);
+    appearance: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.eit-filter-controller .eit-select-field .eit-select:focus {
+    outline: 0;
+    border-color: var(--eit-accent);
+    box-shadow: 0 0 0 3px var(--eit-select-focus-ring-color);
+}
+
+.eit-select-field__arrow {
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 12px;
+    z-index: 1;
+    display: inline-flex;
+    width: var(--eit-select-arrow-size);
+    height: var(--eit-select-arrow-size);
+    align-items: center;
+    justify-content: center;
+    color: var(--eit-select-arrow-color);
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.eit-select-field__arrow-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.eit-select-field--empty-options .eit-select {
+    color: var(--eit-muted);
+}
+
 .eit-search-field {
     position: relative;
     display: grid;

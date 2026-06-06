@@ -309,6 +309,7 @@ class ContentControls {
 				'label'     => esc_html__( 'Placeholder', 'elementor-implementation-toolkit' ),
 				'type'      => Controls_Manager::TEXT,
 				'default'   => esc_html__( 'Search...', 'elementor-implementation-toolkit' ),
+				'description' => esc_html__( 'For Select, this becomes the empty option label, such as All items.', 'elementor-implementation-toolkit' ),
 				'condition' => [
 					'type' => [ 'search', 'select' ],
 				],

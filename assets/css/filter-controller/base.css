@@ -11,6 +11,9 @@
     --eit-search-clear-hover-color: var(--eit-text);
     --eit-search-clear-hover-background: #eef2f7;
     --eit-search-focus-ring-color: rgba(15, 118, 110, 0.24);
+    --eit-select-arrow-color: var(--eit-muted);
+    --eit-select-arrow-size: 16px;
+    --eit-select-focus-ring-color: rgba(15, 118, 110, 0.24);
     --eit-range-accent-color: var(--eit-accent);
     --eit-range-track-color: var(--eit-border);
     --eit-range-fill-color: var(--eit-range-accent-color);

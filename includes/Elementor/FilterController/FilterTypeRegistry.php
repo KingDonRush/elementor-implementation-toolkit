@@ -140,6 +140,7 @@ class FilterTypeRegistry {
 			'eit_filter_has_field_controls'  => self::types_have_style_family( $types, 'field' ) ? 'yes' : '',
 			'eit_filter_has_option_controls' => self::types_have_style_family( $types, 'option' ) ? 'yes' : '',
 			'eit_filter_has_search_controls' => in_array( 'search', $types, true ) ? 'yes' : '',
+			'eit_filter_has_select_controls' => in_array( 'select', $types, true ) ? 'yes' : '',
 			'eit_filter_has_range_controls'  => in_array( 'range', $types, true ) ? 'yes' : '',
 			'eit_filter_has_rating_controls' => in_array( 'rating', $types, true ) ? 'yes' : '',
 		];

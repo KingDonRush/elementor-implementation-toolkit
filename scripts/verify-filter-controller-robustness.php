@@ -15,6 +15,7 @@ use EIT\Elementor\FilterController\FieldBindingResolver;
 use EIT\Elementor\FilterController\FilterSettings;
 use EIT\Elementor\FilterController\FilterTypeRegistry;
 use EIT\Elementor\FilterController\Renderers\Types\SearchRenderer;
+use EIT\Elementor\FilterController\Renderers\Types\SelectRenderer;
 use EIT\Elementor\FilterController\RuntimeConfig;
 use EIT\Elementor\Widgets\FilterController;
 use EIT\Support\FilterPresets;
@@ -79,6 +80,7 @@ function eit_fc_visibility_values( array $types, array $overrides = [] ) {
 			'eit_filter_has_field_controls'   => '',
 			'eit_filter_has_option_controls'  => '',
 			'eit_filter_has_search_controls'  => '',
+			'eit_filter_has_select_controls'  => '',
 			'eit_filter_has_range_controls'   => '',
 			'eit_filter_has_rating_controls'  => '',
 		],
@@ -158,6 +160,8 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Search debounce control remains registered', isset( $controls['search_debounce_ms'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Search section remains registered for editor cadence', isset( $controls['section_search_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Search exposes icon, clear, and focus style controls', isset( $controls['search_icon_size'] ) && isset( $controls['search_icon_color'] ) && isset( $controls['search_clear_color'] ) && isset( $controls['search_focus_ring_color'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Select section remains registered for editor cadence', isset( $controls['section_select_style'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Select exposes native note, field height, arrow, and focus controls', isset( $controls['select_native_note'] ) && isset( $controls['select_field_height'] ) && isset( $controls['select_arrow_size'] ) && isset( $controls['select_arrow_color'] ) && isset( $controls['select_focus_ring_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section remains registered for editor cadence', isset( $controls['section_range_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range exposes vertical rail side controls', isset( $controls['range_value_label_position'] ) && isset( $controls['range_tick_position'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating section remains registered for editor cadence', isset( $controls['section_rating_style'] ) );
@@ -168,6 +172,7 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence falls back from empty repeater DOM to widget model', false !== strpos( $editor_js, 'return rows.length ? rows : null;' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence uses body classes instead of inline control display', false !== strpos( $editor_js, 'eit-filter-style-cadence-active' ) && false === strpos( $editor_js, 'style.display' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Search as its own style family', false !== strpos( $editor_js, 'eit_filter_has_search_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-search' ) && false !== strpos( $editor_css, '.elementor-control-section_search_style' ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Select as its own style family', false !== strpos( $editor_js, 'eit_filter_has_select_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-select' ) && false !== strpos( $editor_css, '.elementor-control-section_select_style' ) );
 
 	eit_fc_assert(
 		'TEST-FC-ROBUSTNESS-001',
@@ -197,6 +202,7 @@ eit_fc_assert( 'TEST-FC-ROBUSTNESS-006', 'Vertical range supports rail side clas
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-008', 'Rating display and icon CSS contract exists', false !== strpos( $css, '.eit-rating-option__icon' ) && false !== strpos( $css, '.eit-rating-option--display-icon .eit-rating-option__label' ) && false !== strpos( $css, '--eit-rating-icon-size' ) && false !== strpos( $css, '--eit-rating-active-icon-color' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-011', 'Search field CSS anatomy exists', false !== strpos( $css, '.eit-search-field' ) && false !== strpos( $css, '.eit-search-field__clear' ) && false !== strpos( $css, '--eit-search-focus-ring-color' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-011', 'Search frontend JS clear and debounce contract exists', false !== strpos( $frontend_js, 'data-eit-search-clear' ) && false !== strpos( $frontend_js, 'searchDebounceMs' ) && false !== strpos( $frontend_js, 'syncSearchClearButtons' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-012', 'Select field CSS anatomy exists', false !== strpos( $css, '.eit-select-field' ) && false !== strpos( $css, '.eit-select-field__arrow' ) && false !== strpos( $css, '--eit-select-focus-ring-color' ) && false !== strpos( $css, 'text-overflow: ellipsis' ) );
 
 $runtime_config = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 375 ] );
 $runtime_config_clamped = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 5000 ] );
@@ -215,6 +221,24 @@ SearchRenderer::render(
 $search_markup = ob_get_clean();
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-011', 'Search renderer emits wrapped clearable field', false !== strpos( $search_markup, 'data-eit-search-field' ) && false !== strpos( $search_markup, 'data-eit-search-input' ) && false !== strpos( $search_markup, 'data-eit-search-clear' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-011', 'Search renderer keeps global visible-text source contract', false !== strpos( $search_markup, 'data-eit-key=""' ) && false !== strpos( $search_markup, 'type="search"' ) );
+
+ob_start();
+SelectRenderer::render(
+	[
+		'label'       => 'Select QA',
+		'placeholder' => 'All items',
+		'options'     => [
+			[
+				'value' => 'premium',
+				'label' => 'Premium option with a long label',
+			],
+		],
+	],
+	'category'
+);
+$select_markup = ob_get_clean();
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-012', 'Select renderer emits native select with wrapper arrow', false !== strpos( $select_markup, 'data-eit-select-field' ) && false !== strpos( $select_markup, 'eit-select-field__arrow' ) && false !== strpos( $select_markup, 'data-eit-key="category"' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-012', 'Select renderer keeps empty option as all-state label', false !== strpos( $select_markup, '<option value="">All items</option>' ) && false !== strpos( $select_markup, 'value="premium"' ) );
 
 $original_definitions = get_option( CptManager::OPTION, [] );
 $original_presets     = get_option( FilterPresets::OPTION, [] );
@@ -467,6 +491,7 @@ eit_fc_skip( 'TEST-FC-ROBUSTNESS-007', 'Option filter visual matrix', [ 'owner' 
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-008', 'Rating icon visual QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires visual QA for rating icon choice, active state, spacing, and label balance.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-010', 'Elementor fallback warning screenshot path', [ 'owner' => 'Guilherme', 'reason' => 'Requires normal and simulated fallback editor screenshots plus console notes.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-011', 'Search visual and interaction QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend visual QA for icon, clear button, focus state, and typing feel.' ] );
+eit_fc_skip( 'TEST-FC-ROBUSTNESS-012', 'Select native picker visual QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for closed-field styling, long labels, browser picker behavior, and mobile picker feel.' ] );
 
 $failures = array_values(
 	array_filter(

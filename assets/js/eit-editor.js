@@ -14,6 +14,7 @@
         'eit_filter_has_field_controls',
         'eit_filter_has_option_controls',
         'eit_filter_has_search_controls',
+        'eit_filter_has_select_controls',
         'eit_filter_has_range_controls',
         'eit_filter_has_rating_controls'
     ];
@@ -857,6 +858,7 @@
                 return typeHasStyleFamily(type, 'option');
             }) ? 'yes' : '',
             eit_filter_has_search_controls: hasType(types, 'search') ? 'yes' : '',
+            eit_filter_has_select_controls: hasType(types, 'select') ? 'yes' : '',
             eit_filter_has_range_controls: hasType(types, 'range') ? 'yes' : '',
             eit_filter_has_rating_controls: hasType(types, 'rating') ? 'yes' : ''
         };
@@ -899,12 +901,13 @@
         $body.toggleClass('eit-filter-style-has-field', 'yes' === flags.eit_filter_has_field_controls);
         $body.toggleClass('eit-filter-style-has-option', 'yes' === flags.eit_filter_has_option_controls);
         $body.toggleClass('eit-filter-style-has-search', 'yes' === flags.eit_filter_has_search_controls);
+        $body.toggleClass('eit-filter-style-has-select', 'yes' === flags.eit_filter_has_select_controls);
         $body.toggleClass('eit-filter-style-has-range', 'yes' === flags.eit_filter_has_range_controls);
         $body.toggleClass('eit-filter-style-has-rating', 'yes' === flags.eit_filter_has_rating_controls);
     }
 
     function clearStylePanelCadence() {
-        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-search eit-filter-style-has-range eit-filter-style-has-rating');
+        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-search eit-filter-style-has-select eit-filter-style-has-range eit-filter-style-has-rating');
     }
 
     function syncFilterTypeState() {
