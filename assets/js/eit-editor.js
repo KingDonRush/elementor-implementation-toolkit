@@ -13,6 +13,7 @@
     var filterTypeStateControls = [
         'eit_filter_has_field_controls',
         'eit_filter_has_option_controls',
+        'eit_filter_has_search_controls',
         'eit_filter_has_range_controls',
         'eit_filter_has_rating_controls'
     ];
@@ -216,6 +217,7 @@
                 target_selector: getSetting(settings, 'target_selector', ''),
                 item_selector: getSetting(settings, 'item_selector', ''),
                 apply_mode: showApply ? 'button' : 'auto',
+                search_debounce_ms: getSetting(settings, 'search_debounce_ms', 250),
                 sync_url: isTruthy(getSetting(settings, 'sync_url', 'yes')),
                 per_page: getSetting(settings, 'per_page', 9),
                 show_result_count: isTruthy(getSetting(settings, 'show_result_count', 'yes')),
@@ -854,6 +856,7 @@
             eit_filter_has_option_controls: types.some(function (type) {
                 return typeHasStyleFamily(type, 'option');
             }) ? 'yes' : '',
+            eit_filter_has_search_controls: hasType(types, 'search') ? 'yes' : '',
             eit_filter_has_range_controls: hasType(types, 'range') ? 'yes' : '',
             eit_filter_has_rating_controls: hasType(types, 'rating') ? 'yes' : ''
         };
@@ -895,12 +898,13 @@
         $body.addClass('eit-filter-style-cadence-active');
         $body.toggleClass('eit-filter-style-has-field', 'yes' === flags.eit_filter_has_field_controls);
         $body.toggleClass('eit-filter-style-has-option', 'yes' === flags.eit_filter_has_option_controls);
+        $body.toggleClass('eit-filter-style-has-search', 'yes' === flags.eit_filter_has_search_controls);
         $body.toggleClass('eit-filter-style-has-range', 'yes' === flags.eit_filter_has_range_controls);
         $body.toggleClass('eit-filter-style-has-rating', 'yes' === flags.eit_filter_has_rating_controls);
     }
 
     function clearStylePanelCadence() {
-        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-range eit-filter-style-has-rating');
+        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-search eit-filter-style-has-range eit-filter-style-has-rating');
     }
 
     function syncFilterTypeState() {

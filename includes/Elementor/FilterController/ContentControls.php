@@ -155,6 +155,23 @@ class ContentControls {
 		);
 
 		$widget->add_control(
+			'search_debounce_ms',
+			[
+				'label'              => esc_html__( 'Search Debounce (ms)', 'elementor-implementation-toolkit' ),
+				'type'               => Controls_Manager::NUMBER,
+				'min'                => 0,
+				'max'                => 2000,
+				'step'               => 50,
+				'default'            => 250,
+				'description'        => esc_html__( 'Waits before auto-applying while someone types in Search. Other filters still apply immediately.', 'elementor-implementation-toolkit' ),
+				'frontend_available' => true,
+				'condition'          => [
+					'auto_apply' => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
 			'sync_url',
 			[
 				'label'              => esc_html__( 'Sync URL Parameters', 'elementor-implementation-toolkit' ),

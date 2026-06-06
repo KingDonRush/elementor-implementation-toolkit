@@ -96,12 +96,14 @@
         this.itemMap = {};
         this.lastResult = null;
         this.isApplying = false;
+        this.searchTimer = null;
         this.init();
     }
 
     Controller.prototype.init = function () {
         this.bind();
         this.readUrlState();
+        this.syncSearchClearButtons();
         this.syncRangeInputs();
         this.updateOptionStates();
         this.refreshTarget();
@@ -113,16 +115,38 @@
 
         this.$root.on('submit', '.eit-filter-controller__form', function (event) {
             event.preventDefault();
+            self.clearSearchTimer();
             self.page = 1;
             self.apply(true);
         });
 
-        this.$root.on('input change', '[data-eit-control], [data-eit-sort]', function () {
+        this.$root.on('input change', '[data-eit-control], [data-eit-sort]', function (event) {
             self.updateOptionStates();
             self.syncRangeInputs(this);
+            self.syncSearchClearButtons();
 
             if (self.config.autoApply) {
                 self.page = 1;
+                self.scheduleAutoApply(this, event.type);
+            }
+        });
+
+        this.$root.on('click', '[data-eit-search-clear]', function () {
+            var input = $(this).closest('[data-eit-search-field]').find('[data-eit-search-input]').get(0);
+
+            if (!input) {
+                return;
+            }
+
+            input.value = '';
+            input.focus();
+            self.page = 1;
+            self.updateOptionStates();
+            self.syncSearchClearButtons();
+
+            self.clearSearchTimer();
+
+            if (self.config.autoApply) {
                 self.apply(true);
             }
         });
@@ -132,11 +156,13 @@
         });
 
         this.$root.on('click', '[data-eit-page]', function () {
+            self.clearSearchTimer();
             self.page = parseInt($(this).attr('data-eit-page'), 10) || 1;
             self.apply(true);
         });
 
         this.$root.on('click', '[data-eit-remove-filter]', function () {
+            self.clearSearchTimer();
             self.clearFilter($(this).attr('data-eit-remove-filter'));
             self.page = 1;
             self.apply(true);
@@ -494,7 +520,9 @@
         });
         this.$root.find('[data-eit-sort]').val('default');
         this.page = 1;
+        this.clearSearchTimer();
         this.updateOptionStates();
+        this.syncSearchClearButtons();
         this.apply(true);
     };
 
@@ -517,6 +545,35 @@
         });
 
         this.updateOptionStates();
+        this.syncSearchClearButtons();
+    };
+
+    Controller.prototype.scheduleAutoApply = function (control, eventType) {
+        var self = this;
+        var $control = $(control);
+        var delay = parseInt(this.config.searchDebounceMs, 10) || 0;
+        var isSearchInput = 'search' === $control.attr('data-eit-type') && 'input' === eventType;
+
+        this.clearSearchTimer();
+
+        if (isSearchInput && delay > 0) {
+            this.searchTimer = window.setTimeout(function () {
+                self.searchTimer = null;
+                self.apply(true);
+            }, delay);
+            return;
+        }
+
+        this.apply(true);
+    };
+
+    Controller.prototype.clearSearchTimer = function () {
+        if (!this.searchTimer) {
+            return;
+        }
+
+        window.clearTimeout(this.searchTimer);
+        this.searchTimer = null;
     };
 
     Controller.prototype.resetRange = function ($range) {
@@ -547,6 +604,19 @@
         }
 
         this.syncRangeInputs($minNumber.get(0));
+    };
+
+    Controller.prototype.syncSearchClearButtons = function () {
+        this.$root.find('[data-eit-search-field]').each(function () {
+            var input = $(this).find('[data-eit-search-input]').get(0);
+            var button = $(this).find('[data-eit-search-clear]').get(0);
+
+            if (!input || !button) {
+                return;
+            }
+
+            button.hidden = !input.value;
+        });
     };
 
     Controller.prototype.resetDate = function ($date) {

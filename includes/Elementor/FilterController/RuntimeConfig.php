@@ -17,6 +17,7 @@ class RuntimeConfig {
 			'targetSelector'  => sanitize_text_field( $settings['target_selector'] ?? '' ),
 			'itemSelector'    => sanitize_text_field( $settings['item_selector'] ?? '' ),
 			'autoApply'       => ( $settings['auto_apply'] ?? 'yes' ) === 'yes',
+			'searchDebounceMs' => max( 0, min( 2000, absint( $settings['search_debounce_ms'] ?? 250 ) ) ),
 			'syncUrl'         => ( $settings['sync_url'] ?? 'yes' ) === 'yes',
 			'perPage'         => max( 1, min( 96, absint( $settings['per_page'] ?? 9 ) ) ),
 			'paginationType'  => sanitize_key( $settings['pagination_type'] ?? 'numbers' ),

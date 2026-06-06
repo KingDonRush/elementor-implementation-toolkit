@@ -38,6 +38,7 @@ class FilterPresetEndpoint {
 		'target_selector',
 		'item_selector',
 		'apply_mode',
+		'search_debounce_ms',
 		'sync_url',
 		'per_page',
 		'show_result_count',

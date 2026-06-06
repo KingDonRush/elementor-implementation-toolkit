@@ -15,6 +15,7 @@ use EIT\Elementor\FilterController\StyleControls\Shared\SortStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Shared\StateStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Range\RangeStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Rating\RatingStyleControls;
+use EIT\Elementor\FilterController\StyleControls\Types\Search\SearchStyleControls;
 use Elementor\Widget_Base;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -27,6 +28,7 @@ class StyleControls {
 		LayoutStyleControls::register( $widget );
 		FieldStyleControls::register( $widget );
 		OptionStyleControls::register( $widget );
+		SearchStyleControls::register( $widget );
 		RangeStyleControls::register( $widget );
 		RatingStyleControls::register( $widget );
 		SortStyleControls::register( $widget );

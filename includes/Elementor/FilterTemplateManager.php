@@ -265,6 +265,7 @@ class FilterTemplateManager {
 							'configuration_source' => 'preset',
 							'filter_preset'        => $preset_id,
 							'auto_apply'           => 'yes',
+							'search_debounce_ms'   => $preset['search_debounce_ms'] ?? 250,
 							'sync_url'             => ! empty( $preset['sync_url'] ) ? 'yes' : '',
 						],
 						'elements'   => [],

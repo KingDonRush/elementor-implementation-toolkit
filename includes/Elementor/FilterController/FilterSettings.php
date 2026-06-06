@@ -42,6 +42,7 @@ class FilterSettings {
 		$resolved['item_selector']     = ! empty( $settings['item_selector'] ) ? $settings['item_selector'] : ( $preset['item_selector'] ?? '' );
 		$resolved['auto_apply']        = 'auto' === ( $preset['apply_mode'] ?? 'auto' ) ? 'yes' : '';
 		$resolved['show_apply']        = 'button' === ( $preset['apply_mode'] ?? 'auto' ) ? 'yes' : '';
+		$resolved['search_debounce_ms'] = $preset['search_debounce_ms'] ?? ( $settings['search_debounce_ms'] ?? 250 );
 		$resolved['sync_url']          = ! empty( $preset['sync_url'] ) ? 'yes' : '';
 		$resolved['per_page']          = $preset['per_page'] ?? ( $settings['per_page'] ?? 9 );
 		$resolved['show_result_count'] = ! empty( $preset['show_result_count'] ) ? 'yes' : '';
@@ -70,6 +71,7 @@ class FilterSettings {
 			'item_selector'        => $preset['item_selector'] ?? '',
 			'auto_apply'           => 'auto' === ( $preset['apply_mode'] ?? 'auto' ) ? 'yes' : '',
 			'show_apply'           => 'button' === ( $preset['apply_mode'] ?? 'auto' ) ? 'yes' : '',
+			'search_debounce_ms'   => $preset['search_debounce_ms'] ?? 250,
 			'sync_url'             => ! empty( $preset['sync_url'] ) ? 'yes' : '',
 			'per_page'             => $preset['per_page'] ?? 9,
 			'show_result_count'    => ! empty( $preset['show_result_count'] ) ? 'yes' : '',

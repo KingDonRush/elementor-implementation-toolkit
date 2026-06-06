@@ -964,6 +964,7 @@ class FilterPresetAdmin {
 			'target_selector',
 			'item_selector',
 			'apply_mode',
+			'search_debounce_ms',
 			'sync_url',
 			'per_page',
 			'show_result_count',
@@ -1123,6 +1124,7 @@ class FilterPresetAdmin {
 					<h4><?php esc_html_e( 'Preset defaults', 'elementor-implementation-toolkit' ); ?></h4>
 					<div class="eit-form-grid eit-form-grid--four">
 						<?php $this->select_field( 'preset[apply_mode]', __( 'Apply mode', 'elementor-implementation-toolkit' ), $preset['apply_mode'] ?? 'auto', FilterPresets::apply_modes() ); ?>
+						<?php $this->number_field( 'preset[search_debounce_ms]', __( 'Search debounce (ms)', 'elementor-implementation-toolkit' ), $preset['search_debounce_ms'] ?? 250, 0, 2000, 50 ); ?>
 						<?php $this->number_field( 'preset[per_page]', __( 'Items per page', 'elementor-implementation-toolkit' ), $preset['per_page'] ?? 9, 1, 96, 1 ); ?>
 						<?php $this->checkbox_field( 'preset[sync_url]', __( 'Sync URL', 'elementor-implementation-toolkit' ), ! empty( $preset['sync_url'] ) ); ?>
 						<?php $this->textarea_field( 'preset[description]', __( 'Internal note', 'elementor-implementation-toolkit' ), $preset['description'] ?? '', 3 ); ?>
