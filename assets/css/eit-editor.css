@@ -137,6 +137,22 @@ body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor
 body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_value_color,
 body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_tick_color,
 body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-section_rating_style,
-body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_color {
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) [class*="elementor-control-rating_typography"],
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_color,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_active_color,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_background,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_active_background,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_border_color,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_active_border_color,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_radius,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_padding,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_icon_heading,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_icon_enabled,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_icon,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_icon_position,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_icon_size,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_icon_gap,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_icon_color,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-rating) .elementor-control-rating_active_icon_color {
     display: none !important;
 }

@@ -127,6 +127,7 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section remains registered for editor cadence', isset( $controls['section_range_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating section remains registered for editor cadence', isset( $controls['section_rating_style'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating exposes icon and state style controls', isset( $controls['rating_icon'] ) && isset( $controls['rating_icon_size'] ) && isset( $controls['rating_icon_gap'] ) && isset( $controls['rating_active_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Option section remains registered for editor cadence', isset( $controls['section_option_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Field controls remain registered for editor cadence', isset( $controls['field_text_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Style controls no longer depend on hidden filter flags', false === strpos( file_get_contents( EIT_PATH . 'includes/Elementor/FilterController/StyleControls.php' ), 'eit_filter_has_' ) );
@@ -156,6 +157,7 @@ eit_fc_assert( 'TEST-FC-ROBUSTNESS-002', 'Inputs are full-width inside container
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-006', 'Range hidden inputs do not reserve visible layout space', false !== strpos( $css, '.eit-range:not(.eit-range--show-inputs) .eit-range__values' ) && false !== strpos( $css, "display: none;\n}" ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-006', 'Range icon visual bounds constrain oversized icons', false !== strpos( $css, '--eit-range-thumb-visual-size: max(' ) && false !== strpos( $css, 'max-width: calc(var(--eit-range-thumb-visual-size)' ) && false !== strpos( $css, 'overflow: hidden;' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-006', 'Vertical range has alignment variables', false !== strpos( $css, '--eit-range-vertical-alignment' ) && false !== strpos( $css, '--eit-range-vertical-item-alignment' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-008', 'Rating icon CSS contract exists', false !== strpos( $css, '.eit-rating-option__icon' ) && false !== strpos( $css, '--eit-rating-icon-size' ) && false !== strpos( $css, '--eit-rating-active-icon-color' ) );
 
 $original_definitions = get_option( CptManager::OPTION, [] );
 $original_presets     = get_option( FilterPresets::OPTION, [] );
@@ -402,7 +404,7 @@ eit_fc_skip( 'TEST-FC-ROBUSTNESS-001', 'Elementor multi-click Style cadence QA',
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-002', 'Desktop/mobile visual containment screenshots', [ 'owner' => 'Guilherme', 'reason' => 'Requires browser/editor visual hierarchy judgment.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-006', 'Range visual variants screenshots', [ 'owner' => 'Guilherme', 'reason' => 'Requires visual QA for vertical labels, ticks, icon handle feel, and responsive layout.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-007', 'Option filter visual matrix', [ 'owner' => 'Guilherme', 'reason' => 'Type-specific option visuals are not complete enough for a full visual pass.' ] );
-eit_fc_skip( 'TEST-FC-ROBUSTNESS-008', 'Rating icon visual QA', [ 'owner' => 'Guilherme', 'reason' => 'Rating still needs icon/star implementation before visual QA can pass.' ] );
+eit_fc_skip( 'TEST-FC-ROBUSTNESS-008', 'Rating icon visual QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires visual QA for rating icon choice, active state, spacing, and label balance.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-010', 'Elementor fallback warning screenshot path', [ 'owner' => 'Guilherme', 'reason' => 'Requires normal and simulated fallback editor screenshots plus console notes.' ] );
 
 $failures = array_values(
