@@ -11,6 +11,10 @@
     flex-direction: row-reverse;
 }
 
+.eit-rating-option--display-icon {
+    justify-content: center;
+}
+
 .eit-rating-option input {
     position: absolute;
     opacity: 0;
@@ -40,6 +44,23 @@
 
 .eit-rating-option__label {
     color: inherit;
+}
+
+.eit-rating-option--display-icon .eit-rating-option__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.eit-rating-option:focus-within {
+    border-color: var(--eit-rating-active-border-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--eit-rating-active-border-color) 22%, transparent);
 }
 
 .eit-rating-option.is-active,

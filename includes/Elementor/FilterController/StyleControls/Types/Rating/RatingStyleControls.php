@@ -23,6 +23,7 @@ class RatingStyleControls {
 			]
 		);
 
+		RatingDisplayStyleControls::register( $widget );
 		RatingBaseStyleControls::register( $widget );
 		RatingIconStyleControls::register( $widget );
 

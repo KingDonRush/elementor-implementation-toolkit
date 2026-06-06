@@ -31,6 +31,9 @@ class RatingIconStyleControls {
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => 'yes',
+				'condition'    => [
+					'rating_display_mode!' => 'text',
+				],
 			]
 		);
 
@@ -46,7 +49,8 @@ class RatingIconStyleControls {
 					'library' => 'fa-solid',
 				],
 				'condition'   => [
-					'rating_icon_enabled' => 'yes',
+					'rating_display_mode!' => 'text',
+					'rating_icon_enabled'  => 'yes',
 				],
 			]
 		);
@@ -68,7 +72,8 @@ class RatingIconStyleControls {
 					],
 				],
 				'condition' => [
-					'rating_icon_enabled' => 'yes',
+					'rating_display_mode!' => 'text',
+					'rating_icon_enabled'  => 'yes',
 				],
 			]
 		);
@@ -94,7 +99,8 @@ class RatingIconStyleControls {
 					'{{WRAPPER}} .eit-filter-controller' => '--eit-rating-icon-size: {{SIZE}}{{UNIT}};',
 				],
 				'condition'  => [
-					'rating_icon_enabled' => 'yes',
+					'rating_display_mode!' => 'text',
+					'rating_icon_enabled'  => 'yes',
 				],
 			]
 		);
@@ -120,7 +126,8 @@ class RatingIconStyleControls {
 					'{{WRAPPER}} .eit-filter-controller' => '--eit-rating-gap: {{SIZE}}{{UNIT}};',
 				],
 				'condition'  => [
-					'rating_icon_enabled' => 'yes',
+					'rating_display_mode!' => 'text',
+					'rating_icon_enabled'  => 'yes',
 				],
 			]
 		);
@@ -134,7 +141,8 @@ class RatingIconStyleControls {
 					'{{WRAPPER}} .eit-filter-controller' => '--eit-rating-icon-color: {{VALUE}};',
 				],
 				'condition' => [
-					'rating_icon_enabled' => 'yes',
+					'rating_display_mode!' => 'text',
+					'rating_icon_enabled'  => 'yes',
 				],
 			]
 		);
@@ -148,7 +156,8 @@ class RatingIconStyleControls {
 					'{{WRAPPER}} .eit-filter-controller' => '--eit-rating-active-icon-color: {{VALUE}};',
 				],
 				'condition' => [
-					'rating_icon_enabled' => 'yes',
+					'rating_display_mode!' => 'text',
+					'rating_icon_enabled'  => 'yes',
 				],
 			]
 		);

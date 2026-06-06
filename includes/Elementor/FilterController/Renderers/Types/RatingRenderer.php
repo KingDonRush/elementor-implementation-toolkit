@@ -15,16 +15,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 class RatingRenderer {
 
 	public static function render( array $filter, $name, $key, array $settings ) {
-		$options       = $filter['options'];
-		$rating_options = ! empty( $options ) ? $options : FilterOptions::default_rating_options();
-		$icon_html    = self::icon_html( $settings );
-		$icon_position = self::choice_setting( $settings, 'rating_icon_position', [ 'before', 'after' ], 'before' );
+		$options         = $filter['options'];
+		$rating_options  = ! empty( $options ) ? $options : FilterOptions::default_rating_options();
+		$icon_html       = self::icon_html( $settings );
+		$display_mode    = self::display_mode( $settings, $icon_html );
+		$icon_position   = self::choice_setting( $settings, 'rating_icon_position', [ 'before', 'after' ], 'before' );
 		?>
-		<div class="eit-options eit-options--rating" data-eit-options>
+		<div class="eit-options eit-options--rating eit-options--rating-display-<?php echo esc_attr( $display_mode ); ?>" data-eit-options>
 			<?php foreach ( $rating_options as $option ) : ?>
-				<label class="eit-option eit-rating-option eit-rating-option--icon-<?php echo esc_attr( $icon_position ); ?>">
+				<label class="eit-option eit-rating-option eit-rating-option--display-<?php echo esc_attr( $display_mode ); ?> eit-rating-option--icon-<?php echo esc_attr( $icon_position ); ?>">
 					<input type="radio" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( $option['value'] ); ?>" data-eit-control data-eit-type="rating" data-eit-key="<?php echo esc_attr( $key ); ?>" />
-					<?php self::render_icon( $icon_html ); ?>
+					<?php self::render_icon( $icon_html, $display_mode ); ?>
 					<span class="eit-rating-option__label"><?php echo esc_html( $option['label'] ); ?></span>
 				</label>
 			<?php endforeach; ?>
@@ -36,6 +37,16 @@ class RatingRenderer {
 		$value = sanitize_key( $settings[ $key ] ?? $fallback );
 
 		return in_array( $value, $allowed, true ) ? $value : $fallback;
+	}
+
+	private static function display_mode( array $settings, $icon_html ) {
+		$value = self::choice_setting( $settings, 'rating_display_mode', [ 'icon_text', 'icon', 'text' ], 'icon_text' );
+
+		if ( 'text' !== $value && '' === $icon_html ) {
+			return 'text';
+		}
+
+		return $value;
 	}
 
 	private static function icon_html( array $settings ) {
@@ -64,8 +75,8 @@ class RatingRenderer {
 		);
 	}
 
-	private static function render_icon( $icon_html ) {
-		if ( '' === $icon_html ) {
+	private static function render_icon( $icon_html, $display_mode ) {
+		if ( '' === $icon_html || 'text' === $display_mode ) {
 			return;
 		}
 
