@@ -131,7 +131,7 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Field controls remain registered for editor cadence', isset( $controls['field_text_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Style controls no longer depend on hidden filter flags', false === strpos( file_get_contents( EIT_PATH . 'includes/Elementor/FilterController/StyleControls.php' ), 'eit_filter_has_' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence falls back from empty repeater DOM to widget model', false !== strpos( $editor_js, 'return rows.length ? rows : null;' ) );
-	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence controls field input styles separately', false !== strpos( $editor_js, 'styleCadenceControls.fields' ) && false !== strpos( $editor_js, 'eit_filter_has_field_controls' ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence uses body classes instead of inline control display', false !== strpos( $editor_js, 'eit-filter-style-cadence-active' ) && false === strpos( $editor_js, 'style.display' ) );
 
 	eit_fc_assert(
 		'TEST-FC-ROBUSTNESS-001',

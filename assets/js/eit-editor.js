@@ -16,69 +16,6 @@
         'eit_filter_has_range_controls',
         'eit_filter_has_rating_controls'
     ];
-    var styleCadenceControls = {
-        fields: [
-            'field_typography',
-            'field_text_color',
-            'field_background',
-            'field_border',
-            'field_radius',
-            'field_padding'
-        ],
-        options: [
-            'section_option_style',
-            'option_typography',
-            'option_color',
-            'option_background',
-            'option_active_color',
-            'option_active_background',
-            'option_border',
-            'option_radius',
-            'option_padding'
-        ],
-        range: [
-            'section_range_style',
-            'range_orientation',
-            'range_show_values',
-            'range_show_ticks',
-            'range_vertical_alignment',
-            'range_vertical_item_alignment',
-            'range_input_heading',
-            'range_show_inputs',
-            'range_input_flow',
-            'range_input_position',
-            'range_input_width',
-            'range_input_gap',
-            'range_input_height',
-            'range_input_text_color',
-            'range_input_background',
-            'range_input_border_color',
-            'range_input_radius',
-            'range_input_padding',
-            'range_track_style',
-            'range_track_color',
-            'range_track_base_color',
-            'range_track_height',
-            'range_vertical_height',
-            'range_handle_size',
-            'range_handle_shape',
-            'range_handle_color',
-            'range_handle_border_color',
-            'range_handle_border_width',
-            'range_handle_icon_heading',
-            'range_handle_icon_enabled',
-            'range_handle_icon',
-            'range_handle_icon_size',
-            'range_handle_icon_color',
-            'range_value_color',
-            'range_tick_color'
-        ],
-        rating: [
-            'section_rating_style',
-            'rating_color'
-        ]
-    };
-
     function isTruthy(value) {
         return true === value || 1 === value || '1' === value || 'yes' === value || 'on' === value || 'true' === value;
     }
@@ -952,38 +889,18 @@
         });
     }
 
-    function setPanelControlGroupVisible(controlIds, isVisible) {
-        var didTouchControls = false;
+    function applyStylePanelCadence(flags) {
+        var $body = $('body');
 
-        $('.elementor-control').each(function () {
-            var element = this;
-            var className = element.className || '';
-            var matches = controlIds.some(function (controlId) {
-                return className.indexOf('elementor-control-' + controlId) !== -1;
-            });
-
-            if (!matches) {
-                return;
-            }
-
-            didTouchControls = true;
-            element.style.display = isVisible ? '' : 'none';
-
-            if (isVisible) {
-                element.removeAttribute('aria-hidden');
-            } else {
-                element.setAttribute('aria-hidden', 'true');
-            }
-        });
-
-        return didTouchControls;
+        $body.addClass('eit-filter-style-cadence-active');
+        $body.toggleClass('eit-filter-style-has-field', 'yes' === flags.eit_filter_has_field_controls);
+        $body.toggleClass('eit-filter-style-has-option', 'yes' === flags.eit_filter_has_option_controls);
+        $body.toggleClass('eit-filter-style-has-range', 'yes' === flags.eit_filter_has_range_controls);
+        $body.toggleClass('eit-filter-style-has-rating', 'yes' === flags.eit_filter_has_rating_controls);
     }
 
-    function applyStylePanelCadence(flags) {
-        setPanelControlGroupVisible(styleCadenceControls.fields, 'yes' === flags.eit_filter_has_field_controls);
-        setPanelControlGroupVisible(styleCadenceControls.options, 'yes' === flags.eit_filter_has_option_controls);
-        setPanelControlGroupVisible(styleCadenceControls.range, 'yes' === flags.eit_filter_has_range_controls);
-        setPanelControlGroupVisible(styleCadenceControls.rating, 'yes' === flags.eit_filter_has_rating_controls);
+    function clearStylePanelCadence() {
+        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-range eit-filter-style-has-rating');
     }
 
     function syncFilterTypeState() {
@@ -993,12 +910,14 @@
         var current;
 
         if (!container) {
+            clearStylePanelCadence();
             return;
         }
 
         filters = getFilterRows(container);
 
         if (!filters) {
+            clearStylePanelCadence();
             return;
         }
 

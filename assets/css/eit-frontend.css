@@ -399,76 +399,23 @@
 }
 
 .eit-range--vertical {
-    grid-template-areas: "sliders";
-    grid-template-columns: auto;
+    display: flex;
+    flex-wrap: wrap;
     column-gap: 16px;
+    row-gap: 10px;
     align-items: var(--eit-range-vertical-item-alignment);
     justify-content: var(--eit-range-vertical-alignment);
 }
 
-.eit-range--vertical.eit-range--show-values {
-    grid-template-areas: "labels sliders";
-    grid-template-columns: minmax(4ch, max-content) auto;
-}
-
-.eit-range--vertical.eit-range--show-ticks {
-    grid-template-areas: "sliders ticks";
-    grid-template-columns: auto minmax(4ch, max-content);
-}
-
-.eit-range--vertical.eit-range--show-values.eit-range--show-ticks {
-    grid-template-areas: "labels sliders ticks";
-    grid-template-columns: minmax(4ch, max-content) auto minmax(4ch, max-content);
-}
-
-.eit-range--vertical.eit-range--show-inputs {
-    grid-template-areas: "values sliders";
-    grid-template-columns: minmax(0, var(--eit-range-input-width)) auto;
-}
-
-.eit-range--vertical.eit-range--show-inputs.eit-range--show-values {
-    grid-template-areas: "values labels sliders";
-    grid-template-columns: minmax(0, var(--eit-range-input-width)) minmax(4ch, max-content) auto;
-}
-
-.eit-range--vertical.eit-range--show-inputs.eit-range--show-ticks {
-    grid-template-areas: "values sliders ticks";
-    grid-template-columns: minmax(0, var(--eit-range-input-width)) auto minmax(4ch, max-content);
-}
-
-.eit-range--vertical.eit-range--show-inputs.eit-range--show-values.eit-range--show-ticks {
-    grid-template-areas: "values labels sliders ticks";
-    grid-template-columns: minmax(0, var(--eit-range-input-width)) minmax(4ch, max-content) auto minmax(4ch, max-content);
-}
-
-.eit-range--vertical.eit-range--show-inputs.eit-range--inputs-right {
-    grid-template-areas: "sliders values";
-    grid-template-columns: auto minmax(0, var(--eit-range-input-width));
-}
-
-.eit-range--vertical.eit-range--show-inputs.eit-range--show-values.eit-range--inputs-right {
-    grid-template-areas: "labels sliders values";
-    grid-template-columns: minmax(4ch, max-content) auto minmax(0, var(--eit-range-input-width));
-}
-
-.eit-range--vertical.eit-range--show-inputs.eit-range--show-ticks.eit-range--inputs-right {
-    grid-template-areas: "sliders ticks values";
-    grid-template-columns: auto minmax(4ch, max-content) minmax(0, var(--eit-range-input-width));
-}
-
-.eit-range--vertical.eit-range--show-inputs.eit-range--show-values.eit-range--show-ticks.eit-range--inputs-right {
-    grid-template-areas: "labels sliders ticks values";
-    grid-template-columns: minmax(4ch, max-content) auto minmax(4ch, max-content) minmax(0, var(--eit-range-input-width));
-}
-
 .eit-range--vertical .eit-range__labels,
 .eit-range--vertical .eit-range__ticks {
+    flex: 0 1 auto;
     min-height: var(--eit-range-vertical-height);
     align-self: var(--eit-range-vertical-item-alignment);
 }
 
 .eit-range--vertical .eit-range__labels {
-    grid-area: labels;
+    order: 20;
     flex-direction: column-reverse;
     align-items: flex-end;
     justify-content: space-between;
@@ -482,25 +429,32 @@
 }
 
 .eit-range--vertical .eit-range__values {
-    grid-area: values;
+    order: 10;
     display: grid;
     grid-template-columns: 1fr;
     align-self: var(--eit-range-vertical-item-alignment);
+    flex: 1 1 min(100%, var(--eit-range-input-width));
     min-width: 0;
-    width: min(100%, var(--eit-range-input-width));
+    width: auto;
     max-width: 100%;
 }
 
+.eit-range--vertical.eit-range--inputs-right .eit-range__values {
+    order: 50;
+}
+
 .eit-range--vertical .eit-range__sliders {
-    grid-area: sliders;
+    order: 30;
     grid-template-columns: repeat(2, min-content);
+    flex: 0 0 auto;
     justify-content: center;
     align-items: center;
+    max-width: 100%;
     min-height: var(--eit-range-vertical-height);
 }
 
 .eit-range--vertical .eit-range__ticks {
-    grid-area: ticks;
+    order: 40;
     flex-direction: column-reverse;
     justify-content: space-between;
     min-width: 4ch;
