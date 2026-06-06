@@ -331,6 +331,18 @@ class ContentControls {
 		);
 
 		$repeater->add_control(
+			'toggle_value_note',
+			[
+				'type'            => Controls_Manager::RAW_HTML,
+				'raw'             => esc_html__( 'Toggle uses the first option row as its checked value. When unchecked or reset, it sends no filter.', 'elementor-implementation-toolkit' ),
+				'content_classes' => 'elementor-control-field-description',
+				'condition'       => [
+					'type' => 'toggle',
+				],
+			]
+		);
+
+		$repeater->add_control(
 			'radio_show_all',
 			[
 				'label'        => esc_html__( 'Add All Option', 'elementor-implementation-toolkit' ),

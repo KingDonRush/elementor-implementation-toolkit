@@ -20,6 +20,7 @@ use EIT\Elementor\FilterController\StyleControls\Types\Radio\RadioStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Rating\RatingStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Select\SelectStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Search\SearchStyleControls;
+use EIT\Elementor\FilterController\StyleControls\Types\Toggle\ToggleStyleControls;
 use Elementor\Widget_Base;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -35,6 +36,7 @@ class StyleControls {
 		CheckboxStyleControls::register( $widget );
 		ChipsStyleControls::register( $widget );
 		RadioStyleControls::register( $widget );
+		ToggleStyleControls::register( $widget );
 		SearchStyleControls::register( $widget );
 		SelectStyleControls::register( $widget );
 		RangeStyleControls::register( $widget );
