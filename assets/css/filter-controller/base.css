@@ -1,0 +1,43 @@
+.eit-filter-controller {
+    --eit-border: #d7dee8;
+    --eit-surface: #ffffff;
+    --eit-text: #111827;
+    --eit-muted: #667085;
+    --eit-accent: #0f766e;
+    --eit-accent-contrast: #ffffff;
+    --eit-range-accent-color: var(--eit-accent);
+    --eit-range-track-color: var(--eit-border);
+    --eit-range-fill-color: var(--eit-range-accent-color);
+    --eit-range-thumb-color: var(--eit-range-accent-color);
+    --eit-range-thumb-border-color: var(--eit-surface);
+    --eit-range-thumb-border-width: 2px;
+    --eit-range-thumb-icon-color: var(--eit-surface);
+    --eit-range-thumb-icon-size: 12px;
+    --eit-range-thumb-visual-size: max(var(--eit-range-thumb-size), calc(var(--eit-range-thumb-icon-size) + var(--eit-range-thumb-border-width) + var(--eit-range-thumb-border-width) + 2px));
+    --eit-range-track-size: 6px;
+    --eit-range-thumb-size: 18px;
+    --eit-range-thumb-radius: 999px;
+    --eit-range-vertical-alignment: center;
+    --eit-range-vertical-height: 180px;
+    --eit-range-vertical-item-alignment: center;
+    --eit-range-input-width: 140px;
+    --eit-range-input-gap: 10px;
+    --eit-rating-icon-size: 16px;
+    --eit-rating-gap: 6px;
+    --eit-rating-text-color: var(--eit-text);
+    --eit-rating-active-text-color: var(--eit-accent-contrast);
+    --eit-rating-icon-color: #f59e0b;
+    --eit-rating-active-icon-color: currentColor;
+    --eit-rating-background: var(--eit-surface);
+    --eit-rating-active-background: var(--eit-accent);
+    --eit-rating-border-color: var(--eit-border);
+    --eit-rating-active-border-color: var(--eit-accent);
+    --eit-rating-radius: 999px;
+    --eit-rating-padding: 8px 12px;
+    color: var(--eit-text);
+}
+
+.eit-filter-controller,
+.eit-filter-controller * {
+    box-sizing: border-box;
+}

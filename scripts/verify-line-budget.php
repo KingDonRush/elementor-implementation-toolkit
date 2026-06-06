@@ -32,7 +32,6 @@ $excluded_dirs = [
 
 $tracked_debt = [
 	'assets/css/eit-admin.css'                                      => 'TASK-020',
-	'assets/css/eit-frontend.css'                                   => 'TASK-023',
 	'assets/js/eit-editor.js'                                       => 'TASK-021',
 	'assets/js/eit-frontend.js'                                     => 'TASK-022',
 	'includes/Admin/CptManagerAdmin.php'                            => 'TASK-024',

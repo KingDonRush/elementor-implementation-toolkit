@@ -1,0 +1,44 @@
+.eit-toggle__switch {
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.eit-toggle__switch::after {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    background: #fff;
+    transition: transform 180ms ease;
+}
+
+.eit-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.eit-toggle input:checked + .eit-toggle__switch {
+    background: var(--eit-accent);
+}
+
+.eit-toggle input:checked + .eit-toggle__switch::after {
+    transform: translateX(14px);
+}
+
+.eit-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, .12);
+    background-size: cover;
+    background-position: center;
+    flex: 0 0 auto;
+}

@@ -1,0 +1,48 @@
+.eit-filter-controller__form,
+.eit-filter-group,
+.eit-options,
+.eit-filter-actions,
+.eit-filter-controller__meta,
+.eit-active-filters,
+.eit-pagination {
+    display: flex;
+}
+
+.eit-filter-controller__form {
+    display: grid;
+    grid-template-columns: repeat(100, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.eit-filter-controller__notice {
+    display: grid;
+    gap: 3px;
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-left: 4px solid #996800;
+    background: #fcf9e8;
+    color: var(--eit-text);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.eit-filter-controller__notice strong {
+    font-weight: 700;
+}
+
+.eit-filter-group {
+    flex-direction: column;
+    gap: 10px;
+    grid-column: span var(--eit-filter-column-span, 100);
+    min-width: 0;
+}
+
+.eit-filter-group--sort,
+.eit-filter-actions {
+    grid-column: 1 / -1;
+}
+
+.eit-filter-group__label {
+    font-weight: 700;
+    line-height: 1.25;
+}

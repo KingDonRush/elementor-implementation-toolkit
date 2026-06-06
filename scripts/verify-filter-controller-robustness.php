@@ -119,6 +119,32 @@ function eit_fc_css_braces_balanced( $css ) {
 	return [ 0 === $level, $level ];
 }
 
+function eit_fc_stylesheet_contents( $relative_path, array $seen = [] ) {
+	$relative_path = ltrim( $relative_path, '/' );
+
+	if ( isset( $seen[ $relative_path ] ) ) {
+		return '';
+	}
+
+	$seen[ $relative_path ] = true;
+	$path = EIT_PATH . $relative_path;
+
+	if ( ! file_exists( $path ) ) {
+		return '';
+	}
+
+	$css = file_get_contents( $path );
+
+	return preg_replace_callback(
+		'/@import\s+url\("([^"]+)"\);/',
+		function ( $matches ) use ( $relative_path, $seen ) {
+			$base = dirname( $relative_path );
+			return eit_fc_stylesheet_contents( $base . '/' . $matches[1], $seen );
+		},
+		$css
+	);
+}
+
 if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' ) ) {
 	eit_fc_fail( 'TEST-FC-ROBUSTNESS-001', 'Elementor loaded', [ 'reason' => 'Elementor is not loaded.' ] );
 } else {
@@ -147,7 +173,7 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	);
 }
 
-$css = file_get_contents( EIT_PATH . 'assets/css/eit-frontend.css' );
+$css = eit_fc_stylesheet_contents( 'assets/css/eit-frontend.css' );
 list( $balanced, $balance_detail ) = eit_fc_css_braces_balanced( $css );
 
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-002', 'Frontend CSS braces are balanced', $balanced, [ 'detail' => $balance_detail ] );

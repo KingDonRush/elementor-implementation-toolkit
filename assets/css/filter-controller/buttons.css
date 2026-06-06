@@ -1,0 +1,28 @@
+.eit-filter-actions {
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.eit-button {
+    min-height: 42px;
+    border: 1px solid var(--eit-accent);
+    border-radius: 8px;
+    background: var(--eit-accent);
+    color: var(--eit-accent-contrast);
+    cursor: pointer;
+    font-weight: 700;
+    padding: 10px 16px;
+    transition-property: color, background-color, border-color, box-shadow, transform;
+    transition-duration: 180ms;
+}
+
+.eit-button--reset {
+    background: transparent;
+    color: var(--eit-accent);
+}
+
+.eit-button:hover,
+.eit-page-button:hover,
+.eit-active-chip:hover {
+    transform: translateY(-1px);
+}

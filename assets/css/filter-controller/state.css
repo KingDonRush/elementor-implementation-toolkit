@@ -1,0 +1,11 @@
+.eit-filter-controller.is-loading {
+    pointer-events: none;
+}
+
+.eit-target-is-loading {
+    transition: opacity 180ms ease;
+}
+
+.eit-is-filtered-out {
+    display: none !important;
+}

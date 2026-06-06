@@ -1,0 +1,30 @@
+@media (max-width: 767px) {
+    .eit-filter-group {
+        grid-column: 1 / -1;
+    }
+
+    .eit-range__values,
+    .eit-range__sliders,
+    .eit-date-range {
+        grid-template-columns: 1fr;
+    }
+
+    .eit-range--vertical {
+        column-gap: 10px;
+    }
+
+    .eit-range--vertical .eit-range__values {
+        max-width: 100%;
+    }
+
+    .eit-range--vertical .eit-range__sliders {
+        grid-template-columns: repeat(2, min-content);
+        justify-content: center;
+    }
+
+    .eit-option,
+    .eit-button,
+    .eit-page-button {
+        min-height: 44px;
+    }
+}

@@ -1,0 +1,29 @@
+.eit-filter-controller__meta {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.eit-result-count {
+    color: var(--eit-muted);
+}
+
+.eit-active-filters {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.eit-active-chip {
+    border: 1px solid var(--eit-border);
+    border-radius: 999px;
+    background: #f8fafc;
+    color: var(--eit-text);
+    cursor: pointer;
+    padding: 7px 10px;
+}
+
+.eit-empty-state {
+    margin-top: 16px;
+    color: var(--eit-muted);
+}

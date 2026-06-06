@@ -1,0 +1,35 @@
+.eit-options {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.eit-option {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    border: 1px solid var(--eit-border);
+    border-radius: 999px;
+    background: var(--eit-surface);
+    color: var(--eit-text);
+    padding: 8px 12px;
+    cursor: pointer;
+    transition-property: color, background-color, border-color, box-shadow, transform;
+    transition-duration: 180ms;
+}
+
+.eit-option:hover {
+    border-color: var(--eit-accent);
+}
+
+.eit-option input {
+    accent-color: var(--eit-accent);
+}
+
+.eit-option.is-active,
+.eit-option:has(input:checked) {
+    border-color: var(--eit-accent);
+    background: var(--eit-accent);
+    color: var(--eit-accent-contrast);
+}

@@ -1,0 +1,308 @@
+.eit-range,
+.eit-date-range {
+    display: grid;
+    gap: 10px;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.eit-range__labels,
+.eit-range__ticks {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--eit-muted);
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.eit-range--show-values .eit-range__labels {
+    display: flex;
+}
+
+.eit-range--show-ticks .eit-range__ticks {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.eit-range__ticks span:nth-child(2) {
+    text-align: center;
+}
+
+.eit-range__ticks span:last-child {
+    text-align: right;
+}
+
+.eit-range__sliders,
+.eit-date-range {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--eit-range-input-gap);
+}
+
+.eit-range__values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--eit-range-input-gap);
+    width: 100%;
+    max-width: 100%;
+}
+
+.eit-range__values .eit-range-number {
+    flex: 1 1 min(100%, var(--eit-range-input-width));
+    width: min(100%, var(--eit-range-input-width));
+    max-width: 100%;
+}
+
+.eit-range--horizontal.eit-range--inputs-after .eit-range__values {
+    order: 3;
+}
+
+.eit-range--horizontal.eit-range--inputs-after .eit-range__ticks {
+    order: 4;
+}
+
+.eit-range__slider {
+    position: relative;
+    display: grid;
+    align-items: center;
+    min-width: 0;
+}
+
+.eit-range:not(.eit-range--show-inputs) .eit-range__values {
+    display: none;
+}
+
+.eit-range-input {
+    width: 100%;
+    height: var(--eit-range-thumb-visual-size);
+    accent-color: var(--eit-range-fill-color);
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+}
+
+.eit-range-input:focus {
+    outline: none;
+}
+
+.eit-range-input:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--eit-range-fill-color) 25%, transparent);
+}
+
+.eit-range-input:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--eit-range-fill-color) 25%, transparent);
+}
+
+.eit-range-input::-webkit-slider-runnable-track {
+    height: var(--eit-range-track-size);
+    border-radius: 999px;
+    background: var(--eit-range-track-color);
+}
+
+.eit-range-input::-moz-range-track {
+    height: var(--eit-range-track-size);
+    border-radius: 999px;
+    background: var(--eit-range-track-color);
+}
+
+.eit-range-input::-moz-range-progress {
+    height: var(--eit-range-track-size);
+    border-radius: 999px;
+    background: var(--eit-range-fill-color);
+}
+
+.eit-range-input::-webkit-slider-thumb {
+    width: var(--eit-range-thumb-visual-size);
+    height: var(--eit-range-thumb-visual-size);
+    margin-top: calc((var(--eit-range-track-size) - var(--eit-range-thumb-visual-size)) / 2);
+    border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
+    border-radius: var(--eit-range-thumb-radius);
+    background: var(--eit-range-thumb-color);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .16);
+    cursor: grab;
+    -webkit-appearance: none;
+}
+
+.eit-range-input::-moz-range-thumb {
+    width: var(--eit-range-thumb-visual-size);
+    height: var(--eit-range-thumb-visual-size);
+    border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
+    border-radius: var(--eit-range-thumb-radius);
+    background: var(--eit-range-thumb-color);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .16);
+    cursor: grab;
+}
+
+.eit-range-input:active::-webkit-slider-thumb {
+    cursor: grabbing;
+}
+
+.eit-range-input:active::-moz-range-thumb {
+    cursor: grabbing;
+}
+
+.eit-range--handle-icon .eit-range-input::-webkit-slider-thumb {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+}
+
+.eit-range--handle-icon .eit-range-input::-moz-range-thumb {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+}
+
+.eit-range__handle-icon {
+    position: absolute;
+    top: 50%;
+    left: var(--eit-range-position, 0%);
+    z-index: 1;
+    display: grid;
+    box-sizing: border-box;
+    width: var(--eit-range-thumb-visual-size);
+    height: var(--eit-range-thumb-visual-size);
+    border: var(--eit-range-thumb-border-width) solid var(--eit-range-thumb-border-color);
+    border-radius: var(--eit-range-thumb-radius);
+    background: var(--eit-range-thumb-color);
+    color: var(--eit-range-thumb-icon-color);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .16);
+    overflow: hidden;
+    place-items: center;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.eit-range__handle-icon-glyph,
+.eit-range__handle-icon svg {
+    display: block;
+    width: var(--eit-range-thumb-icon-size);
+    max-width: calc(var(--eit-range-thumb-visual-size) - var(--eit-range-thumb-border-width) - var(--eit-range-thumb-border-width) - 2px);
+    height: var(--eit-range-thumb-icon-size);
+    max-height: calc(var(--eit-range-thumb-visual-size) - var(--eit-range-thumb-border-width) - var(--eit-range-thumb-border-width) - 2px);
+    fill: currentColor;
+    font-size: var(--eit-range-thumb-icon-size);
+    line-height: 1;
+}
+
+.eit-range--track-dashed .eit-range-input::-webkit-slider-runnable-track {
+    background:
+        repeating-linear-gradient(
+            90deg,
+            var(--eit-range-track-color) 0 10px,
+            transparent 10px 16px
+        );
+}
+
+.eit-range--track-dashed .eit-range-input::-moz-range-track {
+    background:
+        repeating-linear-gradient(
+            90deg,
+            var(--eit-range-track-color) 0 10px,
+            transparent 10px 16px
+        );
+}
+
+.eit-range--track-segmented .eit-range-input::-webkit-slider-runnable-track {
+    background:
+        repeating-linear-gradient(
+            90deg,
+            var(--eit-range-track-color) 0 18px,
+            transparent 18px 22px
+        );
+}
+
+.eit-range--track-segmented .eit-range-input::-moz-range-track {
+    background:
+        repeating-linear-gradient(
+            90deg,
+            var(--eit-range-track-color) 0 18px,
+            transparent 18px 22px
+        );
+}
+
+.eit-range--vertical {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 16px;
+    row-gap: 10px;
+    align-items: var(--eit-range-vertical-item-alignment);
+    justify-content: var(--eit-range-vertical-alignment);
+}
+
+.eit-range--vertical .eit-range__labels,
+.eit-range--vertical .eit-range__ticks {
+    flex: 0 1 auto;
+    min-height: var(--eit-range-vertical-height);
+    align-self: var(--eit-range-vertical-item-alignment);
+}
+
+.eit-range--vertical .eit-range__labels {
+    order: 20;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    justify-content: space-between;
+    min-width: 3ch;
+}
+
+.eit-range--vertical .eit-range__labels span,
+.eit-range--vertical .eit-range__ticks span {
+    max-width: 8ch;
+    overflow-wrap: anywhere;
+}
+
+.eit-range--vertical .eit-range__values {
+    order: 10;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-self: var(--eit-range-vertical-item-alignment);
+    flex: 1 1 min(100%, var(--eit-range-input-width));
+    min-width: 0;
+    width: auto;
+    max-width: 100%;
+}
+
+.eit-range--vertical.eit-range--inputs-right .eit-range__values {
+    order: 50;
+}
+
+.eit-range--vertical .eit-range__sliders {
+    order: 30;
+    grid-template-columns: repeat(2, min-content);
+    flex: 0 0 auto;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    min-height: var(--eit-range-vertical-height);
+}
+
+.eit-range--vertical .eit-range__ticks {
+    order: 40;
+    flex-direction: column-reverse;
+    justify-content: space-between;
+    min-width: 4ch;
+}
+
+.eit-range--vertical.eit-range--show-ticks .eit-range__ticks {
+    display: flex;
+}
+
+.eit-range--vertical .eit-range__ticks span,
+.eit-range--vertical .eit-range__ticks span:nth-child(2),
+.eit-range--vertical .eit-range__ticks span:last-child {
+    text-align: left;
+}
+
+.eit-range--vertical .eit-range-input {
+    width: var(--eit-range-thumb-visual-size);
+    height: var(--eit-range-vertical-height);
+    writing-mode: vertical-lr;
+    direction: rtl;
+}
+
+.eit-range--vertical .eit-range__handle-icon {
+    top: calc(100% - var(--eit-range-position, 0%));
+    left: 50%;
+}
