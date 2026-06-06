@@ -14,11 +14,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 class ChoiceOptionsRenderer {
 
 	public static function render( $type, array $filter, $name, $key ) {
-		$options = $filter['options'];
+		$options = $filter['options'] ?? [];
 		?>
 		<div class="eit-options eit-options--<?php echo esc_attr( $type ); ?>" data-eit-options>
+			<?php if ( empty( $options ) ) : ?>
+				<div class="eit-options__empty" data-eit-options-empty>
+					<?php esc_html_e( 'No options configured.', 'elementor-implementation-toolkit' ); ?>
+				</div>
+			<?php endif; ?>
 			<?php foreach ( $options as $option ) : ?>
-				<label class="eit-option eit-option--<?php echo esc_attr( $type ); ?>">
+				<label class="eit-option eit-option--<?php echo esc_attr( $type ); ?><?php echo isset( $option['count'] ) && null !== $option['count'] ? ' eit-option--has-count' : ''; ?>">
 					<input
 						type="<?php echo in_array( $type, [ 'radio' ], true ) ? 'radio' : 'checkbox'; ?>"
 						name="<?php echo esc_attr( $name ); ?><?php echo in_array( $type, [ 'checkbox', 'chips', 'swatch' ], true ) ? '[]' : ''; ?>"
@@ -27,10 +32,21 @@ class ChoiceOptionsRenderer {
 						data-eit-type="<?php echo esc_attr( $type ); ?>"
 						data-eit-key="<?php echo esc_attr( $key ); ?>"
 					/>
+					<?php if ( 'checkbox' === $type ) : ?>
+						<span class="eit-checkbox-indicator" aria-hidden="true"></span>
+					<?php endif; ?>
 					<?php if ( 'swatch' === $type && $option['visual'] ) : ?>
 						<span class="eit-swatch" style="<?php echo esc_attr( FilterOptions::swatch_style( $option['visual'] ) ); ?>" aria-hidden="true"></span>
 					<?php endif; ?>
-					<span><?php echo esc_html( $option['label'] ); ?></span>
+					<span class="eit-option__label"><?php echo esc_html( $option['label'] ); ?></span>
+					<?php if ( isset( $option['count'] ) && null !== $option['count'] ) : ?>
+						<span
+							class="eit-option-count"
+							aria-label="<?php echo esc_attr( sprintf( _n( '%d item', '%d items', $option['count'], 'elementor-implementation-toolkit' ), $option['count'] ) ); ?>"
+						>
+							<?php echo esc_html( number_format_i18n( $option['count'] ) ); ?>
+						</span>
+					<?php endif; ?>
 				</label>
 			<?php endforeach; ?>
 		</div>

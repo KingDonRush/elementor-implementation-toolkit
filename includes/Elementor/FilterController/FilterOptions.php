@@ -33,6 +33,7 @@ class FilterOptions {
 				'value'  => $value,
 				'label'  => sanitize_text_field( $parts[1] ?? $parts[0] ),
 				'visual' => sanitize_text_field( $parts[2] ?? '' ),
+				'count'  => isset( $parts[3] ) && is_numeric( $parts[3] ) ? absint( $parts[3] ) : null,
 			];
 		}
 

@@ -323,7 +323,7 @@ class ContentControls {
 				'type'        => Controls_Manager::TEXTAREA,
 				'rows'        => 6,
 				'placeholder' => "value|Label|#14b8a6\npremium|Premium\nfast|Fast delivery",
-				'description' => esc_html__( 'One option per line. Format: value|Label|optional color or image URL.', 'elementor-implementation-toolkit' ),
+				'description' => esc_html__( 'One option per line. Format: value|Label|optional visual|optional count.', 'elementor-implementation-toolkit' ),
 				'condition'   => [
 					'type' => [ 'checkbox', 'radio', 'select', 'chips', 'toggle', 'swatch', 'rating' ],
 				],

@@ -137,12 +137,13 @@ class FilterTypeRegistry {
 		$types = array_map( [ __CLASS__, 'normalize_type' ], $types );
 
 		return [
-			'eit_filter_has_field_controls'  => self::types_have_style_family( $types, 'field' ) ? 'yes' : '',
-			'eit_filter_has_option_controls' => self::types_have_style_family( $types, 'option' ) ? 'yes' : '',
-			'eit_filter_has_search_controls' => in_array( 'search', $types, true ) ? 'yes' : '',
-			'eit_filter_has_select_controls' => in_array( 'select', $types, true ) ? 'yes' : '',
-			'eit_filter_has_range_controls'  => in_array( 'range', $types, true ) ? 'yes' : '',
-			'eit_filter_has_rating_controls' => in_array( 'rating', $types, true ) ? 'yes' : '',
+			'eit_filter_has_field_controls'    => self::types_have_style_family( $types, 'field' ) ? 'yes' : '',
+			'eit_filter_has_option_controls'   => self::types_have_style_family( $types, 'option' ) ? 'yes' : '',
+			'eit_filter_has_checkbox_controls' => in_array( 'checkbox', $types, true ) ? 'yes' : '',
+			'eit_filter_has_search_controls'   => in_array( 'search', $types, true ) ? 'yes' : '',
+			'eit_filter_has_select_controls'   => in_array( 'select', $types, true ) ? 'yes' : '',
+			'eit_filter_has_range_controls'    => in_array( 'range', $types, true ) ? 'yes' : '',
+			'eit_filter_has_rating_controls'   => in_array( 'rating', $types, true ) ? 'yes' : '',
 		];
 	}
 

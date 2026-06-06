@@ -19,6 +19,33 @@
     transition-duration: 180ms;
 }
 
+.eit-option__label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.eit-option-count {
+    display: inline-flex;
+    min-width: 1.75em;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--eit-option-count-background);
+    color: var(--eit-option-count-color);
+    font-size: 0.82em;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.25em 0.5em;
+}
+
+.eit-options__empty {
+    width: 100%;
+    border: 1px dashed var(--eit-border);
+    border-radius: 8px;
+    color: var(--eit-muted);
+    padding: 10px 12px;
+}
+
 .eit-option:hover {
     border-color: var(--eit-accent);
 }
@@ -32,4 +59,80 @@
     border-color: var(--eit-accent);
     background: var(--eit-accent);
     color: var(--eit-accent-contrast);
+}
+
+.eit-options--checkbox {
+    gap: var(--eit-checkbox-gap);
+}
+
+.eit-option--checkbox {
+    max-width: 100%;
+    min-width: 0;
+    border-radius: var(--eit-checkbox-radius, 8px);
+    gap: var(--eit-checkbox-indicator-gap);
+}
+
+.eit-option--checkbox input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.eit-checkbox-indicator {
+    position: relative;
+    flex: 0 0 auto;
+    order: var(--eit-checkbox-indicator-order, 0);
+    width: var(--eit-checkbox-indicator-size);
+    height: var(--eit-checkbox-indicator-size);
+    border: 1px solid var(--eit-checkbox-indicator-border-color);
+    border-radius: var(--eit-checkbox-indicator-radius);
+    background: var(--eit-checkbox-indicator-background);
+    color: var(--eit-checkbox-indicator-mark-color);
+}
+
+.eit-option--checkbox .eit-option__label {
+    order: 1;
+}
+
+.eit-option--checkbox .eit-option-count {
+    order: 3;
+}
+
+.eit-checkbox-indicator::after {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    width: 38%;
+    height: 62%;
+    border: solid currentColor;
+    border-width: 0 2px 2px 0;
+    content: "";
+    opacity: 0;
+    transform: translate(-50%, -55%) rotate(45deg) scale(0.7);
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.eit-option--checkbox:focus-within {
+    border-color: var(--eit-checkbox-active-border-color);
+    box-shadow: 0 0 0 3px var(--eit-checkbox-focus-ring-color);
+}
+
+.eit-option--checkbox.is-active,
+.eit-option--checkbox:has(input:checked) {
+    border-color: var(--eit-checkbox-active-border-color);
+    background: var(--eit-checkbox-active-background);
+    color: var(--eit-checkbox-active-text-color);
+}
+
+.eit-option--checkbox.is-active .eit-checkbox-indicator,
+.eit-option--checkbox:has(input:checked) .eit-checkbox-indicator {
+    border-color: var(--eit-checkbox-indicator-active-border-color);
+    background: var(--eit-checkbox-indicator-active-background);
+}
+
+.eit-option--checkbox.is-active .eit-checkbox-indicator::after,
+.eit-option--checkbox:has(input:checked) .eit-checkbox-indicator::after {
+    opacity: 1;
+    transform: translate(-50%, -55%) rotate(45deg) scale(1);
 }
