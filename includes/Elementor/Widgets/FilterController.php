@@ -5,11 +5,15 @@
 
 namespace EIT\Elementor\Widgets;
 
-use Elementor\Icons_Manager;
 use Elementor\Widget_Base;
 use EIT\Elementor\ElementorIntegration;
 use EIT\Elementor\FilterController\ContentControls;
 use EIT\Elementor\FilterController\FilterOptions;
+use EIT\Elementor\FilterController\Renderers\ActionButtonsRenderer;
+use EIT\Elementor\FilterController\Renderers\FilterRenderer;
+use EIT\Elementor\FilterController\Renderers\MetaRenderer;
+use EIT\Elementor\FilterController\Renderers\PresetStateNoticeRenderer;
+use EIT\Elementor\FilterController\Renderers\SortRenderer;
 use EIT\Elementor\FilterController\FilterSettings;
 use EIT\Elementor\FilterController\RuntimeConfig;
 use EIT\Elementor\FilterController\StyleControls;
@@ -79,303 +83,18 @@ class FilterController extends Widget_Base {
 		?>
 		<div <?php $this->print_render_attribute_string( 'wrapper' ); ?>>
 			<div class="eit-editor-target-helper" hidden></div>
-			<?php $this->render_preset_state_notice( $settings ); ?>
+			<?php PresetStateNoticeRenderer::render( $settings ); ?>
 			<form class="eit-filter-controller__form" action="#" method="get">
 				<?php foreach ( $filters as $index => $filter ) : ?>
-					<?php $this->render_filter( $filter, $index, $settings ); ?>
+					<?php FilterRenderer::render( $this->get_id(), $filter, $index, $settings ); ?>
 				<?php endforeach; ?>
 
-				<?php if ( ( $settings['show_sort'] ?? 'yes' ) === 'yes' && ! empty( $sort_options ) ) : ?>
-					<div class="eit-filter-group eit-filter-group--sort">
-						<label class="eit-filter-group__label" for="<?php echo esc_attr( $this->get_id() . '-sort' ); ?>">
-							<?php echo esc_html( $settings['sort_label'] ?? __( 'Sort by', 'elementor-implementation-toolkit' ) ); ?>
-						</label>
-						<select id="<?php echo esc_attr( $this->get_id() . '-sort' ); ?>" class="eit-select" data-eit-sort>
-							<?php foreach ( $sort_options as $option ) : ?>
-								<option value="<?php echo esc_attr( $option['value'] ); ?>"><?php echo esc_html( $option['label'] ); ?></option>
-							<?php endforeach; ?>
-						</select>
-					</div>
-				<?php endif; ?>
-
-				<div class="eit-filter-actions">
-					<?php if ( ( $settings['show_apply'] ?? '' ) === 'yes' ) : ?>
-						<button type="submit" class="eit-button eit-button--apply" data-eit-apply>
-							<?php echo esc_html( $settings['apply_text'] ?? __( 'Apply filters', 'elementor-implementation-toolkit' ) ); ?>
-						</button>
-					<?php endif; ?>
-					<button type="button" class="eit-button eit-button--reset" data-eit-reset>
-						<?php echo esc_html( $settings['reset_text'] ?? __( 'Reset', 'elementor-implementation-toolkit' ) ); ?>
-					</button>
-				</div>
+				<?php SortRenderer::render( $this->get_id(), $settings, $sort_options ); ?>
+				<?php ActionButtonsRenderer::render( $settings ); ?>
 			</form>
 
-			<div class="eit-filter-controller__meta">
-				<?php if ( $config['showResultCount'] ) : ?>
-					<div class="eit-result-count" data-eit-result-count aria-live="polite"></div>
-				<?php endif; ?>
-				<?php if ( $config['showActiveChips'] ) : ?>
-					<div class="eit-active-filters" data-eit-active-filters></div>
-				<?php endif; ?>
-			</div>
-
-			<div class="eit-empty-state" data-eit-empty hidden><?php echo esc_html( $config['emptyText'] ); ?></div>
-			<nav class="eit-pagination" data-eit-pagination aria-label="<?php echo esc_attr__( 'Filtered listing pagination', 'elementor-implementation-toolkit' ); ?>"></nav>
+			<?php MetaRenderer::render( $config ); ?>
 		</div>
 		<?php
-	}
-
-	private function render_preset_state_notice( array $settings ) {
-		if ( 'missing' !== ( $settings['preset_resolution_state'] ?? '' ) || ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		?>
-		<div class="eit-filter-controller__notice is-warning">
-			<strong><?php esc_html_e( 'Linked filter preset is missing.', 'elementor-implementation-toolkit' ); ?></strong>
-			<span><?php esc_html_e( 'Select another preset or import a local copy in the Elementor widget controls.', 'elementor-implementation-toolkit' ); ?></span>
-		</div>
-		<?php
-	}
-
-	private function render_filter( array $filter, $index, array $settings = [] ) {
-		$id = $this->get_id() . '-' . $index;
-		$type = $filter['type'];
-		$key = $filter['key'];
-		$name = 'eit-' . $this->get_id() . '-' . $index;
-		$options = $filter['options'];
-		$layout_width = max( 10, min( 100, absint( $filter['layoutWidth'] ?? 100 ) ?: 100 ) );
-		?>
-		<div
-			class="eit-filter-group eit-filter-group--<?php echo esc_attr( $type ); ?>"
-			style="--eit-filter-column-span: <?php echo esc_attr( $layout_width ); ?>;"
-			data-eit-filter-group="<?php echo esc_attr( $filter['id'] ); ?>"
-			data-eit-field-source="<?php echo esc_attr( $filter['source'] ?? 'visible_text' ); ?>"
-			data-eit-compare="<?php echo esc_attr( $filter['compare'] ?? '' ); ?>"
-			data-eit-data-type="<?php echo esc_attr( $filter['dataType'] ?? '' ); ?>"
-			data-eit-key-source="<?php echo esc_attr( $filter['keySource'] ?? '' ); ?>"
-			data-eit-resolved-key="<?php echo esc_attr( $filter['resolvedKey'] ?? $key ); ?>"
-		>
-			<?php if ( $filter['showLabel'] ) : ?>
-				<div class="eit-filter-group__label"><?php echo esc_html( $filter['label'] ); ?></div>
-			<?php endif; ?>
-
-			<?php if ( 'search' === $type ) : ?>
-				<input
-					id="<?php echo esc_attr( $id ); ?>"
-					class="eit-input eit-input--search"
-					type="search"
-					placeholder="<?php echo esc_attr( $filter['placeholder'] ); ?>"
-					data-eit-control
-					data-eit-type="search"
-					data-eit-key="<?php echo esc_attr( $key ); ?>"
-				/>
-			<?php elseif ( 'select' === $type ) : ?>
-				<select class="eit-select" data-eit-control data-eit-type="select" data-eit-key="<?php echo esc_attr( $key ); ?>">
-					<option value=""><?php echo esc_html( $filter['placeholder'] ?: __( 'All', 'elementor-implementation-toolkit' ) ); ?></option>
-					<?php foreach ( $options as $option ) : ?>
-						<option value="<?php echo esc_attr( $option['value'] ); ?>"><?php echo esc_html( $option['label'] ); ?></option>
-					<?php endforeach; ?>
-				</select>
-			<?php elseif ( 'range' === $type ) : ?>
-				<?php
-				$show_range_inputs      = ( $settings['range_show_inputs'] ?? 'yes' ) === 'yes';
-				$show_range_values      = ( $settings['range_show_values'] ?? '' ) === 'yes';
-				$show_range_ticks       = ( $settings['range_show_ticks'] ?? '' ) === 'yes';
-				$range_orientation      = $this->get_range_setting( $settings, 'range_orientation', [ 'horizontal', 'vertical' ], 'horizontal' );
-				$range_input_flow       = $this->get_range_setting( $settings, 'range_input_flow', [ 'before', 'after' ], 'before' );
-				$range_input_position   = $this->get_range_setting( $settings, 'range_input_position', [ 'left', 'right' ], 'left' );
-				$range_handle_icon_html = $this->get_range_handle_icon_html( $settings );
-				$range_classes = [
-					'eit-range',
-					'eit-range--inputs-' . $range_input_position,
-					'eit-range--inputs-' . $range_input_flow,
-					'eit-range--' . $range_orientation,
-					'eit-range--track-' . $this->get_range_setting( $settings, 'range_track_style', [ 'solid', 'dashed', 'segmented' ], 'solid' ),
-				];
-
-				if ( $show_range_inputs ) {
-					$range_classes[] = 'eit-range--show-inputs';
-					$range_classes[] = 'eit-range--has-inputs';
-				}
-
-				if ( $show_range_values ) {
-					$range_classes[] = 'eit-range--show-values';
-					$range_classes[] = 'eit-range--has-value-labels';
-				}
-
-				if ( $show_range_ticks ) {
-					$range_classes[] = 'eit-range--show-ticks';
-					$range_classes[] = 'eit-range--has-ticks';
-				}
-
-				if ( '' !== $range_handle_icon_html ) {
-					$range_classes[] = 'eit-range--handle-icon';
-				}
-
-				$range_midpoint = ( $filter['rangeMin'] + $filter['rangeMax'] ) / 2;
-				?>
-				<div class="<?php echo esc_attr( implode( ' ', $range_classes ) ); ?>" data-eit-control data-eit-type="range" data-eit-key="<?php echo esc_attr( $key ); ?>">
-					<div class="eit-range__labels" aria-hidden="true">
-						<span data-eit-range-min-label><?php echo esc_html( $this->format_range_value( $filter['rangeMin'] ) ); ?></span>
-						<span data-eit-range-max-label><?php echo esc_html( $this->format_range_value( $filter['rangeMax'] ) ); ?></span>
-					</div>
-					<div class="eit-range__values">
-						<input class="eit-input eit-range-number" type="number" value="<?php echo esc_attr( $filter['rangeMin'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" data-eit-range-min />
-						<input class="eit-input eit-range-number" type="number" value="<?php echo esc_attr( $filter['rangeMax'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" data-eit-range-max />
-					</div>
-					<div class="eit-range__sliders">
-						<div class="eit-range__slider">
-							<input class="eit-range-input" type="range" value="<?php echo esc_attr( $filter['rangeMin'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" data-eit-range-min-slider />
-							<?php $this->render_range_handle_icon( $range_handle_icon_html, 'min' ); ?>
-						</div>
-						<div class="eit-range__slider">
-							<input class="eit-range-input" type="range" value="<?php echo esc_attr( $filter['rangeMax'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" data-eit-range-max-slider />
-							<?php $this->render_range_handle_icon( $range_handle_icon_html, 'max' ); ?>
-						</div>
-					</div>
-						<div class="eit-range__ticks" aria-hidden="true">
-							<span><?php echo esc_html( $this->format_range_value( $filter['rangeMin'] ) ); ?></span>
-							<span><?php echo esc_html( $this->format_range_value( $range_midpoint ) ); ?></span>
-							<span><?php echo esc_html( $this->format_range_value( $filter['rangeMax'] ) ); ?></span>
-						</div>
-					</div>
-			<?php elseif ( 'date' === $type ) : ?>
-				<div class="eit-date-range" data-eit-control data-eit-type="date" data-eit-key="<?php echo esc_attr( $key ); ?>">
-					<input class="eit-input" type="date" data-eit-date-from />
-					<input class="eit-input" type="date" data-eit-date-to />
-				</div>
-			<?php elseif ( 'rating' === $type ) : ?>
-				<div class="eit-options eit-options--rating" data-eit-options>
-					<?php $rating_options = ! empty( $options ) ? $options : FilterOptions::default_rating_options(); ?>
-					<?php $rating_icon_html = $this->get_rating_icon_html( $settings ); ?>
-					<?php $rating_icon_position = $this->get_choice_setting( $settings, 'rating_icon_position', [ 'before', 'after' ], 'before' ); ?>
-					<?php foreach ( $rating_options as $option ) : ?>
-						<label class="eit-option eit-rating-option eit-rating-option--icon-<?php echo esc_attr( $rating_icon_position ); ?>">
-							<input type="radio" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( $option['value'] ); ?>" data-eit-control data-eit-type="rating" data-eit-key="<?php echo esc_attr( $key ); ?>" />
-							<?php $this->render_rating_icon( $rating_icon_html ); ?>
-							<span class="eit-rating-option__label"><?php echo esc_html( $option['label'] ); ?></span>
-						</label>
-					<?php endforeach; ?>
-				</div>
-			<?php elseif ( 'toggle' === $type ) : ?>
-				<?php $option = $options[0] ?? [ 'value' => 'yes', 'label' => $filter['label'], 'visual' => '' ]; ?>
-				<label class="eit-option eit-toggle">
-					<input type="checkbox" value="<?php echo esc_attr( $option['value'] ); ?>" data-eit-control data-eit-type="toggle" data-eit-key="<?php echo esc_attr( $key ); ?>" />
-					<span class="eit-toggle__switch" aria-hidden="true"></span>
-					<span><?php echo esc_html( $option['label'] ); ?></span>
-				</label>
-			<?php else : ?>
-				<div class="eit-options eit-options--<?php echo esc_attr( $type ); ?>" data-eit-options>
-					<?php foreach ( $options as $option ) : ?>
-						<label class="eit-option eit-option--<?php echo esc_attr( $type ); ?>">
-							<input
-								type="<?php echo in_array( $type, [ 'radio' ], true ) ? 'radio' : 'checkbox'; ?>"
-								name="<?php echo esc_attr( $name ); ?><?php echo in_array( $type, [ 'checkbox', 'chips', 'swatch' ], true ) ? '[]' : ''; ?>"
-								value="<?php echo esc_attr( $option['value'] ); ?>"
-								data-eit-control
-								data-eit-type="<?php echo esc_attr( $type ); ?>"
-								data-eit-key="<?php echo esc_attr( $key ); ?>"
-							/>
-							<?php if ( 'swatch' === $type && $option['visual'] ) : ?>
-								<span class="eit-swatch" style="<?php echo esc_attr( FilterOptions::swatch_style( $option['visual'] ) ); ?>" aria-hidden="true"></span>
-							<?php endif; ?>
-							<span><?php echo esc_html( $option['label'] ); ?></span>
-						</label>
-					<?php endforeach; ?>
-				</div>
-			<?php endif; ?>
-		</div>
-		<?php
-	}
-
-	private function get_range_setting( array $settings, $key, array $allowed, $fallback ) {
-		return $this->get_choice_setting( $settings, $key, $allowed, $fallback );
-	}
-
-	private function get_choice_setting( array $settings, $key, array $allowed, $fallback ) {
-		$value = sanitize_key( $settings[ $key ] ?? $fallback );
-
-		return in_array( $value, $allowed, true ) ? $value : $fallback;
-	}
-
-	private function get_rating_icon_html( array $settings ) {
-		if ( 'yes' !== ( $settings['rating_icon_enabled'] ?? 'yes' ) ) {
-			return '';
-		}
-
-		$icon = $settings['rating_icon'] ?? [
-			'value'   => 'fas fa-star',
-			'library' => 'fa-solid',
-		];
-
-		if ( ! is_array( $icon ) || empty( $icon['library'] ) || empty( $icon['value'] ) ) {
-			$icon = [
-				'value'   => 'fas fa-star',
-				'library' => 'fa-solid',
-			];
-		}
-
-		return (string) Icons_Manager::try_get_icon_html(
-			$icon,
-			[
-				'class'       => 'eit-rating-option__icon-glyph',
-				'aria-hidden' => 'true',
-			]
-		);
-	}
-
-	private function render_rating_icon( $icon_html ) {
-		if ( '' === $icon_html ) {
-			return;
-		}
-
-		?>
-		<span class="eit-rating-option__icon" aria-hidden="true">
-			<?php echo $icon_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-		</span>
-		<?php
-	}
-
-	private function get_range_handle_icon_html( array $settings ) {
-		if ( 'yes' !== ( $settings['range_handle_icon_enabled'] ?? '' ) ) {
-			return '';
-		}
-
-		$icon = $settings['range_handle_icon'] ?? [];
-
-		if ( ! is_array( $icon ) || empty( $icon['library'] ) ) {
-			return '';
-		}
-
-		return (string) Icons_Manager::try_get_icon_html(
-			$icon,
-			[
-				'class'       => 'eit-range__handle-icon-glyph',
-				'aria-hidden' => 'true',
-			]
-		);
-	}
-
-	private function render_range_handle_icon( $icon_html, $position ) {
-		if ( '' === $icon_html ) {
-			return;
-		}
-
-		?>
-		<span class="eit-range__handle-icon" data-eit-range-<?php echo esc_attr( $position ); ?>-handle aria-hidden="true">
-			<?php echo $icon_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-		</span>
-		<?php
-	}
-
-	private function format_range_value( $value ) {
-		$value = (float) $value;
-
-		if ( floor( $value ) === $value ) {
-			return number_format_i18n( $value, 0 );
-		}
-
-		return number_format_i18n( $value, 2 );
 	}
 }
