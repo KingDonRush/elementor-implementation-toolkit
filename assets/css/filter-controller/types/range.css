@@ -224,12 +224,28 @@
 }
 
 .eit-range--vertical {
+    --eit-range-number-order: 10;
+    --eit-range-label-order: 20;
+    --eit-range-slider-order: 30;
+    --eit-range-tick-order: 40;
     display: flex;
     flex-wrap: wrap;
     column-gap: 16px;
     row-gap: 10px;
     align-items: var(--eit-range-vertical-item-alignment);
     justify-content: var(--eit-range-vertical-alignment);
+}
+
+.eit-range--vertical.eit-range--inputs-right {
+    --eit-range-number-order: 50;
+}
+
+.eit-range--vertical.eit-range--value-labels-right {
+    --eit-range-label-order: 50;
+}
+
+.eit-range--vertical.eit-range--ticks-left {
+    --eit-range-tick-order: 20;
 }
 
 .eit-range--vertical .eit-range__labels,
@@ -240,11 +256,15 @@
 }
 
 .eit-range--vertical .eit-range__labels {
-    order: 20;
+    order: var(--eit-range-label-order);
     flex-direction: column-reverse;
     align-items: flex-end;
     justify-content: space-between;
     min-width: 3ch;
+}
+
+.eit-range--vertical.eit-range--value-labels-right .eit-range__labels {
+    align-items: flex-start;
 }
 
 .eit-range--vertical .eit-range__labels span,
@@ -254,7 +274,7 @@
 }
 
 .eit-range--vertical .eit-range__values {
-    order: 10;
+    order: var(--eit-range-number-order);
     display: grid;
     grid-template-columns: 1fr;
     align-self: var(--eit-range-vertical-item-alignment);
@@ -264,12 +284,8 @@
     max-width: 100%;
 }
 
-.eit-range--vertical.eit-range--inputs-right .eit-range__values {
-    order: 50;
-}
-
 .eit-range--vertical .eit-range__sliders {
-    order: 30;
+    order: var(--eit-range-slider-order);
     grid-template-columns: repeat(2, min-content);
     flex: 0 0 auto;
     justify-content: center;
@@ -279,10 +295,18 @@
 }
 
 .eit-range--vertical .eit-range__ticks {
-    order: 40;
+    order: var(--eit-range-tick-order);
     flex-direction: column-reverse;
     justify-content: space-between;
     min-width: 4ch;
+}
+
+.eit-range--vertical.eit-range--ticks-left .eit-range__ticks {
+    align-items: flex-end;
+}
+
+.eit-range--vertical.eit-range--ticks-right .eit-range__ticks {
+    align-items: flex-start;
 }
 
 .eit-range--vertical.eit-range--show-ticks .eit-range__ticks {

@@ -20,11 +20,15 @@ class RangeRenderer {
 		$range_orientation      = self::range_setting( $settings, 'range_orientation', [ 'horizontal', 'vertical' ], 'horizontal' );
 		$range_input_flow       = self::range_setting( $settings, 'range_input_flow', [ 'before', 'after' ], 'before' );
 		$range_input_position   = self::range_setting( $settings, 'range_input_position', [ 'left', 'right' ], 'left' );
+		$range_label_position   = self::range_setting( $settings, 'range_value_label_position', [ 'left', 'right' ], 'left' );
+		$range_tick_position    = self::range_setting( $settings, 'range_tick_position', [ 'left', 'right' ], 'right' );
 		$range_handle_icon_html = self::handle_icon_html( $settings );
 		$range_classes          = [
 			'eit-range',
 			'eit-range--inputs-' . $range_input_position,
 			'eit-range--inputs-' . $range_input_flow,
+			'eit-range--value-labels-' . $range_label_position,
+			'eit-range--ticks-' . $range_tick_position,
 			'eit-range--' . $range_orientation,
 			'eit-range--track-' . self::range_setting( $settings, 'range_track_style', [ 'solid', 'dashed', 'segmented' ], 'solid' ),
 		];

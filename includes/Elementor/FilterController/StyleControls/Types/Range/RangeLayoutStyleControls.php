@@ -56,6 +56,52 @@ class RangeLayoutStyleControls {
 			]
 		);
 
+		$widget->add_control(
+			'range_value_label_position',
+			[
+				'label'     => esc_html__( 'Current Value Side', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'default'   => 'left',
+				'options'   => [
+					'left'  => [
+						'title' => esc_html__( 'Left', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-h-align-left',
+					],
+					'right' => [
+						'title' => esc_html__( 'Right', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-h-align-right',
+					],
+				],
+				'condition' => [
+					'range_orientation'             => 'vertical',
+					'range_show_values'             => 'yes',
+				],
+			]
+		);
+
+		$widget->add_control(
+			'range_tick_position',
+			[
+				'label'     => esc_html__( 'Scale Tick Side', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'default'   => 'right',
+				'options'   => [
+					'left'  => [
+						'title' => esc_html__( 'Left', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-h-align-left',
+					],
+					'right' => [
+						'title' => esc_html__( 'Right', 'elementor-implementation-toolkit' ),
+						'icon'  => 'eicon-h-align-right',
+					],
+				],
+				'condition' => [
+					'range_orientation'             => 'vertical',
+					'range_show_ticks'              => 'yes',
+				],
+			]
+		);
+
 		$widget->add_responsive_control(
 			'range_vertical_alignment',
 			[

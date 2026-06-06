@@ -105,6 +105,8 @@ body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor
 body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_orientation,
 body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_show_values,
 body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_show_ticks,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_value_label_position,
+body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_tick_position,
 body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_vertical_alignment,
 body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_vertical_item_alignment,
 body.eit-filter-style-cadence-active:not(.eit-filter-style-has-range) .elementor-control-range_input_heading,
