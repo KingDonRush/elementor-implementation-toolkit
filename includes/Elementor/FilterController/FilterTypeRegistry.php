@@ -143,6 +143,7 @@ class FilterTypeRegistry {
 			'eit_filter_has_chips_controls'    => in_array( 'chips', $types, true ) ? 'yes' : '',
 			'eit_filter_has_radio_controls'    => in_array( 'radio', $types, true ) ? 'yes' : '',
 			'eit_filter_has_toggle_controls'   => in_array( 'toggle', $types, true ) ? 'yes' : '',
+			'eit_filter_has_swatch_controls'   => in_array( 'swatch', $types, true ) ? 'yes' : '',
 			'eit_filter_has_search_controls'   => in_array( 'search', $types, true ) ? 'yes' : '',
 			'eit_filter_has_select_controls'   => in_array( 'select', $types, true ) ? 'yes' : '',
 			'eit_filter_has_range_controls'    => in_array( 'range', $types, true ) ? 'yes' : '',

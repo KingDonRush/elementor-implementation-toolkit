@@ -44,8 +44,23 @@ class ChoiceOptionsRenderer {
 							<span class="eit-chip-visual" style="<?php echo esc_attr( FilterOptions::swatch_style( $option['visual'] ) ); ?>" aria-hidden="true"></span>
 						<?php endif; ?>
 					<?php endif; ?>
-					<?php if ( 'swatch' === $type && $option['visual'] ) : ?>
-						<span class="eit-swatch" style="<?php echo esc_attr( FilterOptions::swatch_style( $option['visual'] ) ); ?>" aria-hidden="true"></span>
+					<?php if ( 'swatch' === $type ) : ?>
+						<?php
+						$swatch_style = FilterOptions::swatch_style( $option['visual'] ?? '' );
+						$has_visual    = '' !== $swatch_style;
+						$fallback_mark = self::fallback_mark( $option['label'] ?? $option['value'] ?? '' );
+						?>
+						<span
+							class="eit-swatch<?php echo $has_visual ? '' : ' eit-swatch--fallback'; ?>"
+							<?php if ( $has_visual ) : ?>
+								style="<?php echo esc_attr( $swatch_style ); ?>"
+							<?php endif; ?>
+							aria-hidden="true"
+						>
+							<?php if ( ! $has_visual ) : ?>
+								<span class="eit-swatch__fallback"><?php echo esc_html( $fallback_mark ); ?></span>
+							<?php endif; ?>
+						</span>
 					<?php endif; ?>
 					<span class="eit-option__label"><?php echo esc_html( $option['label'] ); ?></span>
 					<?php if ( isset( $option['count'] ) && null !== $option['count'] ) : ?>
@@ -86,5 +101,11 @@ class ChoiceOptionsRenderer {
 		);
 
 		return $options;
+	}
+
+	private static function fallback_mark( $label ) {
+		$label = trim( wp_strip_all_tags( (string) $label ) );
+
+		return '' !== $label ? strtoupper( substr( $label, 0, 1 ) ) : '?';
 	}
 }

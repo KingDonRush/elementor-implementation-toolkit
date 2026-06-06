@@ -114,11 +114,71 @@
 }
 
 .eit-swatch {
-    width: 18px;
-    height: 18px;
-    border-radius: 999px;
-    border: 1px solid rgba(0, 0, 0, .12);
-    background-size: cover;
+    position: relative;
+    display: inline-flex;
+    width: var(--eit-swatch-size);
+    height: var(--eit-swatch-size);
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--eit-swatch-border-color);
+    border-radius: var(--eit-swatch-radius);
+    background-color: var(--eit-swatch-fallback-background);
+    background-size: var(--eit-swatch-image-fit);
     background-position: center;
+    color: var(--eit-swatch-fallback-color);
     flex: 0 0 auto;
+    font-size: 0.72em;
+    font-weight: 800;
+    line-height: 1;
+    box-shadow: 0 0 0 0 transparent;
+    transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.eit-options--swatch {
+    gap: var(--eit-swatch-option-gap);
+}
+
+.eit-option--swatch {
+    max-width: 100%;
+    min-width: 0;
+    gap: var(--eit-swatch-gap);
+}
+
+.eit-option--swatch input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.eit-option--swatch .eit-option__label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.eit-swatch--fallback {
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, .55) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, .55) 50%, rgba(255, 255, 255, .55) 75%, transparent 75%, transparent);
+    background-size: 8px 8px;
+}
+
+.eit-swatch__fallback {
+    display: inline-flex;
+}
+
+.eit-option--swatch:focus-within {
+    border-color: var(--eit-swatch-ring-color);
+    box-shadow: 0 0 0 3px var(--eit-swatch-focus-ring-color);
+}
+
+.eit-option--swatch.is-active,
+.eit-option--swatch:has(input:checked) {
+    border-color: var(--eit-swatch-ring-color);
+    background: var(--eit-swatch-active-background);
+    color: var(--eit-swatch-active-text-color);
+}
+
+.eit-option--swatch.is-active .eit-swatch,
+.eit-option--swatch:has(input:checked) .eit-swatch {
+    box-shadow: 0 0 0 var(--eit-swatch-ring-offset) var(--eit-surface), 0 0 0 calc(var(--eit-swatch-ring-offset) + var(--eit-swatch-ring-width)) var(--eit-swatch-ring-color);
+    transform: translateY(-1px);
 }

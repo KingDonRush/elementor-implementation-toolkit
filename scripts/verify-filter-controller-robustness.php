@@ -85,6 +85,7 @@ function eit_fc_visibility_values( array $types, array $overrides = [] ) {
 			'eit_filter_has_chips_controls'    => '',
 			'eit_filter_has_radio_controls'    => '',
 			'eit_filter_has_toggle_controls'   => '',
+			'eit_filter_has_swatch_controls'   => '',
 			'eit_filter_has_search_controls'   => '',
 			'eit_filter_has_select_controls'   => '',
 			'eit_filter_has_range_controls'    => '',
@@ -176,6 +177,8 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Radio exposes layout, segmented, indicator, and focus style controls', isset( $controls['radio_direction'] ) && isset( $controls['radio_segmented'] ) && isset( $controls['radio_indicator_size'] ) && isset( $controls['radio_dot_size'] ) && isset( $controls['radio_focus_ring_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Toggle section remains registered for editor cadence', isset( $controls['section_toggle_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Toggle exposes contract, track, thumb, state, and focus style controls', isset( $controls['toggle_contract_note'] ) && isset( $controls['toggle_track_width'] ) && isset( $controls['toggle_track_on_color'] ) && isset( $controls['toggle_thumb_size'] ) && isset( $controls['toggle_state_text_display'] ) && isset( $controls['toggle_focus_ring_color'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Swatch section remains registered for editor cadence', isset( $controls['section_swatch_style'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Swatch exposes visual, ring, label, fallback, and focus style controls', isset( $controls['swatch_contract_note'] ) && isset( $controls['swatch_size'] ) && isset( $controls['swatch_shape'] ) && isset( $controls['swatch_border_color'] ) && isset( $controls['swatch_hide_labels'] ) && isset( $controls['swatch_ring_color'] ) && isset( $controls['swatch_ring_offset'] ) && isset( $controls['swatch_fallback_background'] ) && isset( $controls['swatch_focus_ring_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section remains registered for editor cadence', isset( $controls['section_range_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range exposes vertical rail side controls', isset( $controls['range_value_label_position'] ) && isset( $controls['range_tick_position'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating section remains registered for editor cadence', isset( $controls['section_rating_style'] ) );
@@ -191,6 +194,7 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Chips as its own style family', false !== strpos( $editor_js, 'eit_filter_has_chips_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-chips' ) && false !== strpos( $editor_css, '.elementor-control-section_chips_style' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Radio as its own style family', false !== strpos( $editor_js, 'eit_filter_has_radio_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-radio' ) && false !== strpos( $editor_css, '.elementor-control-section_radio_style' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Toggle as its own style family', false !== strpos( $editor_js, 'eit_filter_has_toggle_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-toggle' ) && false !== strpos( $editor_css, '.elementor-control-section_toggle_style' ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Swatch as its own style family', false !== strpos( $editor_js, 'eit_filter_has_swatch_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-swatch' ) && false !== strpos( $editor_css, '.elementor-control-section_swatch_style' ) );
 
 	eit_fc_assert(
 		'TEST-FC-ROBUSTNESS-001',
@@ -226,6 +230,7 @@ eit_fc_assert( 'TEST-FC-ROBUSTNESS-014', 'Radio CSS indicator and segmented cont
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-015', 'Chips CSS anatomy and active affordance contract exists', false !== strpos( $css, '.eit-chip-check' ) && false !== strpos( $css, '.eit-chip-visual' ) && false !== strpos( $css, '--eit-chip-check-size' ) && false !== strpos( $css, '--eit-chip-active-outline-color' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-016', 'Toggle CSS track, thumb, state text, and focus contract exists', false !== strpos( $css, '.eit-option--toggle' ) && false !== strpos( $css, '.eit-toggle__state--on' ) && false !== strpos( $css, '--eit-toggle-track-width' ) && false !== strpos( $css, '--eit-toggle-thumb-size' ) && false !== strpos( $css, '--eit-toggle-focus-ring-color' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-016', 'Toggle frontend JS keeps checked-only and clear-to-off semantics', false !== strpos( $frontend_js, "'toggle' === type || 'radio' === type || 'rating' === type" ) && false !== strpos( $frontend_js, 'if (!control.checked)' ) && false !== strpos( $frontend_js, 'this.checked = false;' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-017', 'Swatch CSS visual, fallback, ring, and focus contract exists', false !== strpos( $css, '.eit-option--swatch' ) && false !== strpos( $css, '.eit-swatch--fallback' ) && false !== strpos( $css, '--eit-swatch-ring-width' ) && false !== strpos( $css, '--eit-swatch-focus-ring-color' ) );
 
 $runtime_config = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 375 ] );
 $runtime_config_clamped = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 5000 ] );
@@ -324,6 +329,20 @@ ob_start();
 $toggle_markup = ob_get_clean();
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-016', 'Toggle renderer emits one native checkbox with explicit on-value contract', false !== strpos( $toggle_markup, 'type="checkbox"' ) && false !== strpos( $toggle_markup, 'data-eit-type="toggle"' ) && false !== strpos( $toggle_markup, 'data-eit-toggle-on-value="featured"' ) && false === strpos( $toggle_markup, 'ignored' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-016', 'Toggle renderer emits switch, on/off state text, visible label, and screen-reader contract', false !== strpos( $toggle_markup, 'eit-toggle__switch' ) && false !== strpos( $toggle_markup, 'eit-toggle__state--off' ) && false !== strpos( $toggle_markup, 'eit-toggle__state--on' ) && false !== strpos( $toggle_markup, 'eit-toggle__label' ) && false !== strpos( $toggle_markup, 'eit-toggle__contract' ) );
+
+$swatch_options = FilterOptions::parse( "blue|Blue|#14b8a6|8\nimage|Texture|https://example.com/texture.png|3\nmystery|Mystery|not-a-visual|1" );
+ob_start();
+ChoiceOptionsRenderer::render(
+	'swatch',
+	[
+		'options' => $swatch_options,
+	],
+	'eit-qa-swatch',
+	'color'
+);
+$swatch_markup = ob_get_clean();
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-017', 'Swatch renderer keeps grouped checkbox semantics and accessible labels', false !== strpos( $swatch_markup, 'type="checkbox"' ) && false !== strpos( $swatch_markup, 'name="eit-qa-swatch[]"' ) && false !== strpos( $swatch_markup, 'eit-option__label' ) && false !== strpos( $swatch_markup, 'eit-option-count' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-017', 'Swatch renderer emits color/image visuals and invalid visual fallback', false !== strpos( $swatch_markup, 'background-color:#14b8a6' ) && false !== strpos( $swatch_markup, 'background-image:url(https://example.com/texture.png)' ) && false !== strpos( $swatch_markup, 'eit-swatch--fallback' ) && false !== strpos( $swatch_markup, 'eit-swatch__fallback' ) );
 
 $original_definitions = get_option( CptManager::OPTION, [] );
 $original_presets     = get_option( FilterPresets::OPTION, [] );
@@ -606,6 +625,7 @@ eit_fc_skip( 'TEST-FC-ROBUSTNESS-013', 'Checkbox visual and keyboard QA', [ 'own
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-014', 'Radio visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for single-choice clarity, segmented mode, All option clearing, keyboard arrows, focus, and mobile wrapping.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-015', 'Chips visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for compact token feel, multi-select clarity, hidden input keyboard behavior, long labels, scroll row, grid, and mobile wrapping.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-016', 'Toggle visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for off/on clarity, label position, state text, focus, reset, URL restore, and mobile full-row behavior.' ] );
+eit_fc_skip( 'TEST-FC-ROBUSTNESS-017', 'Swatch visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for hex colors, image swatches, invalid visual fallback, label visibility, selected ring contrast, keyboard focus, and mobile tap targets.' ] );
 
 $failures = array_values(
 	array_filter(

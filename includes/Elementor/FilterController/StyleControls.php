@@ -21,6 +21,7 @@ use EIT\Elementor\FilterController\StyleControls\Types\Rating\RatingStyleControl
 use EIT\Elementor\FilterController\StyleControls\Types\Select\SelectStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Search\SearchStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Toggle\ToggleStyleControls;
+use EIT\Elementor\FilterController\StyleControls\Types\Swatch\SwatchStyleControls;
 use Elementor\Widget_Base;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -37,6 +38,7 @@ class StyleControls {
 		ChipsStyleControls::register( $widget );
 		RadioStyleControls::register( $widget );
 		ToggleStyleControls::register( $widget );
+		SwatchStyleControls::register( $widget );
 		SearchStyleControls::register( $widget );
 		SelectStyleControls::register( $widget );
 		RangeStyleControls::register( $widget );
