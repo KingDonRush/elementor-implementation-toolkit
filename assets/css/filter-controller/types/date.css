@@ -1,0 +1,91 @@
+.eit-date-range {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+    gap: var(--eit-date-gap);
+    align-items: end;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.eit-date-range__field {
+    display: grid;
+    gap: var(--eit-date-label-gap);
+    min-width: 0;
+}
+
+.eit-date-range__label {
+    color: var(--eit-date-label-color);
+    font-size: var(--eit-date-label-size);
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.eit-date-range__input {
+    min-height: var(--eit-date-input-height);
+}
+
+.eit-date-range__input:focus {
+    outline: 0;
+    border-color: var(--eit-accent);
+    box-shadow: 0 0 0 3px var(--eit-date-focus-ring-color);
+}
+
+.eit-date-range__separator {
+    display: inline-flex;
+    min-height: var(--eit-date-input-height);
+    align-items: center;
+    justify-content: center;
+    color: var(--eit-date-separator-color);
+    font-size: var(--eit-date-separator-size);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.eit-date-range__clear {
+    display: inline-flex;
+    width: var(--eit-date-clear-size);
+    height: var(--eit-date-clear-size);
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--eit-date-clear-border-color);
+    border-radius: 999px;
+    background: var(--eit-date-clear-background);
+    color: var(--eit-date-clear-color);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.eit-date-range__clear[hidden] {
+    display: none;
+}
+
+.eit-date-range__clear:focus-visible {
+    outline: 2px solid var(--eit-accent);
+    outline-offset: 2px;
+}
+
+.eit-date-range__status {
+    grid-column: 1 / -1;
+    color: var(--eit-date-invalid-color);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.eit-date-range__status[hidden] {
+    display: none;
+}
+
+.eit-date-range.is-invalid .eit-date-range__input {
+    border-color: var(--eit-date-invalid-color);
+    background: var(--eit-date-invalid-background);
+}
+
+.eit-date-range__contract {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}

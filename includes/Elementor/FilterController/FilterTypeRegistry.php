@@ -147,6 +147,7 @@ class FilterTypeRegistry {
 			'eit_filter_has_search_controls'   => in_array( 'search', $types, true ) ? 'yes' : '',
 			'eit_filter_has_select_controls'   => in_array( 'select', $types, true ) ? 'yes' : '',
 			'eit_filter_has_range_controls'    => in_array( 'range', $types, true ) ? 'yes' : '',
+			'eit_filter_has_date_controls'     => in_array( 'date', $types, true ) ? 'yes' : '',
 			'eit_filter_has_rating_controls'   => in_array( 'rating', $types, true ) ? 'yes' : '',
 		];
 	}

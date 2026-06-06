@@ -21,6 +21,7 @@
         'eit_filter_has_search_controls',
         'eit_filter_has_select_controls',
         'eit_filter_has_range_controls',
+        'eit_filter_has_date_controls',
         'eit_filter_has_rating_controls'
     ];
     function isTruthy(value) {
@@ -872,6 +873,7 @@
             eit_filter_has_search_controls: hasType(types, 'search') ? 'yes' : '',
             eit_filter_has_select_controls: hasType(types, 'select') ? 'yes' : '',
             eit_filter_has_range_controls: hasType(types, 'range') ? 'yes' : '',
+            eit_filter_has_date_controls: hasType(types, 'date') ? 'yes' : '',
             eit_filter_has_rating_controls: hasType(types, 'rating') ? 'yes' : ''
         };
     }
@@ -920,11 +922,12 @@
         $body.toggleClass('eit-filter-style-has-search', 'yes' === flags.eit_filter_has_search_controls);
         $body.toggleClass('eit-filter-style-has-select', 'yes' === flags.eit_filter_has_select_controls);
         $body.toggleClass('eit-filter-style-has-range', 'yes' === flags.eit_filter_has_range_controls);
+        $body.toggleClass('eit-filter-style-has-date', 'yes' === flags.eit_filter_has_date_controls);
         $body.toggleClass('eit-filter-style-has-rating', 'yes' === flags.eit_filter_has_rating_controls);
     }
 
     function clearStylePanelCadence() {
-        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-checkbox eit-filter-style-has-chips eit-filter-style-has-radio eit-filter-style-has-toggle eit-filter-style-has-swatch eit-filter-style-has-search eit-filter-style-has-select eit-filter-style-has-range eit-filter-style-has-rating');
+        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-checkbox eit-filter-style-has-chips eit-filter-style-has-radio eit-filter-style-has-toggle eit-filter-style-has-swatch eit-filter-style-has-search eit-filter-style-has-select eit-filter-style-has-range eit-filter-style-has-date eit-filter-style-has-rating');
     }
 
     function syncFilterTypeState() {

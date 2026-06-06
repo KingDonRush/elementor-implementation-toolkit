@@ -62,7 +62,7 @@ class FilterRenderer {
 		}
 
 		if ( 'date' === $type ) {
-			DateRenderer::render( $key );
+			DateRenderer::render( $filter, $key );
 			return;
 		}
 

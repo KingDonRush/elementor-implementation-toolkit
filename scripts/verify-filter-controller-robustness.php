@@ -16,6 +16,7 @@ use EIT\Elementor\FilterController\FilterOptions;
 use EIT\Elementor\FilterController\FilterSettings;
 use EIT\Elementor\FilterController\FilterTypeRegistry;
 use EIT\Elementor\FilterController\Renderers\Types\ChoiceOptionsRenderer;
+use EIT\Elementor\FilterController\Renderers\Types\DateRenderer;
 use EIT\Elementor\FilterController\Renderers\Types\SearchRenderer;
 use EIT\Elementor\FilterController\Renderers\Types\SelectRenderer;
 use EIT\Elementor\FilterController\RuntimeConfig;
@@ -89,6 +90,7 @@ function eit_fc_visibility_values( array $types, array $overrides = [] ) {
 			'eit_filter_has_search_controls'   => '',
 			'eit_filter_has_select_controls'   => '',
 			'eit_filter_has_range_controls'    => '',
+			'eit_filter_has_date_controls'     => '',
 			'eit_filter_has_rating_controls'   => '',
 		],
 		FilterTypeRegistry::state_flags_for_types( $types ),
@@ -181,6 +183,8 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Swatch exposes visual, ring, label, fallback, and focus style controls', isset( $controls['swatch_contract_note'] ) && isset( $controls['swatch_size'] ) && isset( $controls['swatch_shape'] ) && isset( $controls['swatch_border_color'] ) && isset( $controls['swatch_hide_labels'] ) && isset( $controls['swatch_ring_color'] ) && isset( $controls['swatch_ring_offset'] ) && isset( $controls['swatch_fallback_background'] ) && isset( $controls['swatch_focus_ring_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section remains registered for editor cadence', isset( $controls['section_range_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range exposes vertical rail side controls', isset( $controls['range_value_label_position'] ) && isset( $controls['range_tick_position'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Date section remains registered for editor cadence', isset( $controls['section_date_style'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Date exposes native note, layout, label, separator, state, and clear controls', isset( $controls['date_native_note'] ) && isset( $controls['date_stack_fields'] ) && isset( $controls['date_gap'] ) && isset( $controls['date_hide_labels'] ) && isset( $controls['date_separator_display'] ) && isset( $controls['date_input_height'] ) && isset( $controls['date_focus_ring_color'] ) && isset( $controls['date_invalid_color'] ) && isset( $controls['date_clear_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating section remains registered for editor cadence', isset( $controls['section_rating_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Rating exposes display, icon, and state style controls', isset( $controls['rating_display_mode'] ) && isset( $controls['rating_threshold_note'] ) && isset( $controls['rating_icon'] ) && isset( $controls['rating_icon_size'] ) && isset( $controls['rating_icon_gap'] ) && isset( $controls['rating_active_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Option section remains registered for editor cadence', isset( $controls['section_option_style'] ) );
@@ -195,6 +199,7 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Radio as its own style family', false !== strpos( $editor_js, 'eit_filter_has_radio_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-radio' ) && false !== strpos( $editor_css, '.elementor-control-section_radio_style' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Toggle as its own style family', false !== strpos( $editor_js, 'eit_filter_has_toggle_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-toggle' ) && false !== strpos( $editor_css, '.elementor-control-section_toggle_style' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Swatch as its own style family', false !== strpos( $editor_js, 'eit_filter_has_swatch_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-swatch' ) && false !== strpos( $editor_css, '.elementor-control-section_swatch_style' ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Date as its own style family', false !== strpos( $editor_js, 'eit_filter_has_date_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-date' ) && false !== strpos( $editor_css, '.elementor-control-section_date_style' ) );
 
 	eit_fc_assert(
 		'TEST-FC-ROBUSTNESS-001',
@@ -231,6 +236,8 @@ eit_fc_assert( 'TEST-FC-ROBUSTNESS-015', 'Chips CSS anatomy and active affordanc
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-016', 'Toggle CSS track, thumb, state text, and focus contract exists', false !== strpos( $css, '.eit-option--toggle' ) && false !== strpos( $css, '.eit-toggle__state--on' ) && false !== strpos( $css, '--eit-toggle-track-width' ) && false !== strpos( $css, '--eit-toggle-thumb-size' ) && false !== strpos( $css, '--eit-toggle-focus-ring-color' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-016', 'Toggle frontend JS keeps checked-only and clear-to-off semantics', false !== strpos( $frontend_js, "'toggle' === type || 'radio' === type || 'rating' === type" ) && false !== strpos( $frontend_js, 'if (!control.checked)' ) && false !== strpos( $frontend_js, 'this.checked = false;' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-017', 'Swatch CSS visual, fallback, ring, and focus contract exists', false !== strpos( $css, '.eit-option--swatch' ) && false !== strpos( $css, '.eit-swatch--fallback' ) && false !== strpos( $css, '--eit-swatch-ring-width' ) && false !== strpos( $css, '--eit-swatch-focus-ring-color' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-018', 'Date CSS field, clear, invalid, and focus contract exists', false !== strpos( $css, '.eit-date-range__field' ) && false !== strpos( $css, '.eit-date-range__clear' ) && false !== strpos( $css, '.eit-date-range.is-invalid' ) && false !== strpos( $css, '--eit-date-focus-ring-color' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-018', 'Date frontend JS clear, sync, and active chip contract exists', false !== strpos( $frontend_js, 'data-eit-date-clear' ) && false !== strpos( $frontend_js, 'syncDateRange' ) && false !== strpos( $frontend_js, 'formatActiveValue' ) );
 
 $runtime_config = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 375 ] );
 $runtime_config_clamped = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 5000 ] );
@@ -343,6 +350,17 @@ ChoiceOptionsRenderer::render(
 $swatch_markup = ob_get_clean();
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-017', 'Swatch renderer keeps grouped checkbox semantics and accessible labels', false !== strpos( $swatch_markup, 'type="checkbox"' ) && false !== strpos( $swatch_markup, 'name="eit-qa-swatch[]"' ) && false !== strpos( $swatch_markup, 'eit-option__label' ) && false !== strpos( $swatch_markup, 'eit-option-count' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-017', 'Swatch renderer emits color/image visuals and invalid visual fallback', false !== strpos( $swatch_markup, 'background-color:#14b8a6' ) && false !== strpos( $swatch_markup, 'background-image:url(https://example.com/texture.png)' ) && false !== strpos( $swatch_markup, 'eit-swatch--fallback' ) && false !== strpos( $swatch_markup, 'eit-swatch__fallback' ) );
+
+ob_start();
+DateRenderer::render(
+	[
+		'label' => 'Publish Date',
+	],
+	'qa_date'
+);
+$date_markup = ob_get_clean();
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-018', 'Date renderer emits labeled native inputs and clear action', false !== strpos( $date_markup, 'data-eit-date-from' ) && false !== strpos( $date_markup, 'data-eit-date-to' ) && false !== strpos( $date_markup, 'eit-date-range__label' ) && false !== strpos( $date_markup, 'data-eit-date-clear' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-018', 'Date renderer emits invalid status and date-format contract', false !== strpos( $date_markup, 'data-eit-date-status' ) && false !== strpos( $date_markup, 'eit-date-range__contract' ) );
 
 $original_definitions = get_option( CptManager::OPTION, [] );
 $original_presets     = get_option( FilterPresets::OPTION, [] );
@@ -550,6 +568,7 @@ try {
 			eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Registered meta range matches', 1 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'range', 'key' => 'qa_budget', 'value' => [ 'min' => '100', 'max' => '150' ] ] ] ] )['total'] );
 			eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Private meta is not auto-enriched', 0 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'range', 'key' => 'qa_private', 'value' => [ 'min' => '100', 'max' => '150' ] ] ] ] )['total'] );
 			eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Registered meta date matches', 1 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'date', 'key' => 'qa_date', 'value' => [ 'from' => '2026-03-01', 'to' => '2026-03-31' ] ] ] ] )['total'] );
+			eit_fc_assert( 'TEST-FC-ROBUSTNESS-018', 'Registered meta date normalizes inverted range', 1 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'date', 'key' => 'qa_date', 'value' => [ 'from' => '2026-03-31', 'to' => '2026-03-01' ] ] ] ] )['total'] );
 			eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Post field post_type matches', 1 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'radio', 'key' => 'post_type', 'value' => $post_type ] ] ] )['total'] );
 			eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Explicit meta equals compare matches', 1 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'select', 'key' => 'qa_select', 'source' => 'meta', 'compare' => 'equals', 'dataType' => 'string', 'value' => 'premium' ] ] ] )['total'] );
 			eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Explicit meta equals compare rejects mismatch', 0 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'select', 'key' => 'qa_select', 'source' => 'meta', 'compare' => 'equals', 'dataType' => 'string', 'value' => 'standard' ] ] ] )['total'] );
@@ -558,6 +577,7 @@ try {
 			eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Explicit numeric lte compare rejects high value', 0 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'range', 'key' => 'qa_budget', 'source' => 'meta', 'compare' => 'lte', 'dataType' => 'number', 'value' => '100' ] ] ] )['total'] );
 			eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Explicit exists compare matches populated meta', 1 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'select', 'key' => 'qa_text', 'source' => 'meta', 'compare' => 'exists', 'dataType' => 'string', 'value' => '' ] ] ] )['total'] );
 			eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Explicit date between compare matches', 1 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'date', 'key' => 'qa_date', 'source' => 'meta', 'compare' => 'between', 'dataType' => 'date', 'value' => [ 'from' => '2026-03-01', 'to' => '2026-03-31' ] ] ] ] )['total'] );
+			eit_fc_assert( 'TEST-FC-ROBUSTNESS-018', 'Explicit date between compare normalizes inverted range', 1 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'date', 'key' => 'qa_date', 'source' => 'meta', 'compare' => 'between', 'dataType' => 'date', 'value' => [ 'from' => '2026-03-31', 'to' => '2026-03-01' ] ] ] ] )['total'] );
 
 			if ( '' !== $term_slug ) {
 				eit_fc_assert( 'TEST-FC-ROBUSTNESS-005', 'Taxonomy filter matches registered term', 1 === $resolver->resolve( $base_payload + [ 'filters' => [ [ 'type' => 'radio', 'key' => $taxonomy, 'value' => $term_slug ] ] ] )['total'], [ 'taxonomy' => $taxonomy, 'term' => $term_slug ] );
@@ -626,6 +646,7 @@ eit_fc_skip( 'TEST-FC-ROBUSTNESS-014', 'Radio visual and keyboard QA', [ 'owner'
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-015', 'Chips visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for compact token feel, multi-select clarity, hidden input keyboard behavior, long labels, scroll row, grid, and mobile wrapping.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-016', 'Toggle visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for off/on clarity, label position, state text, focus, reset, URL restore, and mobile full-row behavior.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-017', 'Swatch visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for hex colors, image swatches, invalid visual fallback, label visibility, selected ring contrast, keyboard focus, and mobile tap targets.' ] );
+eit_fc_skip( 'TEST-FC-ROBUSTNESS-018', 'Date visual and browser-native QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for native picker behavior, labels, inverted state, clear action, active chip text, mobile stacking, and browser differences.' ] );
 
 $failures = array_values(
 	array_filter(

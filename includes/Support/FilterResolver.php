@@ -257,6 +257,9 @@ class FilterResolver {
 			$date = strtotime( $this->get_item_primary_value( $item, $key ) );
 			$from = ! empty( $value['from'] ) ? strtotime( $value['from'] ) : null;
 			$to = ! empty( $value['to'] ) ? strtotime( $value['to'] ) : null;
+			$bounds = $this->normalize_date_bounds( $from, $to );
+			$from = $bounds['from'];
+			$to = $bounds['to'];
 
 			if ( ! $date ) {
 				return false;
@@ -417,6 +420,9 @@ class FilterResolver {
 			$date = strtotime( (string) $haystack );
 			$from = ! empty( $min ) ? strtotime( (string) $min ) : null;
 			$to = ! empty( $max ) ? strtotime( (string) $max ) : null;
+			$bounds = $this->normalize_date_bounds( $from, $to );
+			$from = $bounds['from'];
+			$to = $bounds['to'];
 
 			return $date && ( ! $from || $date >= $from ) && ( ! $to || $date <= $to );
 		}
@@ -467,6 +473,20 @@ class FilterResolver {
 		}
 
 		return mb_strtolower( trim( (string) $left ) ) === mb_strtolower( trim( (string) $right ) );
+	}
+
+	private function normalize_date_bounds( $from, $to ) {
+		if ( $from && $to && $from > $to ) {
+			return [
+				'from' => $to,
+				'to'   => $from,
+			];
+		}
+
+		return [
+			'from' => $from,
+			'to'   => $to,
+		];
 	}
 
 	private function data_type_for_filter( array $filter ) {

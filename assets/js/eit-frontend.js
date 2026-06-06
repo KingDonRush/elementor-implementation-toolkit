@@ -105,6 +105,7 @@
         this.readUrlState();
         this.syncSearchClearButtons();
         this.syncRangeInputs();
+        this.syncDateRanges();
         this.updateOptionStates();
         this.refreshTarget();
         this.apply(false);
@@ -123,6 +124,7 @@
         this.$root.on('input change', '[data-eit-control], [data-eit-sort]', function (event) {
             self.updateOptionStates();
             self.syncRangeInputs(this);
+            self.syncDateRanges($(this).closest('.eit-date-range'));
             self.syncSearchClearButtons();
 
             if (self.config.autoApply) {
@@ -144,6 +146,18 @@
             self.updateOptionStates();
             self.syncSearchClearButtons();
 
+            self.clearSearchTimer();
+
+            if (self.config.autoApply) {
+                self.apply(true);
+            }
+        });
+
+        this.$root.on('click', '[data-eit-date-clear]', function () {
+            var $date = $(this).closest('.eit-date-range');
+
+            self.resetDate($date);
+            self.page = 1;
             self.clearSearchTimer();
 
             if (self.config.autoApply) {
@@ -231,6 +245,7 @@
     Controller.prototype.collectState = function () {
         var filters = [];
         var grouped = {};
+        var self = this;
 
         this.$root.find('[data-eit-control]').each(function () {
             var control = this;
@@ -305,6 +320,8 @@
 
         this.$root.find('.eit-date-range[data-eit-control]').each(function () {
             var $date = $(this);
+            self.syncDateRange($date, true);
+
             var from = $date.find('[data-eit-date-from]').val();
             var to = $date.find('[data-eit-date-to]').val();
 
@@ -454,9 +471,7 @@
 
             values.forEach(function (value) {
                 if ('object' === typeof value) {
-                    value = Object.keys(value).map(function (key) {
-                        return value[key];
-                    }).filter(Boolean).join(' - ');
+                    value = formatActiveValue(filter, value);
                 }
 
                 if (!value) {
@@ -621,6 +636,7 @@
 
     Controller.prototype.resetDate = function ($date) {
         $date.find('[data-eit-date-from], [data-eit-date-to]').val('');
+        this.syncDateRange($date, false);
     };
 
     Controller.prototype.setDateValue = function ($date, value) {
@@ -632,6 +648,57 @@
 
         if (value.to) {
             $date.find('[data-eit-date-to]').val(value.to);
+        }
+
+        this.syncDateRange($date, false);
+    };
+
+    Controller.prototype.syncDateRanges = function ($scope) {
+        var self = this;
+        var $ranges;
+
+        if ($scope && $scope.length) {
+            $ranges = $scope.is('.eit-date-range') ? $scope : $scope.find('.eit-date-range[data-eit-control]');
+        } else {
+            $ranges = this.$root.find('.eit-date-range[data-eit-control]');
+        }
+
+        $ranges.each(function () {
+            self.syncDateRange($(this), false);
+        });
+    };
+
+    Controller.prototype.syncDateRange = function ($date, normalize) {
+        var $from = $date.find('[data-eit-date-from]');
+        var $to = $date.find('[data-eit-date-to]');
+        var $clear = $date.find('[data-eit-date-clear]');
+        var $status = $date.find('[data-eit-date-status]');
+        var from = $from.val();
+        var to = $to.val();
+        var hasValue = Boolean(from || to);
+        var inverted = Boolean(from && to && from > to);
+        var swap;
+
+        if (inverted && normalize) {
+            swap = from;
+            from = to;
+            to = swap;
+            $from.val(from);
+            $to.val(to);
+            inverted = false;
+        }
+
+        $date.toggleClass('is-active', hasValue);
+        $date.toggleClass('is-invalid', inverted);
+        $clear.prop('hidden', !hasValue);
+        $status.prop('hidden', !inverted);
+
+        if (inverted) {
+            $from.attr('aria-invalid', 'true');
+            $to.attr('aria-invalid', 'true');
+        } else {
+            $from.removeAttr('aria-invalid');
+            $to.removeAttr('aria-invalid');
         }
     };
 
@@ -755,6 +822,32 @@
 
     function getFilterLabel(key, type) {
         return key || type || 'Filter';
+    }
+
+    function formatActiveValue(filter, value) {
+        var parts;
+
+        if ('date' === filter.type) {
+            if (value.from && value.to) {
+                return 'From ' + value.from + ' to ' + value.to;
+            }
+
+            if (value.from) {
+                return 'From ' + value.from;
+            }
+
+            if (value.to) {
+                return 'To ' + value.to;
+            }
+
+            return '';
+        }
+
+        parts = Object.keys(value).map(function (key) {
+            return value[key];
+        }).filter(Boolean);
+
+        return parts.join(' - ');
     }
 
     function stateParamKey(type, key) {

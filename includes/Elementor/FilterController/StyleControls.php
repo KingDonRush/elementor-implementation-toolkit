@@ -15,6 +15,7 @@ use EIT\Elementor\FilterController\StyleControls\Shared\SortStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Shared\StateStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Checkbox\CheckboxStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Chips\ChipsStyleControls;
+use EIT\Elementor\FilterController\StyleControls\Types\Date\DateStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Range\RangeStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Radio\RadioStyleControls;
 use EIT\Elementor\FilterController\StyleControls\Types\Rating\RatingStyleControls;
@@ -39,6 +40,7 @@ class StyleControls {
 		RadioStyleControls::register( $widget );
 		ToggleStyleControls::register( $widget );
 		SwatchStyleControls::register( $widget );
+		DateStyleControls::register( $widget );
 		SearchStyleControls::register( $widget );
 		SelectStyleControls::register( $widget );
 		RangeStyleControls::register( $widget );

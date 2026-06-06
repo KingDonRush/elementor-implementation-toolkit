@@ -1,5 +1,4 @@
-.eit-range,
-.eit-date-range {
+.eit-range {
     display: grid;
     gap: 10px;
     max-width: 100%;
@@ -34,8 +33,7 @@
     text-align: right;
 }
 
-.eit-range__sliders,
-.eit-date-range {
+.eit-range__sliders {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--eit-range-input-gap);
