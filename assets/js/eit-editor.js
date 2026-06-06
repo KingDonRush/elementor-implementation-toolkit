@@ -14,6 +14,7 @@
         'eit_filter_has_field_controls',
         'eit_filter_has_option_controls',
         'eit_filter_has_checkbox_controls',
+        'eit_filter_has_chips_controls',
         'eit_filter_has_radio_controls',
         'eit_filter_has_search_controls',
         'eit_filter_has_select_controls',
@@ -862,6 +863,7 @@
                 return typeHasStyleFamily(type, 'option');
             }) ? 'yes' : '',
             eit_filter_has_checkbox_controls: hasType(types, 'checkbox') ? 'yes' : '',
+            eit_filter_has_chips_controls: hasType(types, 'chips') ? 'yes' : '',
             eit_filter_has_radio_controls: hasType(types, 'radio') ? 'yes' : '',
             eit_filter_has_search_controls: hasType(types, 'search') ? 'yes' : '',
             eit_filter_has_select_controls: hasType(types, 'select') ? 'yes' : '',
@@ -907,6 +909,7 @@
         $body.toggleClass('eit-filter-style-has-field', 'yes' === flags.eit_filter_has_field_controls);
         $body.toggleClass('eit-filter-style-has-option', 'yes' === flags.eit_filter_has_option_controls);
         $body.toggleClass('eit-filter-style-has-checkbox', 'yes' === flags.eit_filter_has_checkbox_controls);
+        $body.toggleClass('eit-filter-style-has-chips', 'yes' === flags.eit_filter_has_chips_controls);
         $body.toggleClass('eit-filter-style-has-radio', 'yes' === flags.eit_filter_has_radio_controls);
         $body.toggleClass('eit-filter-style-has-search', 'yes' === flags.eit_filter_has_search_controls);
         $body.toggleClass('eit-filter-style-has-select', 'yes' === flags.eit_filter_has_select_controls);
@@ -915,7 +918,7 @@
     }
 
     function clearStylePanelCadence() {
-        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-checkbox eit-filter-style-has-radio eit-filter-style-has-search eit-filter-style-has-select eit-filter-style-has-range eit-filter-style-has-rating');
+        $('body').removeClass('eit-filter-style-cadence-active eit-filter-style-has-field eit-filter-style-has-option eit-filter-style-has-checkbox eit-filter-style-has-chips eit-filter-style-has-radio eit-filter-style-has-search eit-filter-style-has-select eit-filter-style-has-range eit-filter-style-has-rating');
     }
 
     function syncFilterTypeState() {

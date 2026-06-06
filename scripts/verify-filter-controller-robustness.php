@@ -82,6 +82,7 @@ function eit_fc_visibility_values( array $types, array $overrides = [] ) {
 			'eit_filter_has_field_controls'    => '',
 			'eit_filter_has_option_controls'   => '',
 			'eit_filter_has_checkbox_controls' => '',
+			'eit_filter_has_chips_controls'    => '',
 			'eit_filter_has_radio_controls'    => '',
 			'eit_filter_has_search_controls'   => '',
 			'eit_filter_has_select_controls'   => '',
@@ -168,6 +169,8 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Select exposes native note, field height, arrow, and focus controls', isset( $controls['select_native_note'] ) && isset( $controls['select_field_height'] ) && isset( $controls['select_arrow_size'] ) && isset( $controls['select_arrow_color'] ) && isset( $controls['select_focus_ring_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Checkbox section remains registered for editor cadence', isset( $controls['section_checkbox_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Checkbox exposes layout, indicator, and focus style controls', isset( $controls['checkbox_direction'] ) && isset( $controls['checkbox_wrap'] ) && isset( $controls['checkbox_indicator_size'] ) && isset( $controls['checkbox_indicator_position'] ) && isset( $controls['checkbox_focus_ring_color'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Chips section remains registered for editor cadence', isset( $controls['section_chips_style'] ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Chips exposes wrap, scroll, grid, icon, and focus style controls', isset( $controls['chips_wrap'] ) && isset( $controls['chips_scroll_row'] ) && isset( $controls['chips_columns'] ) && isset( $controls['chips_check_size'] ) && isset( $controls['chips_focus_ring_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Radio section remains registered for editor cadence', isset( $controls['section_radio_style'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Radio exposes layout, segmented, indicator, and focus style controls', isset( $controls['radio_direction'] ) && isset( $controls['radio_segmented'] ) && isset( $controls['radio_indicator_size'] ) && isset( $controls['radio_dot_size'] ) && isset( $controls['radio_focus_ring_color'] ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Range section remains registered for editor cadence', isset( $controls['section_range_style'] ) );
@@ -182,6 +185,7 @@ if ( ! did_action( 'elementor/loaded' ) || ! class_exists( '\Elementor\Plugin' )
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Search as its own style family', false !== strpos( $editor_js, 'eit_filter_has_search_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-search' ) && false !== strpos( $editor_css, '.elementor-control-section_search_style' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Select as its own style family', false !== strpos( $editor_js, 'eit_filter_has_select_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-select' ) && false !== strpos( $editor_css, '.elementor-control-section_select_style' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Checkbox as its own style family', false !== strpos( $editor_js, 'eit_filter_has_checkbox_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-checkbox' ) && false !== strpos( $editor_css, '.elementor-control-section_checkbox_style' ) );
+	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Chips as its own style family', false !== strpos( $editor_js, 'eit_filter_has_chips_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-chips' ) && false !== strpos( $editor_css, '.elementor-control-section_chips_style' ) );
 	eit_fc_assert( 'TEST-FC-ROBUSTNESS-001', 'Editor cadence tracks Radio as its own style family', false !== strpos( $editor_js, 'eit_filter_has_radio_controls' ) && false !== strpos( $editor_js, 'eit-filter-style-has-radio' ) && false !== strpos( $editor_css, '.elementor-control-section_radio_style' ) );
 
 	eit_fc_assert(
@@ -215,6 +219,7 @@ eit_fc_assert( 'TEST-FC-ROBUSTNESS-011', 'Search frontend JS clear and debounce 
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-012', 'Select field CSS anatomy exists', false !== strpos( $css, '.eit-select-field' ) && false !== strpos( $css, '.eit-select-field__arrow' ) && false !== strpos( $css, '--eit-select-focus-ring-color' ) && false !== strpos( $css, 'text-overflow: ellipsis' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-013', 'Checkbox CSS indicator and count contract exists', false !== strpos( $css, '.eit-checkbox-indicator' ) && false !== strpos( $css, '.eit-option-count' ) && false !== strpos( $css, '--eit-checkbox-indicator-size' ) && false !== strpos( $css, '.eit-options__empty' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-014', 'Radio CSS indicator and segmented contract exists', false !== strpos( $css, '.eit-radio-indicator' ) && false !== strpos( $css, '--eit-radio-indicator-size' ) && false !== strpos( $css, '--eit-radio-dot-size' ) && false !== strpos( $css, '--eit-radio-active-background' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-015', 'Chips CSS anatomy and active affordance contract exists', false !== strpos( $css, '.eit-chip-check' ) && false !== strpos( $css, '.eit-chip-visual' ) && false !== strpos( $css, '--eit-chip-check-size' ) && false !== strpos( $css, '--eit-chip-active-outline-color' ) );
 
 $runtime_config = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 375 ] );
 $runtime_config_clamped = RuntimeConfig::from_settings( 'qa', [ 'search_debounce_ms' => 5000 ] );
@@ -287,6 +292,20 @@ ChoiceOptionsRenderer::render(
 $radio_markup = ob_get_clean();
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-014', 'Radio renderer emits single-choice inputs with custom indicator', false !== strpos( $radio_markup, 'type="radio"' ) && false !== strpos( $radio_markup, 'eit-radio-indicator' ) && false === strpos( $radio_markup, 'name="eit-qa-radio[]"' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-014', 'Radio renderer emits optional all-state as empty value', false !== strpos( $radio_markup, 'value=""' ) && false !== strpos( $radio_markup, 'All tiers' ) );
+
+$chips_options = FilterOptions::parse( "featured|Featured|#14b8a6|7\nlong|A very long chip label that must stay contained||4" );
+ob_start();
+ChoiceOptionsRenderer::render(
+	'chips',
+	[
+		'options' => $chips_options,
+	],
+	'eit-qa-chips',
+	'category'
+);
+$chips_markup = ob_get_clean();
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-015', 'Chips renderer keeps grouped checkbox semantics with custom chip affordance', false !== strpos( $chips_markup, 'type="checkbox"' ) && false !== strpos( $chips_markup, 'name="eit-qa-chips[]"' ) && false !== strpos( $chips_markup, 'eit-chip-check' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-015', 'Chips renderer emits visual marker, label, and count slots', false !== strpos( $chips_markup, 'eit-chip-visual' ) && false !== strpos( $chips_markup, 'eit-option__label' ) && false !== strpos( $chips_markup, 'eit-option-count' ) );
 
 $original_definitions = get_option( CptManager::OPTION, [] );
 $original_presets     = get_option( FilterPresets::OPTION, [] );
@@ -567,6 +586,7 @@ eit_fc_skip( 'TEST-FC-ROBUSTNESS-011', 'Search visual and interaction QA', [ 'ow
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-012', 'Select native picker visual QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for closed-field styling, long labels, browser picker behavior, and mobile picker feel.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-013', 'Checkbox visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for indicator feel, multiple checked states, keyboard focus, counts, wrapping, and mobile layout.' ] );
 eit_fc_skip( 'TEST-FC-ROBUSTNESS-014', 'Radio visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for single-choice clarity, segmented mode, All option clearing, keyboard arrows, focus, and mobile wrapping.' ] );
+eit_fc_skip( 'TEST-FC-ROBUSTNESS-015', 'Chips visual and keyboard QA', [ 'owner' => 'Guilherme', 'reason' => 'Requires editor/frontend QA for compact token feel, multi-select clarity, hidden input keyboard behavior, long labels, scroll row, grid, and mobile wrapping.' ] );
 
 $failures = array_values(
 	array_filter(

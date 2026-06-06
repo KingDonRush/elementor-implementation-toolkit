@@ -38,6 +38,12 @@ class ChoiceOptionsRenderer {
 					<?php if ( 'radio' === $type ) : ?>
 						<span class="eit-radio-indicator" aria-hidden="true"></span>
 					<?php endif; ?>
+					<?php if ( 'chips' === $type ) : ?>
+						<span class="eit-chip-check" aria-hidden="true"></span>
+						<?php if ( ! empty( $option['visual'] ) ) : ?>
+							<span class="eit-chip-visual" style="<?php echo esc_attr( FilterOptions::swatch_style( $option['visual'] ) ); ?>" aria-hidden="true"></span>
+						<?php endif; ?>
+					<?php endif; ?>
 					<?php if ( 'swatch' === $type && $option['visual'] ) : ?>
 						<span class="eit-swatch" style="<?php echo esc_attr( FilterOptions::swatch_style( $option['visual'] ) ); ?>" aria-hidden="true"></span>
 					<?php endif; ?>

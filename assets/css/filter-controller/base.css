@@ -27,6 +27,14 @@
     --eit-checkbox-active-border-color: var(--eit-accent);
     --eit-checkbox-active-text-color: var(--eit-text);
     --eit-checkbox-focus-ring-color: rgba(15, 118, 110, 0.22);
+    --eit-chip-gap: 8px;
+    --eit-chip-min-height: 34px;
+    --eit-chip-check-size: 16px;
+    --eit-chip-visual-size: 16px;
+    --eit-chip-active-background: #f0fdfa;
+    --eit-chip-active-outline-color: var(--eit-accent);
+    --eit-chip-active-text-color: var(--eit-text);
+    --eit-chip-focus-ring-color: rgba(15, 118, 110, 0.22);
     --eit-radio-gap: 8px;
     --eit-radio-indicator-size: 18px;
     --eit-radio-dot-size: 8px;

@@ -210,3 +210,77 @@
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
 }
+
+.eit-options--chips {
+    gap: var(--eit-chip-gap);
+}
+
+.eit-option--chips {
+    max-width: 100%;
+    min-width: 0;
+    min-height: var(--eit-chip-min-height);
+    border-radius: var(--eit-chip-radius, 999px);
+}
+
+.eit-option--chips input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.eit-chip-check {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: var(--eit-chip-check-size);
+    height: var(--eit-chip-check-size);
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.eit-chip-check::after {
+    width: 35%;
+    height: 55%;
+    border: solid currentColor;
+    border-width: 0 2px 2px 0;
+    content: "";
+    transform: translateY(-1px) rotate(45deg);
+}
+
+.eit-chip-visual {
+    flex: 0 0 auto;
+    width: var(--eit-chip-visual-size);
+    height: var(--eit-chip-visual-size);
+    border-radius: 999px;
+    background-color: var(--eit-border);
+    background-position: center;
+    background-size: cover;
+}
+
+.eit-option--chips .eit-option__label {
+    min-width: 0;
+}
+
+.eit-option--chips:focus-within {
+    border-color: var(--eit-chip-active-outline-color);
+    box-shadow: 0 0 0 3px var(--eit-chip-focus-ring-color);
+}
+
+.eit-option--chips.is-active,
+.eit-option--chips:has(input:checked) {
+    border-color: var(--eit-chip-active-outline-color);
+    background: var(--eit-chip-active-background);
+    color: var(--eit-chip-active-text-color);
+    box-shadow: inset 0 0 0 1px var(--eit-chip-active-outline-color);
+}
+
+.eit-option--chips.is-active .eit-chip-check,
+.eit-option--chips:has(input:checked) .eit-chip-check {
+    opacity: 1;
+    transform: scale(1);
+}
