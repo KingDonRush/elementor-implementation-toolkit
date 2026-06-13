@@ -307,4 +307,44 @@
 
 		document.body.classList.toggle('eit-modal-open', document.querySelectorAll('.eit-modal:not([hidden])').length > 0 || document.querySelectorAll('.eit-filter-editor-row:not([hidden]), .eit-editor-modal-row:not([hidden])').length > 0);
 	});
+
+	document.addEventListener('click', function (event) {
+		var confirmation = event.target.closest('[data-eit-confirm]');
+
+		if (confirmation && !window.confirm(confirmation.getAttribute('data-eit-confirm'))) {
+			event.preventDefault();
+			return;
+		}
+
+		var select = event.target.closest('[data-eit-select-media]');
+		var clear = event.target.closest('[data-eit-clear-media]');
+		var field = event.target.closest('[data-eit-media-field]');
+
+		if (clear && field) {
+			event.preventDefault();
+			field.querySelector('input').value = '';
+			return;
+		}
+
+		if (!select || !field || !window.wp || !wp.media) {
+			return;
+		}
+
+		event.preventDefault();
+		var multiple = '1' === field.getAttribute('data-eit-media-multiple');
+		var frame = wp.media({
+			title: multiple ? 'Select images' : 'Select image',
+			button: { text: 'Use media' },
+			multiple: multiple
+		});
+
+		frame.on('select', function () {
+			var selection = frame.state().get('selection').toJSON();
+			field.querySelector('input').value = selection.map(function (attachment) {
+				return attachment.id;
+			}).join(',');
+		});
+
+		frame.open();
+	});
 })();

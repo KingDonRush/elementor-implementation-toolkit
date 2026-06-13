@@ -9,9 +9,10 @@
 }
 
 .eit-filter-controller__form {
-    display: grid;
-    grid-template-columns: repeat(100, minmax(0, 1fr));
-    gap: 16px;
+    --eit-filter-form-gap: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--eit-filter-form-gap);
 }
 
 .eit-filter-controller__notice {
@@ -31,15 +32,16 @@
 }
 
 .eit-filter-group {
+    flex: 1 1 calc(var(--eit-filter-basis, 100%) - var(--eit-filter-form-gap));
     flex-direction: column;
     gap: 10px;
-    grid-column: span var(--eit-filter-column-span, 100);
     min-width: 0;
 }
 
 .eit-filter-group--sort,
 .eit-filter-actions {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
+    min-width: 0;
 }
 
 .eit-filter-group__label {

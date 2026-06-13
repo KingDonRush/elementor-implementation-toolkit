@@ -1,7 +1,8 @@
 # Elementor Implementation Toolkit
 
-V0.2.1 starts with a Filter Controller widget for Elementor and a practical
-WordPress admin layer for reusable implementation settings.
+V0.3.0 adds table-backed Custom Content Types that can feed Elementor Loop Grid,
+Loop Carousel, Dynamic Tags, and the Filter Controller without creating
+WordPress singles.
 
 The widget is intentionally parasitic: it does not render its own grid. It detects
 an existing listing on the page, lets the implementer select that target in the
@@ -14,6 +15,10 @@ Elementor editor, and filters the existing cards through AJAX.
 - Admin menu: `Implementation Toolkit`
 - Filter preset manager with an Elementor template bridge
 - Lightweight Post Types manager for custom post types, taxonomies, and typed fields
+- Custom Content Types stored in dedicated tables
+- Toolkit CCT source for Elementor Loop Grid and Loop Carousel
+- CCT Dynamic Tags for text, URL, image, and gallery values
+- Server-side CCT filtering and pagination through the Filter Controller
 - Providers / Diagnostics status for the current filtering runtime
 - Editor listing detection with hover highlight
 - Manual CSS selector fallback
@@ -31,6 +36,7 @@ pages and projects:
 - reusable Filter Presets consumed by the Elementor widget or a plugin-owned
   Elementor template;
 - compact Post Types for custom post types, taxonomies, and typed fields;
+- Content Types for structured listings that do not need posts or permalinks;
 - provider and diagnostic status for the current filtering runtime.
 
 Local visual assets live in `assets/images/icons/` as transparent, tightly
@@ -69,14 +75,29 @@ date/time, checkbox, select, radio, color, image URL, and gallery URLs.
 Deleting a post type definition unregisters the structure on the next request.
 It does not delete posts, terms, or post meta.
 
+### Content Types
+
+Content Types are table-backed records intended for implementation data such as
+portfolio projects, directories, catalogs, and comparison entries:
+
+- one dedicated `{prefix}eit_cct_{slug}` table per definition;
+- typed fields, searchable/filterable flags, status, and manual order;
+- native WordPress CRUD screens without an automatic permalink or single;
+- archive/restore lifecycle that retains definitions, columns, and records;
+- explicit permanent deletion available only for archived definitions;
+- normal Elementor Loop Item templates populated through CCT Dynamic Tags.
+
+Removing a field from a definition marks it inactive. Its database column and
+stored values remain available for a future restoration or migration.
+
 ### Providers / Diagnostics
 
-The Diagnostics area is intentionally small in V0.2. It reports the providers
-that are real today:
+The Diagnostics area reports the providers that are real today:
 
 - DOM provider for existing Elementor, WooCommerce, JetEngine, and generic
   listings;
 - WordPress enrichment when listing items expose a local post ID or permalink.
+- CCT provider for direct table queries and server-rendered Loop Items.
 
 Deep adapters remain future work until a real project needs them.
 

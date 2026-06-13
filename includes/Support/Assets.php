@@ -7,6 +7,7 @@ namespace EIT\Support;
 
 use EIT\Admin\AdminPages;
 use EIT\CPT\CptManager;
+use EIT\Admin\CctItemAdmin;
 use EIT\Elementor\FilterController\FilterTypeRegistry;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -24,6 +25,37 @@ class Assets {
 	}
 
 	public function register_assets() {
+		$frontend_styles = [
+			'base',
+			'layout',
+			'fields',
+			'shared/options',
+			'types/rating',
+			'types/toggle-swatch',
+			'types/date',
+			'types/range',
+			'buttons',
+			'meta',
+			'pagination',
+			'state',
+			'responsive',
+		];
+		$frontend_style_handles = [];
+
+		foreach ( $frontend_styles as $index => $stylesheet ) {
+			$handle = 'eit-filter-controller-' . str_replace( '/', '-', $stylesheet );
+			$relative_path = 'assets/css/filter-controller/' . $stylesheet . '.css';
+			$absolute_path = EIT_PATH . $relative_path;
+			$frontend_style_handles[] = $handle;
+
+			wp_register_style(
+				$handle,
+				EIT_URL . $relative_path,
+				0 === $index ? [] : [ $frontend_style_handles[ $index - 1 ] ],
+				file_exists( $absolute_path ) ? (string) filemtime( $absolute_path ) : EIT_VERSION
+			);
+		}
+
 		wp_register_script(
 			'eit-frontend',
 			EIT_URL . 'assets/js/eit-frontend.js',
@@ -35,8 +67,8 @@ class Assets {
 		wp_register_style(
 			'eit-frontend',
 			EIT_URL . 'assets/css/eit-frontend.css',
-			[],
-			EIT_VERSION
+			$frontend_style_handles,
+			(string) filemtime( EIT_PATH . 'assets/css/eit-frontend.css' )
 		);
 
 		wp_register_script(
@@ -127,14 +159,18 @@ class Assets {
 		$is_toolkit_page = false !== strpos( (string) $hook_suffix, 'eit-' ) || false !== strpos( (string) $hook_suffix, 'implementation-toolkit' );
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		$is_managed_cpt_screen = $screen && ! empty( $screen->post_type ) && array_key_exists( $screen->post_type, CptManager::all() );
+		$is_cct_screen = false !== strpos( (string) $hook_suffix, CctItemAdmin::PAGE_PREFIX );
 
-		if ( ! $is_toolkit_page && ! $is_managed_cpt_screen ) {
+		if ( ! $is_toolkit_page && ! $is_managed_cpt_screen && ! $is_cct_screen ) {
 			return;
 		}
 
 		$this->register_assets();
-		if ( $is_toolkit_page ) {
+		if ( $is_toolkit_page || $is_cct_screen ) {
 			wp_enqueue_script( 'eit-admin' );
+		}
+		if ( $is_cct_screen ) {
+			wp_enqueue_media();
 		}
 		wp_enqueue_style( 'eit-admin' );
 	}

@@ -356,7 +356,7 @@
 
         this.refreshTarget();
 
-        if (!this.target || !this.items.length || this.isApplying) {
+        if (!this.target || ('cct' !== this.config.provider && !this.items.length) || this.isApplying) {
             this.renderMeta({
                 total: 0,
                 page: 1,
@@ -368,6 +368,9 @@
 
         var state = this.collectState();
         var payload = {
+            provider: this.config.provider || 'dom',
+            cctType: this.config.cctType || '',
+            templateId: this.config.cctTemplateId || 0,
             items: this.items,
             filters: state.filters,
             sort: state.sort,
@@ -413,6 +416,18 @@
     };
 
     Controller.prototype.applyResult = function (result) {
+        if ('string' === typeof result.html && 'cct' === this.config.provider) {
+            this.target.innerHTML = result.html;
+
+            if (window.elementorFrontend && elementorFrontend.elementsHandler) {
+                elementorFrontend.elementsHandler.runReadyTrigger($(this.target));
+            }
+
+            this.refreshTarget();
+            this.$root.find('[data-eit-empty]').prop('hidden', (result.total || 0) > 0);
+            return;
+        }
+
         var ids = result.ids || [];
         var visible = {};
         var parent = null;

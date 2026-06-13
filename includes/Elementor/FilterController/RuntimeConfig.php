@@ -14,6 +14,9 @@ class RuntimeConfig {
 	public static function from_settings( $instance, array $settings ) {
 		return [
 			'instance'        => (string) $instance,
+			'provider'        => 'cct' === ( $settings['data_provider'] ?? 'dom' ) ? 'cct' : 'dom',
+			'cctType'         => sanitize_key( $settings['cct_type'] ?? '' ),
+			'cctTemplateId'   => absint( $settings['cct_template_id'] ?? 0 ),
 			'targetSelector'  => sanitize_text_field( $settings['target_selector'] ?? '' ),
 			'itemSelector'    => sanitize_text_field( $settings['item_selector'] ?? '' ),
 			'autoApply'       => ( $settings['auto_apply'] ?? 'yes' ) === 'yes',

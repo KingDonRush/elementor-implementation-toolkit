@@ -32,5 +32,9 @@ class DynamicTagsIntegration {
 		}
 
 		$dynamic_tags->register( new ToolkitFieldKeyTag() );
+		$dynamic_tags->register( new CctTextTag() );
+		$dynamic_tags->register( new CctUrlTag() );
+		$dynamic_tags->register( new CctImageTag() );
+		$dynamic_tags->register( new CctGalleryTag() );
 	}
 }

@@ -5,6 +5,7 @@
 
 namespace EIT\Support;
 
+use EIT\CCT\DefinitionManager;
 use EIT\CPT\CptManager;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -16,6 +17,7 @@ class ToolkitFieldCatalog {
 	const SOURCE_META = 'meta';
 	const SOURCE_TAXONOMY = 'taxonomy';
 	const SOURCE_POST_FIELD = 'post_field';
+	const SOURCE_CCT = 'cct';
 
 	public static function select_options() {
 		$entries = self::entries();
@@ -28,7 +30,7 @@ class ToolkitFieldCatalog {
 		}
 
 		if ( 1 === count( $options ) ) {
-			$options[''] = __( 'No public Toolkit CPT fields found', 'elementor-implementation-toolkit' );
+			$options[''] = __( 'No public Toolkit fields found', 'elementor-implementation-toolkit' );
 		}
 
 		return $options;
@@ -83,6 +85,32 @@ class ToolkitFieldCatalog {
 					'source'    => self::SOURCE_META,
 					'type'      => $type,
 					'post_type' => $post_type,
+				];
+			}
+		}
+
+		foreach ( DefinitionManager::all( false ) as $slug => $definition ) {
+			if ( empty( $definition['public'] ) ) {
+				continue;
+			}
+
+			$type_label = sanitize_text_field( $definition['singular'] ?: $definition['plural'] ?: $slug );
+			foreach ( $definition['fields'] ?? [] as $field ) {
+				if ( empty( $field['active'] ) || empty( $field['filterable'] ) ) {
+					continue;
+				}
+
+				$key = sanitize_key( $field['key'] ?? '' );
+				if ( '' === $key ) {
+					continue;
+				}
+
+				$entries[] = [
+					'key'       => $key,
+					'label'     => self::option_label( $type_label, __( 'CCT', 'elementor-implementation-toolkit' ), $field['label'] ?: $key, $key ),
+					'source'    => self::SOURCE_CCT,
+					'type'      => sanitize_key( $field['type'] ?? 'text' ),
+					'post_type' => 'cct:' . sanitize_key( $slug ),
 				];
 			}
 		}

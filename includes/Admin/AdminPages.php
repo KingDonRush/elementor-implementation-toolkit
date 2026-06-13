@@ -15,11 +15,14 @@ class AdminPages {
 	const DASHBOARD_SLUG = 'eit-toolkit';
 	const FILTERS_SLUG = 'eit-filter-presets';
 	const CPT_SLUG = 'eit-cpt-manager';
+	const CCT_SLUG = 'eit-content-types';
 	const INTEGRATIONS_SLUG = 'eit-integrations';
 
 	private $renderer;
 	private $filter_preset_admin;
 	private $cpt_manager_admin;
+	private $cct_definition_admin;
+	private $cct_item_admin;
 
 	public function init_hooks() {
 		add_action( 'admin_menu', [ $this, 'register_menu' ] );
@@ -31,6 +34,13 @@ class AdminPages {
 		add_action( 'admin_post_' . CptManagerAdmin::SAVE_ACTION, [ $this->cpt_manager_admin(), 'handle_save' ] );
 		add_action( 'admin_post_' . CptManagerAdmin::DELETE_ACTION, [ $this->cpt_manager_admin(), 'handle_delete' ] );
 		add_action( 'admin_post_' . CptManagerAdmin::DUPLICATE_ACTION, [ $this->cpt_manager_admin(), 'handle_duplicate' ] );
+		add_action( 'admin_post_' . CctDefinitionAdmin::SAVE_ACTION, [ $this->cct_definition_admin(), 'handle_save' ] );
+		add_action( 'admin_post_' . CctDefinitionAdmin::ARCHIVE_ACTION, [ $this->cct_definition_admin(), 'handle_archive' ] );
+		add_action( 'admin_post_' . CctDefinitionAdmin::RESTORE_ACTION, [ $this->cct_definition_admin(), 'handle_restore' ] );
+		add_action( 'admin_post_' . CctDefinitionAdmin::DELETE_ACTION, [ $this->cct_definition_admin(), 'handle_delete' ] );
+		add_action( 'admin_post_' . CctItemAdmin::SAVE_ACTION, [ $this->cct_item_admin(), 'handle_save' ] );
+		add_action( 'admin_post_' . CctItemAdmin::DELETE_ACTION, [ $this->cct_item_admin(), 'handle_delete' ] );
+		add_action( 'admin_menu', [ $this->cct_item_admin(), 'register_menus' ], 20 );
 	}
 
 	public function register_menu() {
@@ -60,6 +70,15 @@ class AdminPages {
 			self::CAPABILITY,
 			self::FILTERS_SLUG,
 			[ $this, 'render_filters' ]
+		);
+
+		add_submenu_page(
+			self::DASHBOARD_SLUG,
+			__( 'Content Types', 'elementor-implementation-toolkit' ),
+			__( 'Content Types', 'elementor-implementation-toolkit' ),
+			self::CAPABILITY,
+			self::CCT_SLUG,
+			[ $this, 'render_ccts' ]
 		);
 
 		add_submenu_page(
@@ -110,6 +129,10 @@ class AdminPages {
 		$this->cpt_manager_admin()->render( self::CPT_SLUG, $this->tabs() );
 	}
 
+	public function render_ccts() {
+		$this->cct_definition_admin()->render( self::CCT_SLUG, $this->tabs() );
+	}
+
 	public function render_integrations() {
 		$config = [
 			'title'       => __( 'Settings', 'elementor-implementation-toolkit' ),
@@ -135,6 +158,9 @@ class AdminPages {
 			],
 			self::CPT_SLUG          => [
 				'label' => __( 'CPT / Post Types', 'elementor-implementation-toolkit' ),
+			],
+			self::CCT_SLUG          => [
+				'label' => __( 'Content Types', 'elementor-implementation-toolkit' ),
 			],
 			self::INTEGRATIONS_SLUG => [
 				'label' => __( 'Settings', 'elementor-implementation-toolkit' ),
@@ -310,5 +336,21 @@ class AdminPages {
 		}
 
 		return $this->cpt_manager_admin;
+	}
+
+	private function cct_definition_admin() {
+		if ( ! $this->cct_definition_admin ) {
+			$this->cct_definition_admin = new CctDefinitionAdmin( $this->renderer() );
+		}
+
+		return $this->cct_definition_admin;
+	}
+
+	private function cct_item_admin() {
+		if ( ! $this->cct_item_admin ) {
+			$this->cct_item_admin = new CctItemAdmin();
+		}
+
+		return $this->cct_item_admin;
 	}
 }

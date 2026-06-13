@@ -1,13 +1,1 @@
-@import url("filter-controller/base.css");
-@import url("filter-controller/layout.css");
-@import url("filter-controller/fields.css");
-@import url("filter-controller/shared/options.css");
-@import url("filter-controller/types/rating.css");
-@import url("filter-controller/types/toggle-swatch.css");
-@import url("filter-controller/types/date.css");
-@import url("filter-controller/types/range.css");
-@import url("filter-controller/buttons.css");
-@import url("filter-controller/meta.css");
-@import url("filter-controller/pagination.css");
-@import url("filter-controller/state.css");
-@import url("filter-controller/responsive.css");
+/* Modular Filter Controller styles are registered with cache-safe dependencies. */

@@ -47,6 +47,8 @@ class AdminRenderer {
 		$messages = [
 			'saved'   => __( 'Saved successfully.', 'elementor-implementation-toolkit' ),
 			'deleted' => __( 'Deleted successfully.', 'elementor-implementation-toolkit' ),
+			'archived' => __( 'Archived without deleting stored data.', 'elementor-implementation-toolkit' ),
+			'restored' => __( 'Restored successfully.', 'elementor-implementation-toolkit' ),
 			'error'   => __( 'The action could not be completed.', 'elementor-implementation-toolkit' ),
 		];
 

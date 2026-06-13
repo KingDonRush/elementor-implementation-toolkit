@@ -11,6 +11,8 @@ use Elementor\Widget_Base;
 use EIT\Admin\AdminPages;
 use EIT\Support\FilterPresets;
 use EIT\Support\SortOptions;
+use EIT\Support\CctFieldCatalog;
+use EIT\Support\CctLoopTemplateCatalog;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -30,6 +32,40 @@ class ContentControls {
 			'section_target',
 			[
 				'label' => esc_html__( 'Target Listing', 'elementor-implementation-toolkit' ),
+			]
+		);
+
+		$widget->add_control(
+			'data_provider',
+			[
+				'label'   => esc_html__( 'Data Provider', 'elementor-implementation-toolkit' ),
+				'type'    => Controls_Manager::SELECT,
+				'default' => 'dom',
+				'options' => [
+					'dom' => esc_html__( 'Existing DOM listing', 'elementor-implementation-toolkit' ),
+					'cct' => esc_html__( 'Toolkit CCT', 'elementor-implementation-toolkit' ),
+				],
+			]
+		);
+
+		$widget->add_control(
+			'cct_type',
+			[
+				'label'     => esc_html__( 'Content Type', 'elementor-implementation-toolkit' ),
+				'type'      => Controls_Manager::SELECT,
+				'options'   => CctFieldCatalog::type_options(),
+				'condition' => [ 'data_provider' => 'cct' ],
+			]
+		);
+
+		$widget->add_control(
+			'cct_template_id',
+			[
+				'label'       => esc_html__( 'Loop Item Template', 'elementor-implementation-toolkit' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => CctLoopTemplateCatalog::options(),
+				'description' => esc_html__( 'Used when the filter endpoint replaces the CCT listing results.', 'elementor-implementation-toolkit' ),
+				'condition'   => [ 'data_provider' => 'cct' ],
 			]
 		);
 
@@ -127,6 +163,7 @@ class ContentControls {
 				'placeholder'        => '.elementor-element-abc123, .my-listing',
 				'description'        => esc_html__( 'Use the detected listings helper in the editor, or enter a CSS selector manually.', 'elementor-implementation-toolkit' ),
 				'frontend_available' => true,
+				'condition'          => [],
 			]
 		);
 

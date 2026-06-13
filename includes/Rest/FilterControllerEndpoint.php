@@ -31,8 +31,15 @@ class FilterControllerEndpoint {
 	}
 
 	public function filter( WP_REST_Request $request ) {
+		$payload = $request->get_json_params();
+
+		if ( is_array( $payload ) && 'cct' === ( $payload['provider'] ?? '' ) ) {
+			$result = ( new CctFilterProvider() )->resolve( $payload );
+			return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
+		}
+
 		$resolver = new FilterResolver();
 
-		return rest_ensure_response( $resolver->resolve( $request->get_json_params() ) );
+		return rest_ensure_response( $resolver->resolve( $payload ) );
 	}
 }

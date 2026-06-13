@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Elementor Implementation Toolkit
  * Description: Practical Elementor implementation helpers, starting with a parasitic AJAX filter controller for existing listings.
- * Version: 0.2.20
+ * Version: 0.3.0
  * Author: Guilherme Silva
  * Text Domain: elementor-implementation-toolkit
  * Domain Path: /languages
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EIT_VERSION', '0.2.20' );
+define( 'EIT_VERSION', '0.3.0' );
 define( 'EIT_FILE', __FILE__ );
 define( 'EIT_PATH', plugin_dir_path( __FILE__ ) );
 define( 'EIT_URL', plugin_dir_url( __FILE__ ) );
@@ -26,6 +26,10 @@ if ( file_exists( $eit_composer_autoload ) ) {
 } else {
 	require_once EIT_PATH . 'includes/Core/Autoloader.php';
 }
+
+require_once EIT_PATH . 'includes/functions.php';
+
+register_activation_hook( EIT_FILE, [ '\EIT\CCT\SchemaManager', 'install_all' ] );
 
 use EIT\Core\Plugin;
 

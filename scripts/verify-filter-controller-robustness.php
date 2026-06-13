@@ -133,6 +133,24 @@ function eit_fc_css_braces_balanced( $css ) {
 	return [ 0 === $level, $level ];
 }
 
+function eit_fc_filter_controller_stylesheets() {
+	return [
+		'assets/css/filter-controller/base.css',
+		'assets/css/filter-controller/layout.css',
+		'assets/css/filter-controller/fields.css',
+		'assets/css/filter-controller/shared/options.css',
+		'assets/css/filter-controller/types/rating.css',
+		'assets/css/filter-controller/types/toggle-swatch.css',
+		'assets/css/filter-controller/types/date.css',
+		'assets/css/filter-controller/types/range.css',
+		'assets/css/filter-controller/buttons.css',
+		'assets/css/filter-controller/meta.css',
+		'assets/css/filter-controller/pagination.css',
+		'assets/css/filter-controller/state.css',
+		'assets/css/filter-controller/responsive.css',
+	];
+}
+
 function eit_fc_stylesheet_contents( $relative_path, array $seen = [] ) {
 	$relative_path = ltrim( $relative_path, '/' );
 
@@ -148,6 +166,12 @@ function eit_fc_stylesheet_contents( $relative_path, array $seen = [] ) {
 	}
 
 	$css = file_get_contents( $path );
+
+	if ( 'assets/css/eit-frontend.css' === $relative_path ) {
+		foreach ( eit_fc_filter_controller_stylesheets() as $module_path ) {
+			$css .= "\n" . eit_fc_stylesheet_contents( $module_path, $seen );
+		}
+	}
 
 	return preg_replace_callback(
 		'/@import\s+url\("([^"]+)"\);/',
@@ -219,8 +243,8 @@ $frontend_js = file_get_contents( EIT_PATH . 'assets/js/eit-frontend.js' );
 list( $balanced, $balance_detail ) = eit_fc_css_braces_balanced( $css );
 
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-002', 'Frontend CSS braces are balanced', $balanced, [ 'detail' => $balance_detail ] );
-eit_fc_assert( 'TEST-FC-ROBUSTNESS-002', 'Controller form uses grid packing', eit_fc_css_contains( $css, '.eit-filter-controller__form', 'grid-template-columns: repeat(100, minmax(0, 1fr))' ) );
-eit_fc_assert( 'TEST-FC-ROBUSTNESS-002', 'Filter groups can shrink inside grid spans', eit_fc_css_contains( $css, '.eit-filter-group', 'min-width: 0' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-002', 'Controller form uses wrapping flex packing', eit_fc_css_contains( $css, '.eit-filter-controller__form', 'flex-wrap: wrap' ) && false !== strpos( $css, '--eit-filter-form-gap' ) );
+eit_fc_assert( 'TEST-FC-ROBUSTNESS-002', 'Filter groups can shrink inside layout spans', eit_fc_css_contains( $css, '.eit-filter-group', 'min-width: 0' ) && false !== strpos( $css, '--eit-filter-basis' ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-002', 'Inputs are full-width inside containers', eit_fc_css_contains( $css, '.eit-input,\s*.eit-select', 'width: 100%' ) || false !== strpos( $css, ".eit-input,\n.eit-select {\n    width: 100%;" ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-006', 'Range hidden inputs do not reserve visible layout space', false !== strpos( $css, '.eit-range:not(.eit-range--show-inputs) .eit-range__values' ) && false !== strpos( $css, "display: none;\n}" ) );
 eit_fc_assert( 'TEST-FC-ROBUSTNESS-006', 'Range icon visual bounds constrain oversized icons', false !== strpos( $css, '--eit-range-thumb-visual-size: max(' ) && false !== strpos( $css, 'max-width: calc(var(--eit-range-thumb-visual-size)' ) && false !== strpos( $css, 'overflow: hidden;' ) );
@@ -370,6 +394,7 @@ $term_id              = 0;
 try {
 	$definitions = is_array( $original_definitions ) ? $original_definitions : [];
 	$post_type = isset( $definitions['_portfolio_item'] ) ? '_portfolio_item' : '';
+	$created_disposable_cpt = false;
 
 	if ( '' === $post_type ) {
 		foreach ( $definitions as $candidate_slug => $definition ) {
@@ -381,8 +406,39 @@ try {
 	}
 
 	if ( '' === $post_type ) {
-		eit_fc_fail( 'TEST-FC-ROBUSTNESS-004', 'Toolkit public CPT fixture available', [ 'reason' => 'No registered public Toolkit CPT definition found.' ] );
-	} else {
+		$post_type = 'eit_qa_cpt';
+		$taxonomy = 'eit_qa_tax';
+		$created_disposable_cpt = true;
+		$definitions[ $post_type ] = [
+			'slug'         => $post_type,
+			'singular'     => 'QA Item',
+			'plural'       => 'QA Items',
+			'description'  => 'Disposable verification CPT.',
+			'menu_icon'    => 'dashicons-admin-tools',
+			'public'       => true,
+			'show_in_rest' => true,
+			'has_archive'  => false,
+			'rewrite'      => false,
+			'supports'     => [ 'title', 'editor', 'excerpt' ],
+			'taxonomies'   => [
+				[
+					'slug'         => $taxonomy,
+					'singular'     => 'QA Type',
+					'plural'       => 'QA Types',
+					'public'       => true,
+					'show_in_rest' => true,
+					'hierarchical' => false,
+				],
+			],
+			'meta_fields'  => [],
+		];
+		update_option( CptManager::OPTION, $definitions, false );
+		register_post_type( $post_type, [ 'public' => true, 'show_in_rest' => true, 'supports' => [ 'title', 'editor', 'excerpt' ] ] );
+		register_taxonomy( $taxonomy, [ $post_type ], [ 'public' => true, 'show_in_rest' => true ] );
+		eit_fc_pass( 'TEST-FC-ROBUSTNESS-004', 'Toolkit public CPT fixture available', [ 'fixture' => $post_type ] );
+	}
+
+	if ( '' !== $post_type ) {
 		$taxonomy = '';
 
 		foreach ( $definitions[ $post_type ]['taxonomies'] ?? [] as $taxonomy_definition ) {
@@ -597,6 +653,15 @@ try {
 
 	update_option( CptManager::OPTION, $original_definitions, false );
 	update_option( FilterPresets::OPTION, $original_presets, false );
+
+	if ( ! empty( $created_disposable_cpt ) ) {
+		if ( post_type_exists( 'eit_qa_cpt' ) && function_exists( 'unregister_post_type' ) ) {
+			unregister_post_type( 'eit_qa_cpt' );
+		}
+		if ( taxonomy_exists( 'eit_qa_tax' ) && function_exists( 'unregister_taxonomy' ) ) {
+			unregister_taxonomy( 'eit_qa_tax' );
+		}
+	}
 }
 
 $sort_items = [

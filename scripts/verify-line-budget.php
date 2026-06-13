@@ -14,7 +14,8 @@ if ( false === $root ) {
 	exit( 1 );
 }
 
-$strict = in_array( '--strict', $argv, true );
+$cli_args = isset( $argv ) && is_array( $argv ) ? $argv : ( $_SERVER['argv'] ?? [] );
+$strict = in_array( '--strict', $cli_args, true );
 
 $extensions = [
 	'php' => true,
