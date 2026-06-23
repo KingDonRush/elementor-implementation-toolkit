@@ -115,33 +115,92 @@ class ToolkitFieldCatalog {
 			}
 		}
 
-		return self::merge_entries_by_key( $entries );
+		$entries = apply_filters( 'eit_toolkit_field_catalog_entries', $entries );
+
+		return self::merge_entries_by_key( self::normalize_entries( $entries ) );
 	}
 
 	public static function public_meta_fields_for_post_type( $post_type ) {
 		$definition = CptManager::get( $post_type );
 
-		if ( ! $definition || ! self::is_public_definition( $definition ) ) {
-			return [];
-		}
-
 		$fields = [];
 
-		foreach ( $definition['meta_fields'] ?? [] as $field ) {
-			if ( ! self::is_public_meta_field( $field ) ) {
+		if ( $definition && self::is_public_definition( $definition ) ) {
+			foreach ( $definition['meta_fields'] ?? [] as $field ) {
+				if ( ! self::is_public_meta_field( $field ) ) {
+					continue;
+				}
+
+				$key = sanitize_key( $field['key'] ?? '' );
+
+				if ( '' === $key ) {
+					continue;
+				}
+
+				$fields[ $key ] = $field;
+			}
+		}
+
+		$fields = apply_filters( 'eit_toolkit_public_meta_fields_for_post_type', $fields, $post_type );
+
+		return self::normalize_meta_fields( $fields );
+	}
+
+	private static function normalize_entries( $entries ) {
+		$entries = is_array( $entries ) ? $entries : [];
+		$normalized = [];
+		$sources = [ self::SOURCE_META, self::SOURCE_TAXONOMY, self::SOURCE_POST_FIELD, self::SOURCE_CCT ];
+
+		foreach ( $entries as $entry ) {
+			if ( ! is_array( $entry ) ) {
 				continue;
 			}
 
-			$key = sanitize_key( $field['key'] ?? '' );
+			$key = sanitize_key( $entry['key'] ?? '' );
 
 			if ( '' === $key ) {
 				continue;
 			}
 
-			$fields[ $key ] = $field;
+			$source = sanitize_key( $entry['source'] ?? self::SOURCE_META );
+
+			$normalized[] = [
+				'key'       => $key,
+				'label'     => sanitize_text_field( $entry['label'] ?? $key ),
+				'source'    => in_array( $source, $sources, true ) ? $source : self::SOURCE_META,
+				'type'      => sanitize_key( $entry['type'] ?? 'text' ),
+				'post_type' => sanitize_text_field( $entry['post_type'] ?? 'external' ),
+			];
 		}
 
-		return $fields;
+		return $normalized;
+	}
+
+	private static function normalize_meta_fields( $fields ) {
+		$fields = is_array( $fields ) ? $fields : [];
+		$normalized = [];
+
+		foreach ( $fields as $key => $field ) {
+			if ( ! is_array( $field ) ) {
+				continue;
+			}
+
+			$key = sanitize_key( $field['key'] ?? $key );
+
+			if ( '' === $key ) {
+				continue;
+			}
+
+			$normalized[ $key ] = [
+				'key'          => $key,
+				'label'        => sanitize_text_field( $field['label'] ?? $key ),
+				'type'         => sanitize_key( $field['type'] ?? 'text' ),
+				'default'      => sanitize_text_field( $field['default'] ?? '' ),
+				'show_in_rest' => ! empty( $field['show_in_rest'] ),
+			];
+		}
+
+		return $normalized;
 	}
 
 	private static function merge_entries_by_key( array $entries ) {
