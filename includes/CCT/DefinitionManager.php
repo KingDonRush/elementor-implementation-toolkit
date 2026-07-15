@@ -5,6 +5,8 @@
 
 namespace EIT\CCT;
 
+use EIT\Blueprint\RuntimeDefinitionProvider;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -16,8 +18,7 @@ class DefinitionManager {
 	const RESERVED_FIELDS = [ 'id', 'title', 'status', 'menu_order', 'created_at', 'updated_at' ];
 
 	public static function all( $include_archived = true ) {
-		$definitions = get_option( self::OPTION, [] );
-		$definitions = is_array( $definitions ) ? $definitions : [];
+		$definitions = array_replace( self::legacy_all(), RuntimeDefinitionProvider::cct_definitions() );
 
 		if ( $include_archived ) {
 			return $definitions;
@@ -69,7 +70,8 @@ class DefinitionManager {
 	}
 
 	public static function save( array $raw ) {
-		$definitions = self::all();
+		$definitions = self::legacy_all();
+		$compiled = RuntimeDefinitionProvider::cct_definitions();
 		$original_slug = self::sanitize_slug( $raw['original_slug'] ?? '' );
 		$slug = self::sanitize_slug( $raw['slug'] ?? '' );
 
@@ -82,6 +84,9 @@ class DefinitionManager {
 		}
 
 		$slug = $original_slug && isset( $definitions[ $original_slug ] ) ? $original_slug : $slug;
+		if ( isset( $compiled[ $original_slug ?: $slug ] ) ) {
+			return new \WP_Error( 'eit_cct_blueprint_owned', __( 'This content type is compiled by a Blueprint and cannot be edited through the legacy manager.', 'elementor-implementation-toolkit' ) );
+		}
 		$existing = $definitions[ $slug ] ?? null;
 		if ( ! is_array( $existing ) && SchemaManager::table_exists( $slug ) ) {
 			return new \WP_Error( 'eit_cct_orphan_table', __( 'Storage already exists for this slug but is not owned by a published definition.', 'elementor-implementation-toolkit' ) );
@@ -102,7 +107,7 @@ class DefinitionManager {
 		}
 
 		$definitions[ $slug ] = $definition;
-		if ( ! update_option( self::OPTION, $definitions, false ) && self::all() !== $definitions ) {
+		if ( ! update_option( self::OPTION, $definitions, false ) && self::legacy_all() !== $definitions ) {
 			return new \WP_Error( 'eit_cct_definition_write_failed', __( 'The content type definition could not be saved.', 'elementor-implementation-toolkit' ) );
 		}
 		return $slug;
@@ -110,15 +115,17 @@ class DefinitionManager {
 
 	public static function archive( $slug ) {
 		$slug = self::sanitize_slug( $slug );
-		$definitions = self::all();
+		if ( isset( RuntimeDefinitionProvider::cct_definitions()[ $slug ] ) ) {
+			return new \WP_Error( 'eit_cct_blueprint_owned', __( 'This content type is compiled by a Blueprint and cannot be changed through the legacy manager.', 'elementor-implementation-toolkit' ) );
+		}
+		$definitions = self::legacy_all();
 
 		if ( ! isset( $definitions[ $slug ] ) ) {
 			return false;
 		}
-
 		$definitions[ $slug ]['state'] = 'archived';
 		$definitions[ $slug ]['updated_at'] = current_time( 'mysql' );
-		if ( ! update_option( self::OPTION, $definitions, false ) && self::all() !== $definitions ) {
+		if ( ! update_option( self::OPTION, $definitions, false ) && self::legacy_all() !== $definitions ) {
 			return new \WP_Error( 'eit_cct_archive_failed', __( 'The content type could not be archived.', 'elementor-implementation-toolkit' ) );
 		}
 
@@ -127,19 +134,21 @@ class DefinitionManager {
 
 	public static function restore( $slug ) {
 		$slug = self::sanitize_slug( $slug );
-		$definitions = self::all();
+		if ( isset( RuntimeDefinitionProvider::cct_definitions()[ $slug ] ) ) {
+			return new \WP_Error( 'eit_cct_blueprint_owned', __( 'This content type is compiled by a Blueprint and cannot be changed through the legacy manager.', 'elementor-implementation-toolkit' ) );
+		}
+		$definitions = self::legacy_all();
 
 		if ( ! isset( $definitions[ $slug ] ) ) {
 			return false;
 		}
-
 		$definitions[ $slug ]['state'] = 'active';
 		$definitions[ $slug ]['updated_at'] = current_time( 'mysql' );
 		$result = SchemaManager::sync_definition( $definitions[ $slug ] );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
-		if ( ! update_option( self::OPTION, $definitions, false ) && self::all() !== $definitions ) {
+		if ( ! update_option( self::OPTION, $definitions, false ) && self::legacy_all() !== $definitions ) {
 			return new \WP_Error( 'eit_cct_restore_failed', __( 'The content type storage was verified, but its active state could not be saved.', 'elementor-implementation-toolkit' ) );
 		}
 
@@ -148,8 +157,10 @@ class DefinitionManager {
 
 	public static function delete_permanently( $slug ) {
 		$slug = self::sanitize_slug( $slug );
-		$definitions = self::all();
-
+		if ( isset( RuntimeDefinitionProvider::cct_definitions()[ $slug ] ) ) {
+			return new \WP_Error( 'eit_cct_blueprint_owned', __( 'This content type is compiled by a Blueprint and cannot be deleted through the legacy manager.', 'elementor-implementation-toolkit' ) );
+		}
+		$definitions = self::legacy_all();
 		if (
 			! isset( $definitions[ $slug ] )
 			|| 'archived' !== ( $definitions[ $slug ]['state'] ?? 'active' )
@@ -159,13 +170,13 @@ class DefinitionManager {
 
 		$previous_definitions = $definitions;
 		unset( $definitions[ $slug ] );
-		if ( ! update_option( self::OPTION, $definitions, false ) && self::all() !== $definitions ) {
+		if ( ! update_option( self::OPTION, $definitions, false ) && self::legacy_all() !== $definitions ) {
 			return new \WP_Error( 'eit_cct_delete_prepare_failed', __( 'The content type could not be prepared for deletion, so its table was preserved.', 'elementor-implementation-toolkit' ) );
 		}
 
 		$result = SchemaManager::drop_table( $slug );
 		if ( is_wp_error( $result ) ) {
-			$restored = update_option( self::OPTION, $previous_definitions, false ) || self::all() === $previous_definitions;
+			$restored = update_option( self::OPTION, $previous_definitions, false ) || self::legacy_all() === $previous_definitions;
 			if ( ! $restored ) {
 				return new \WP_Error( 'eit_cct_delete_recovery_failed', __( 'Table deletion failed and the definition could not be restored automatically.', 'elementor-implementation-toolkit' ) );
 			}
@@ -173,6 +184,11 @@ class DefinitionManager {
 		}
 
 		return true;
+	}
+
+	private static function legacy_all() {
+		$definitions = get_option( self::OPTION, [] );
+		return is_array( $definitions ) ? $definitions : [];
 	}
 
 	public static function fields( $slug, $active_only = true ) {

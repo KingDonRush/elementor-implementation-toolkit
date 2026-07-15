@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class ChangeSetStore {
 
-	const STATUSES = [ 'prepared', 'applying', 'applied', 'reconciled', 'failed', 'rolled_back' ];
+	const STATUSES = [ 'blocked', 'prepared', 'applying', 'applied', 'reconciled', 'failed', 'rolled_back' ];
 
 	public function create( array $record ) {
 		global $wpdb;
@@ -22,6 +22,7 @@ class ChangeSetStore {
 			return is_wp_error( $impact ) ? $impact : $artifacts;
 		}
 		$now = current_time( 'mysql', true );
+		$status = in_array( $record['status'] ?? 'prepared', [ 'blocked', 'prepared' ], true ) ? $record['status'] ?? 'prepared' : 'prepared';
 		$result = $wpdb->insert(
 			Tables::name( Tables::CHANGE_SETS ),
 			[
@@ -29,7 +30,7 @@ class ChangeSetStore {
 				'blueprint_id' => (string) $record['blueprint_id'],
 				'from_version_id' => empty( $record['from_version_id'] ) ? null : absint( $record['from_version_id'] ),
 				'draft_checksum' => (string) $record['draft_checksum'],
-				'status' => 'prepared',
+				'status' => $status,
 				'impact' => $impact,
 				'compiled_artifacts' => $artifacts,
 				'confirmation_hash' => (string) $record['confirmation_hash'],

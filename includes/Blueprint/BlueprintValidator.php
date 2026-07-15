@@ -38,6 +38,7 @@ class BlueprintValidator {
 		$connections = $this->validate_connections( $blueprint['connections'] ?? null, $node_index, $errors );
 		$this->validate_orphans( $node_index, $connections, $errors );
 		$this->validate_cardinality( $node_index, $connections, $errors );
+		$this->validate_storage_bindings( $node_index, $connections, $errors );
 		$this->validate_cycles( $node_index, $connections, $errors );
 
 		if ( isset( $blueprint['checksum'] ) && ! hash_equals( (string) $blueprint['checksum'], $this->canonicalizer->checksum( $blueprint ) ) ) {
@@ -146,6 +147,11 @@ class BlueprintValidator {
 			$errors[] = $this->error( $path . '.type', 'unknown_field_type', 'Field primitive is not registered.', $node_id );
 			return;
 		}
+		$health = $primitive->health_check();
+		if ( ! is_array( $health ) || empty( $health['ok'] ) ) {
+			$errors[] = $this->error( $path . '.type', 'field_primitive_unhealthy', 'Field primitive failed its health check.', $node_id );
+			return;
+		}
 		if ( empty( trim( (string) ( $field['name'] ?? '' ) ) ) ) {
 			$errors[] = $this->error( $path . '.name', 'required', 'Field public name is required.', $node_id );
 		}
@@ -161,7 +167,7 @@ class BlueprintValidator {
 		}
 
 		$storage_key = (string) ( $field['storage']['key'] ?? '' );
-		if ( ! preg_match( '/^[a-z][a-z0-9_]{2,63}$/', $storage_key ) ) {
+		if ( ! preg_match( '/^[a-z_][a-z0-9_-]{0,190}$/', $storage_key ) ) {
 			$errors[] = $this->error( $path . '.storage.key', 'invalid_storage_key', 'Compiled storage key is invalid.', $node_id );
 		}
 		$capabilities = $definition['capabilities'] ?? [];
@@ -226,6 +232,12 @@ class BlueprintValidator {
 
 	private function validate_cardinality( array $nodes, array $connections, array &$errors ) {
 		$counts = [];
+		$owners = [
+			'entry_surface' => [ 'entry_for', 'Entry Surface must belong to exactly one Entity.' ],
+			'collection' => [ 'collection_for', 'Collection must belong to exactly one Entity.' ],
+			'filter_surface' => [ 'filters', 'Filter Surface must belong to exactly one Collection.' ],
+			'route' => [ 'routes', 'Route must belong to exactly one Presentation.' ],
+		];
 		foreach ( $connections as $connection ) {
 			$counts[ $connection['to'] ][ $connection['type'] ] = ( $counts[ $connection['to'] ][ $connection['type'] ] ?? 0 ) + 1;
 			$counts[ $connection['from'] ][ $connection['type'] ] = ( $counts[ $connection['from'] ][ $connection['type'] ] ?? 0 ) + 1;
@@ -236,6 +248,44 @@ class BlueprintValidator {
 			}
 			if ( 'relation' === $node['type'] && ( 1 !== ( $counts[ $id ]['relation_source'] ?? 0 ) || 1 !== ( $counts[ $id ]['relation_target'] ?? 0 ) ) ) {
 				$errors[] = $this->error( 'connections', 'relation_endpoints', 'Relation must declare exactly one source and one target Entity.', $id );
+			}
+			if ( isset( $owners[ $node['type'] ] ) && 1 !== ( $counts[ $id ][ $owners[ $node['type'] ][0] ] ?? 0 ) ) {
+				$errors[] = $this->error( 'connections', 'single_owner_required', $owners[ $node['type'] ][1], $id );
+			}
+		}
+	}
+
+	private function validate_storage_bindings( array $nodes, array $connections, array &$errors ) {
+		foreach ( $nodes as $entity_id => $entity ) {
+			if ( 'entity' !== ( $entity['type'] ?? '' ) ) {
+				continue;
+			}
+			$bindings = [];
+			$columns = [];
+			foreach ( $connections as $connection ) {
+				if ( 'entity_fields' !== $connection['type'] || $entity_id !== $connection['from'] ) {
+					continue;
+				}
+				foreach ( $nodes[ $connection['to'] ]['config']['fields'] ?? [] as $field ) {
+					if ( ! is_array( $field ) ) {
+						continue;
+					}
+					$field_id = (string) ( $field['id'] ?? '' );
+					$aliases = $field['storage']['aliases'] ?? [];
+					$keys = array_merge( [ $field['storage']['key'] ?? '' ], is_array( $aliases ) ? $aliases : [] );
+					foreach ( array_unique( array_filter( array_map( 'strval', $keys ) ) ) as $key ) {
+						$normalized = strtolower( $key );
+						if ( isset( $bindings[ $normalized ] ) && $bindings[ $normalized ] !== $field_id ) {
+							$errors[] = $this->error( 'nodes', 'duplicate_storage_binding', 'Field storage keys and aliases must be unique inside an Entity.', $entity_id );
+						}
+						$bindings[ $normalized ] = $field_id;
+					}
+					$column = preg_replace( '/[^a-z0-9_]/', '_', strtolower( (string) ( $field['storage']['key'] ?? '' ) ) );
+					if ( isset( $columns[ $column ] ) && $columns[ $column ] !== $field_id ) {
+						$errors[] = $this->error( 'nodes', 'storage_column_collision', 'Field storage keys compile to the same portable column name.', $entity_id );
+					}
+					$columns[ $column ] = $field_id;
+				}
 			}
 		}
 	}

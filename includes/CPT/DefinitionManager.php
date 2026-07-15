@@ -5,6 +5,8 @@
 
 namespace EIT\CPT;
 
+use EIT\Blueprint\RuntimeDefinitionProvider;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -17,8 +19,7 @@ class DefinitionManager {
 	const RESERVED_META_KEYS = [ 'id', 'post_title', 'post_content', 'post_excerpt', 'post_status', 'post_type', 'guid', 'menu_order', '_thumbnail_id', '_edit_lock', '_edit_last', '_wp_page_template' ];
 
 	public static function all() {
-		$definitions = get_option( self::OPTION, [] );
-		return is_array( $definitions ) ? $definitions : [];
+		return array_replace( self::legacy_all(), RuntimeDefinitionProvider::cpt_definitions() );
 	}
 
 	public static function get( $slug ) {
@@ -74,7 +75,8 @@ class DefinitionManager {
 	}
 
 	public static function save( array $raw ) {
-		$definitions = self::all();
+		$definitions = self::legacy_all();
+		$compiled = RuntimeDefinitionProvider::cpt_definitions();
 		$original_slug = self::sanitize_post_type_slug( $raw['original_slug'] ?? '' );
 		$slug = self::sanitize_post_type_slug( $raw['slug'] ?? '' );
 
@@ -87,6 +89,9 @@ class DefinitionManager {
 		}
 
 		$slug = $original_slug && isset( $definitions[ $original_slug ] ) ? $original_slug : $slug;
+		if ( isset( $compiled[ $original_slug ?: $slug ] ) ) {
+			return new \WP_Error( 'eit_cpt_blueprint_owned', __( 'This post type is compiled by a Blueprint and cannot be edited through the legacy manager.', 'elementor-implementation-toolkit' ) );
+		}
 		if ( self::is_reserved_post_type_slug( $slug ) || ( post_type_exists( $slug ) && ! isset( $definitions[ $slug ] ) ) ) {
 			return new \WP_Error( 'eit_cpt_slug_unavailable', __( 'This post type slug is reserved or already registered.', 'elementor-implementation-toolkit' ) );
 		}
@@ -98,7 +103,7 @@ class DefinitionManager {
 		}
 
 		$definitions[ $slug ] = self::sanitize_definition( $raw, $slug );
-		if ( ! update_option( self::OPTION, $definitions, false ) && self::all() !== $definitions ) {
+		if ( ! update_option( self::OPTION, $definitions, false ) && self::legacy_all() !== $definitions ) {
 			return new \WP_Error( 'eit_cpt_write_failed', __( 'The post type definition could not be saved.', 'elementor-implementation-toolkit' ) );
 		}
 
@@ -108,7 +113,10 @@ class DefinitionManager {
 
 	public static function delete( $slug ) {
 		$slug = self::sanitize_post_type_slug( $slug );
-		$definitions = self::all();
+		if ( isset( RuntimeDefinitionProvider::cpt_definitions()[ $slug ] ) ) {
+			return new \WP_Error( 'eit_cpt_blueprint_owned', __( 'This post type is compiled by a Blueprint and cannot be deleted through the legacy manager.', 'elementor-implementation-toolkit' ) );
+		}
+		$definitions = self::legacy_all();
 		if ( ! isset( $definitions[ $slug ] ) ) {
 			return false;
 		}
@@ -117,6 +125,11 @@ class DefinitionManager {
 		update_option( self::OPTION, $definitions, false );
 		flush_rewrite_rules( false );
 		return true;
+	}
+
+	private static function legacy_all() {
+		$definitions = get_option( self::OPTION, [] );
+		return is_array( $definitions ) ? $definitions : [];
 	}
 
 	public static function supports() {

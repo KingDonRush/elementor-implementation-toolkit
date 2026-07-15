@@ -26,6 +26,9 @@ class FieldPrimitiveRegistry {
 		if ( ! preg_match( '/^[a-z][a-z0-9_]{1,47}$/', $id ) ) {
 			throw new \InvalidArgumentException( 'Field primitive ID is invalid.' );
 		}
+		if ( ! preg_match( '/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/', (string) $primitive->get_version() ) ) {
+			throw new \InvalidArgumentException( 'Field primitive version must use semantic versioning.' );
+		}
 		if ( isset( $this->primitives[ $id ] ) ) {
 			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal SDK exception, not rendered output.
 			throw new \LogicException( 'Field primitive is already registered: ' . $id );
@@ -45,6 +48,15 @@ class FieldPrimitiveRegistry {
 	public function all() {
 		ksort( $this->primitives );
 		return $this->primitives;
+	}
+
+	public function health() {
+		$health = [];
+		foreach ( $this->all() as $id => $primitive ) {
+			$result = $primitive->health_check();
+			$health[ $id ] = is_array( $result ) ? $result : [ 'ok' => false, 'message' => 'Invalid health response.' ];
+		}
+		return $health;
 	}
 
 	private function register_defaults() {

@@ -22,7 +22,10 @@ class VersionStore {
 		if ( is_wp_error( $encoded ) ) {
 			return $encoded;
 		}
-		$version = $this->next_version( $blueprint_id );
+		$version = absint( $document['version'] ?? 0 );
+		if ( $version !== $this->next_version( $blueprint_id ) ) {
+			return new \WP_Error( 'eit_blueprint_version_sequence', __( 'Blueprint document version must be the next immutable version.', 'elementor-implementation-toolkit' ) );
+		}
 		$result = $wpdb->insert(
 			Tables::name( Tables::VERSIONS ),
 			[

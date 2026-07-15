@@ -6,6 +6,7 @@
 use EIT\CCT\CurrentItemContext;
 use EIT\CCT\DefinitionManager;
 use EIT\CCT\Repository;
+use EIT\Blueprint\BlueprintModule;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -32,5 +33,17 @@ if ( ! function_exists( 'eit_get_cct_item' ) ) {
 if ( ! function_exists( 'eit_get_current_cct_item' ) ) {
 	function eit_get_current_cct_item() {
 		return CurrentItemContext::item();
+	}
+}
+
+if ( ! function_exists( 'eit_blueprint_lifecycle' ) ) {
+	function eit_blueprint_lifecycle() {
+		return BlueprintModule::lifecycle();
+	}
+}
+
+if ( ! function_exists( 'eit_blueprint_registries' ) ) {
+	function eit_blueprint_registries() {
+		return BlueprintModule::registries();
 	}
 }

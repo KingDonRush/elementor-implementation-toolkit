@@ -7,6 +7,7 @@ use EIT\Blueprint\BlueprintValidator;
 use EIT\Blueprint\Canonicalizer;
 use EIT\Blueprint\FieldContractFactory;
 use EIT\Blueprint\FieldPrimitiveRegistry;
+use EIT\Blueprint\ImpactPlanner;
 use EIT\Blueprint\StorageRecommendation;
 use EIT\Blueprint\Uuid;
 use PHPUnit\Framework\TestCase;
@@ -112,6 +113,30 @@ class BlueprintKernelContractTest extends TestCase {
 		self::assertTrue( $invalid_override['override'] );
 		self::assertFalse( $invalid_override['valid'] );
 		self::assertNotEmpty( $invalid_override['impact'] );
+	}
+
+	public function test_impact_planner_blocks_silent_published_storage_key_changes(): void {
+		$field_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:locked-storage' );
+		$active = [ [ 'field_id' => $field_id, 'storage_key' => 'published_key' ] ];
+		$next = [ [ 'field_id' => $field_id, 'storage_key' => 'renamed_key' ] ];
+		$impact = ( new ImpactPlanner() )->plan( [], $active, [], $next );
+
+		self::assertTrue( $impact['blocked'] );
+		self::assertSame( 'published_storage_key_locked', $impact['blockers'][0]['code'] );
+		self::assertSame( 'storage_key_changed', $impact['bindings'][0]['change'] );
+	}
+
+	public function test_validator_rejects_ambiguous_storage_bindings(): void {
+		$blueprint = $this->valid_blueprint();
+		$first = $blueprint['nodes'][1]['config']['fields'][0];
+		$second = $first;
+		$second['id'] = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:collision' );
+		$first['storage']['key'] = 'listing-price';
+		$second['storage']['key'] = 'listing_price';
+		$blueprint['nodes'][1]['config']['fields'] = [ $first, $second ];
+
+		$errors = ( new BlueprintValidator() )->validate( $blueprint )->errors();
+		self::assertContains( 'storage_column_collision', array_column( $errors, 'code' ) );
 	}
 
 	private function valid_blueprint(): array {

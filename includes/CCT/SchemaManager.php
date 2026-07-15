@@ -126,7 +126,7 @@ class SchemaManager {
 
 		foreach ( $definition['fields'] ?? [] as $field ) {
 			$type = sanitize_key( $field['type'] ?? 'text' );
-			if ( empty( $field['filterable'] ) || empty( $field['active'] ) || ! FieldTypes::is_indexable( $type ) ) {
+			if ( ( empty( $field['filterable'] ) && empty( $field['sortable'] ) ) || empty( $field['active'] ) || ! FieldTypes::is_indexable( $type ) ) {
 				continue;
 			}
 
@@ -184,7 +184,7 @@ class SchemaManager {
 	private static function expected_index_names( array $definition ) {
 		$names = [ 'PRIMARY', 'status', 'menu_order', 'updated_at' ];
 		foreach ( $definition['fields'] ?? [] as $field ) {
-			if ( ! empty( $field['filterable'] ) && ! empty( $field['active'] ) && FieldTypes::is_indexable( $field['type'] ?? '' ) ) {
+			if ( ( ! empty( $field['filterable'] ) || ! empty( $field['sortable'] ) ) && ! empty( $field['active'] ) && FieldTypes::is_indexable( $field['type'] ?? '' ) ) {
 				$names[] = self::index_name( self::column_name( $field['key'] ?? '' ) );
 			}
 		}

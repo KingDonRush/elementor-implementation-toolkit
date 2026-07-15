@@ -1,14 +1,20 @@
 # Elementor Implementation Toolkit
 
-V0.4.0 is the trust baseline for the future executable Blueprint kernel. It
-does not introduce the Blueprint yet. It hardens the current CPT, CCT, preset,
-REST, editor, and frontend surfaces so they can be migrated without carrying
-silent data loss, draft leakage, ambiguous controls, or unbounded requests.
+V0.5.0 introduces the executable `eit.dev/v1 Blueprint` kernel behind the
+existing dogfood surfaces. A canonical Blueprint now validates stable UUIDs,
+typed connections, orphan references, dependency cycles and complete Field
+Contracts before deterministic compilation.
 
-The baseline enforces stable published slugs and field keys, verified CCT
-schema changes, exact legacy token matching, public CCT status boundaries,
-request cost limits, current-response-wins frontend concurrency, explicit error
-and loading states, and reproducible PHP/JavaScript quality checks.
+Drafts do not mutate runtime. Publication follows `save draft -> validate ->
+prepare impact -> confirm -> apply -> reconcile`; published versions and
+artifacts are immutable, and rollback reactivates an earlier version without
+deleting later data. The visual Systems map and its administrative REST UI are
+the next delivery wave, not hidden inside this kernel release.
+
+V0.4.0 remains the trust baseline underneath the compiler: stable published
+slugs and keys, verified CCT schema changes, exact legacy matching, public status
+boundaries, bounded requests, latest-response-wins concurrency and accessible
+loading/error behavior remain enforced.
 
 V0.3.0 added table-backed Custom Content Types for implementation data that does
 not need WordPress singles. CCT records can be queried by the Filter Controller
@@ -21,6 +27,28 @@ an existing listing on the page, lets the implementer select that target in the
 Elementor editor, and filters the existing cards through AJAX.
 
 ## Current Scope
+
+### Blueprint Kernel
+
+- canonical `eit.dev/v1 Blueprint` documents with position-independent checksums;
+- four executable lanes and typed node/connection validation;
+- 27 semantic field primitives with validation, exposure, storage, indexing,
+  entry-component, Elementor-category and query-capability contracts;
+- explainable CPT/CCT/adapter recommendation with reasoned override gating;
+- deterministic artifacts for definitions, storage, capabilities, fields,
+  relations, entries, Collections, filters, presentations, routes and policies;
+- stable Field ID bindings with legacy raw-key aliases;
+- immutable versions, confirmable change sets, expiring locks, redacted runs,
+  reconciliation proofs and non-destructive rollback;
+- normalized relation and repeatable-group child storage;
+- read-only deterministic shadow import for current CPT, CCT and filter-preset
+  options; activation installs infrastructure but never migrates content;
+- versioned PHP extension contracts for field primitives, storage adapters,
+  Collection providers, form actions and presentation adapters.
+
+The existing CPT/CCT and Filter Controller screens remain compatibility
+surfaces during the 1.x migration window. Active compiled Entity artifacts are
+projected into the existing registrars without writing back into legacy options.
 
 - Elementor widget category: `Elementor Implementation Toolkit`
 - Widget: `Filter Controller`
@@ -153,7 +181,7 @@ composer install --ignore-platform-req=ext-dom --ignore-platform-req=ext-simplex
 npm ci
 ```
 
-Run the trust-baseline suite:
+Run the kernel and trust-baseline suite:
 
 ```bash
 composer validate --strict --no-check-publish
@@ -165,6 +193,7 @@ composer test:wp
 npm run build
 npm test -- --run
 npm run check:js
+npm run test:e2e
 gitleaks git --redact --no-banner --exit-code 1
 ```
 

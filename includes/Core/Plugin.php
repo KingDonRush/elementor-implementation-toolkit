@@ -6,6 +6,7 @@
 namespace EIT\Core;
 
 use EIT\Admin\AdminPages;
+use EIT\Blueprint\BlueprintModule;
 use EIT\CCT\CctModule;
 use EIT\CPT\CptManager;
 use EIT\Elementor\ElementorIntegration;
@@ -22,6 +23,7 @@ class Plugin {
 
 	public function run() {
 		( new InfrastructureModule() )->init_hooks();
+		( new BlueprintModule() )->init_hooks();
 		( new CctModule() )->init_hooks();
 		( new CptManager() )->init_hooks();
 		( new Assets() )->init_hooks();

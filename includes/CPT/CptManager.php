@@ -44,7 +44,7 @@ class CptManager {
 
 	public function register_meta_boxes() {
 		foreach ( DefinitionManager::all() as $slug => $definition ) {
-			if ( ! empty( $definition['meta_fields'] ) ) {
+			if ( empty( $definition['blueprint_managed'] ) && ! empty( $definition['meta_fields'] ) ) {
 				add_meta_box( 'eit-managed-fields', __( 'Implementation Toolkit Fields', 'elementor-implementation-toolkit' ), [ $this, 'render_meta_box' ], $slug, 'normal', 'default' );
 			}
 		}
