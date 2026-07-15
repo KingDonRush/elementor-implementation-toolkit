@@ -160,6 +160,31 @@ class BlueprintKernelContractTest extends TestCase {
 		self::assertSame( 'adapter', $entity['payload']['recommendation']['recommended'] );
 	}
 
+	public function test_entry_surface_compiles_fields_workflow_and_policy_without_raw_mapping(): void {
+		$blueprint = $this->entry_blueprint();
+		$result = ( new Compiler() )->compile( $blueprint );
+		$entry = current( array_filter( $result->artifacts(), fn( $artifact ) => 'entry_contract' === $artifact['kind'] ) );
+
+		self::assertTrue( $result->is_valid(), wp_json_encode( $result->errors() ) );
+		self::assertSame( $blueprint['nodes'][0]['id'], $entry['payload']['entity_id'] );
+		self::assertSame( 'structured', $entry['payload']['entity']['mode'] );
+		self::assertSame( [ 'create', 'update' ], $entry['payload']['workflow']['operations'] );
+		self::assertSame( 'own', $entry['payload']['policy']['ownership'] );
+		self::assertSame( 'edit_posts', $entry['payload']['policy']['capabilities']['update'] );
+		self::assertSame( $blueprint['nodes'][1]['config']['fields'][0]['id'], $entry['payload']['fields'][0]['id'] );
+		self::assertNotEmpty( $entry['payload']['steps'][0]['field_ids'] );
+	}
+
+	public function test_entry_surface_requires_one_policy_and_rejects_unmoderated_guest_intake(): void {
+		$blueprint = $this->entry_blueprint();
+		$blueprint['connections'] = array_values( array_filter( $blueprint['connections'], fn( $edge ) => 'governs_entry' !== $edge['type'] ) );
+		$blueprint['nodes'][2]['config']['guest'] = [ 'enabled' => true, 'moderation_status' => 'publish' ];
+
+		$codes = $this->error_codes( ( new BlueprintValidator() )->validate( $blueprint )->errors() );
+		self::assertContains( 'entry_policy_required', $codes );
+		self::assertContains( 'guest_intake_invalid', $codes );
+	}
+
 	private function valid_blueprint(): array {
 		$entity_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'entity:property' );
 		$group_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field-group:property' );
@@ -185,6 +210,37 @@ class BlueprintKernelContractTest extends TestCase {
 				[ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'edge:property-fields' ), 'type' => 'entity_fields', 'from' => $entity_id, 'to' => $group_id ],
 			],
 		];
+	}
+
+	private function entry_blueprint(): array {
+		$blueprint = $this->valid_blueprint();
+		$entry_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'entry:property' );
+		$policy_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'policy:property' );
+		$blueprint['nodes'][] = [
+			'id' => $entry_id,
+			'type' => 'entry_surface',
+			'lane' => 'experience',
+			'name' => 'Property workspace',
+			'config' => [
+				'operations' => [ 'create', 'update' ],
+				'initial_status' => 'draft',
+				'autosave' => [ 'enabled' => true, 'interval_seconds' => 60 ],
+				'guest' => [ 'enabled' => false ],
+				'steps' => [],
+				'conditions' => [],
+				'actions' => [],
+			],
+		];
+		$blueprint['nodes'][] = [
+			'id' => $policy_id,
+			'type' => 'policy',
+			'lane' => 'governance',
+			'name' => 'Editor ownership',
+			'config' => [ 'capability' => 'edit_posts', 'publish_capability' => 'publish_posts', 'ownership' => 'own', 'object_scope' => 'entity' ],
+		];
+		$blueprint['connections'][] = [ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'edge:property-entry' ), 'type' => 'entry_for', 'from' => $blueprint['nodes'][0]['id'], 'to' => $entry_id ];
+		$blueprint['connections'][] = [ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'edge:property-entry-policy' ), 'type' => 'governs_entry', 'from' => $policy_id, 'to' => $entry_id ];
+		return $blueprint;
 	}
 
 	private function error_codes( array $errors ): array {

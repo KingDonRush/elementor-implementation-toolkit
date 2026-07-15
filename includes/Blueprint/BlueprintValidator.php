@@ -20,6 +20,7 @@ class BlueprintValidator {
 	private $nodes;
 	private $primitives;
 	private $canonicalizer;
+	private $entry_contracts;
 
 	public function __construct(
 		NodeTypeRegistry $nodes = null,
@@ -29,6 +30,7 @@ class BlueprintValidator {
 		$this->nodes = $nodes ?: new NodeTypeRegistry();
 		$this->primitives = $primitives ?: new FieldPrimitiveRegistry();
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
+		$this->entry_contracts = new EntryContractValidator();
 	}
 
 	public function validate( array $blueprint ) {
@@ -39,6 +41,7 @@ class BlueprintValidator {
 		$this->validate_orphans( $node_index, $connections, $errors );
 		$this->validate_cardinality( $node_index, $connections, $errors );
 		$this->validate_storage_bindings( $node_index, $connections, $errors );
+		$errors = array_merge( $errors, $this->entry_contracts->validate( $node_index, $connections ) );
 		$this->validate_cycles( $node_index, $connections, $errors );
 
 		if ( isset( $blueprint['checksum'] ) && ! hash_equals( (string) $blueprint['checksum'], $this->canonicalizer->checksum( $blueprint ) ) ) {
@@ -254,6 +257,9 @@ class BlueprintValidator {
 			}
 			if ( isset( $owners[ $node['type'] ] ) && 1 !== ( $counts[ $id ][ $owners[ $node['type'] ][0] ] ?? 0 ) ) {
 				$errors[] = $this->error( 'connections', 'single_owner_required', $owners[ $node['type'] ][1], $id );
+			}
+			if ( 'entry_surface' === $node['type'] && 1 !== ( $counts[ $id ]['governs_entry'] ?? 0 ) ) {
+				$errors[] = $this->error( 'connections', 'entry_policy_required', 'Entry Surface must be governed by exactly one Policy.', $id );
 			}
 			if ( 'adapter' === $node['type'] && 1 !== ( $counts[ $id ]['adapts'] ?? 0 ) ) {
 				$errors[] = $this->error( 'connections', 'adapter_target_required', 'Adapter must connect to exactly one Entity.', $id );

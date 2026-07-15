@@ -17,6 +17,7 @@ class Compiler {
 	private $canonicalizer;
 	private $recommendation;
 	private $registries;
+	private $entry_contracts;
 
 	public function __construct(
 		BlueprintValidator $validator = null,
@@ -28,6 +29,7 @@ class Compiler {
 		$this->validator = $validator ?: new BlueprintValidator( null, $this->registries->field_primitives() );
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
 		$this->recommendation = $recommendation ?: new StorageRecommendation();
+		$this->entry_contracts = new EntryContractCompiler();
 	}
 
 	public function compile( array $blueprint ) {
@@ -42,6 +44,7 @@ class Compiler {
 		$artifacts = [];
 		$bindings = [];
 		$recommendations = [];
+		$compiled_entities = [];
 		$errors = [];
 
 		foreach ( $nodes as $node ) {
@@ -93,6 +96,7 @@ class Compiler {
 				]
 			);
 			$artifacts[] = $this->artifact( $blueprint['id'], $blueprint_checksum, 'entity_definition', $node['id'], $entity_payload );
+			$compiled_entities[ $node['id'] ] = $entity_payload;
 			$artifacts[] = $this->artifact( $blueprint['id'], $blueprint_checksum, 'storage_contract', $node['id'], [ 'strategy' => $recommendation['selected'], 'adapter' => $adapter_id, 'fields' => array_column( $fields, 'id' ) ] );
 			$artifacts[] = $this->artifact( $blueprint['id'], $blueprint_checksum, 'capability_contract', $node['id'], $this->capabilities( $fields, $adapter ) );
 
@@ -109,7 +113,7 @@ class Compiler {
 		}
 
 		foreach ( $nodes as $node ) {
-			$artifact = $this->compile_non_entity( $blueprint, $blueprint_checksum, $node, $nodes, $connections );
+			$artifact = $this->compile_non_entity( $blueprint, $blueprint_checksum, $node, $nodes, $connections, $compiled_entities );
 			if ( $artifact ) {
 				$artifacts[] = $artifact;
 			}
@@ -133,7 +137,7 @@ class Compiler {
 		);
 	}
 
-	private function compile_non_entity( array $blueprint, $checksum, array $node, array $nodes, array $connections ) {
+	private function compile_non_entity( array $blueprint, $checksum, array $node, array $nodes, array $connections, array $compiled_entities ) {
 		$kinds = [
 			'field_group' => 'field_contracts',
 			'relation' => 'relation_contract',
@@ -154,6 +158,9 @@ class Compiler {
 			'config' => $node['config'] ?? [],
 			'connections' => $this->node_connections( $node['id'], $connections ),
 		];
+		if ( 'entry_surface' === $node['type'] ) {
+			$payload = $this->entry_contracts->compile( $node, $nodes, $connections, $compiled_entities );
+		}
 		if ( 'relation' === $node['type'] ) {
 			$payload['source_entity_id'] = $this->connected_node( $node['id'], 'relation_source', 'from', $connections );
 			$payload['target_entity_id'] = $this->connected_node( $node['id'], 'relation_target', 'to', $connections );

@@ -90,12 +90,12 @@ export function createNode( type, schema, name ) {
 		entity: { slug: slugify( name || 'content' ).replace( /-/g, '_' ).slice( 0, 32 ), mode: 'structured', public: false, routed: false, versioned: false },
 		field_group: { fields: [ fieldContract( schema ) ] },
 		relation: { cardinality: 'many_to_one' },
-		entry_surface: { operations: [ 'create', 'update' ] },
+		entry_surface: { operations: [ 'create', 'update' ], initial_status: 'draft', moderation_status: 'review', autosave: { enabled: true, interval_seconds: 60 }, guest: { enabled: false, moderation_status: 'review', minimum_seconds: 3, rate_limit_per_hour: 5 }, steps: [], conditions: [], actions: [] },
 		collection: { page_size: 24 },
 		filter_surface: { fields: [] },
 		presentation: { adapter: 'elementor' },
 		route: { path: '/' },
-		policy: { capability: 'edit_posts', ownership: 'any' },
+		policy: { capability: 'edit_posts', publish_capability: 'publish_posts', ownership: 'own', object_scope: 'entity' },
 		adapter: { adapter_id: '' },
 	};
 	return {
