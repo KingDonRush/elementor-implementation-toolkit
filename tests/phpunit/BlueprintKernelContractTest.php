@@ -175,6 +175,16 @@ class BlueprintKernelContractTest extends TestCase {
 		self::assertNotEmpty( $entry['payload']['steps'][0]['field_ids'] );
 	}
 
+	public function test_structured_entry_can_use_storage_identity_without_a_title_field(): void {
+		$blueprint = $this->entry_blueprint();
+		$blueprint['nodes'][1]['config']['fields'] = [ $blueprint['nodes'][1]['config']['fields'][0] ];
+		$result = ( new Compiler() )->compile( $blueprint );
+		$entry = current( array_filter( $result->artifacts(), fn( $artifact ) => 'entry_contract' === $artifact['kind'] ) );
+
+		self::assertTrue( $result->is_valid(), wp_json_encode( $result->errors() ) );
+		self::assertSame( '', $entry['payload']['title_field_id'] );
+	}
+
 	public function test_entry_surface_requires_one_policy_and_rejects_unmoderated_guest_intake(): void {
 		$blueprint = $this->entry_blueprint();
 		$blueprint['connections'] = array_values( array_filter( $blueprint['connections'], fn( $edge ) => 'governs_entry' !== $edge['type'] ) );
@@ -214,6 +224,12 @@ class BlueprintKernelContractTest extends TestCase {
 
 	private function entry_blueprint(): array {
 		$blueprint = $this->valid_blueprint();
+		$blueprint['nodes'][1]['config']['fields'][] = ( new FieldContractFactory( new FieldPrimitiveRegistry() ) )->make(
+			Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:property:title' ),
+			'Title',
+			'short_text',
+			[ 'validation' => [ 'required' => true ] ]
+		);
 		$entry_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'entry:property' );
 		$policy_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'policy:property' );
 		$blueprint['nodes'][] = [

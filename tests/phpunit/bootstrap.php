@@ -7,6 +7,36 @@ define( 'ABSPATH', dirname( __DIR__, 2 ) . '/' );
 
 require dirname( __DIR__, 2 ) . '/vendor/autoload.php';
 
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		private $code;
+		private $message;
+		private $data;
+
+		public function __construct( $code = '', $message = '', $data = null ) {
+			$this->code = $code;
+			$this->message = $message;
+			$this->data = $data;
+		}
+
+		public function get_error_code() {
+			return $this->code;
+		}
+
+		public function get_error_message() {
+			return $this->message;
+		}
+
+		public function get_error_data() {
+			return $this->data;
+		}
+
+		public function add_data( $data ) {
+			$this->data = $data;
+		}
+	}
+}
+
 if ( ! function_exists( 'sanitize_key' ) ) {
 	function sanitize_key( $key ) {
 		return strtolower( preg_replace( '/[^a-z0-9_\-]/i', '', (string) $key ) );

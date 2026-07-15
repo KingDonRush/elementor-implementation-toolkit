@@ -1,13 +1,7 @@
 import { evaluateEntryExpression } from "./entry-expression.js";
 import { uploadEntryMedia } from "./entry-media-client.js";
+import { setEntryButtonsBusy, uniqueEntryKey } from "./entry-request-state.js";
 import { readEntryValues } from "./entry-values.js";
-
-function uniqueKey() {
-  if (window.crypto?.randomUUID) {
-    return `entry:${window.crypto.randomUUID()}`;
-  }
-  return `entry:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-}
 
 export class EntryWorkspace {
   constructor(root) {
@@ -20,7 +14,7 @@ export class EntryWorkspace {
     this.dirty = false;
     this.busy = false;
     this.abortController = null;
-    this.key = uniqueKey();
+    this.key = uniqueEntryKey();
     this.root.setAttribute("aria-busy", "false");
     this.bind();
     this.applyConditions();
@@ -251,7 +245,7 @@ export class EntryWorkspace {
       if (defaultAction)
         defaultAction.textContent = window.eitConfig.i18n.entrySaveChanges;
       this.dirty = false;
-      this.key = uniqueKey();
+      this.key = uniqueEntryKey();
       this.message(
         "autosave" === intent
           ? window.eitConfig.i18n.entryAutosaved
@@ -264,7 +258,7 @@ export class EntryWorkspace {
       if (redirect) window.location.assign(redirect);
     } catch (error) {
       if ("AbortError" === error?.name) return;
-      this.key = uniqueKey();
+      this.key = uniqueEntryKey();
       this.showErrors(error);
     } finally {
       this.setBusy(false);
@@ -361,11 +355,17 @@ export class EntryWorkspace {
   }
 
   setBusy(busy, message = "") {
+    const active = document.activeElement;
+    if (busy && active?.matches?.("button") && this.root.contains(active)) {
+      this.busyFocus = active;
+    }
     this.busy = busy;
     this.root.setAttribute("aria-busy", String(busy));
-    this.root
-      .querySelectorAll("button")
-      .forEach((button) => (button.disabled = busy));
+    setEntryButtonsBusy(this.root, busy, this.busyFocus);
+    if (!busy && this.busyFocus?.isConnected) {
+      this.busyFocus.focus({ preventScroll: true });
+      this.busyFocus = null;
+    }
     if (message) this.message(message, "info");
   }
 

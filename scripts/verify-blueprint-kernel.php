@@ -74,6 +74,7 @@ $build_blueprint = function ( $version ) use ( $blueprint_id, $project_slug, $cl
 	$policy = Uuid::v5( $blueprint_id, 'policy:project-editor' );
 	$budget_id = Uuid::v5( $blueprint_id, 'field:budget' );
 	$steps_id = Uuid::v5( $blueprint_id, 'field:steps' );
+	$step_name_id = Uuid::v5( $blueprint_id, 'field:steps:name' );
 	$client_name_id = Uuid::v5( $blueprint_id, 'field:client-name' );
 	$budget_key = 3 === $version ? 'budget_v2' : 'budget';
 	$budget = $factory->make(
@@ -82,7 +83,7 @@ $build_blueprint = function ( $version ) use ( $blueprint_id, $project_slug, $cl
 		'decimal',
 		[ 'storage' => [ 'key' => $budget_key ], 'indexing' => [ 'filter' => true, 'sort' => true ] ]
 	);
-	$steps = $factory->make( $steps_id, 'Delivery steps', 'repeatable_group' );
+	$steps = $factory->make( $steps_id, 'Delivery steps', 'repeatable_group', [ 'validation' => [ 'children' => [ [ 'id' => $step_name_id, 'name' => 'Step name', 'type' => 'short_text' ] ] ] ] );
 	$client_name = $factory->make( $client_name_id, 'Client name', 'short_text', [ 'indexing' => [ 'search' => true, 'sort' => true ] ] );
 
 	return [
@@ -127,7 +128,7 @@ try {
 	$compiler = new Compiler();
 	$first_compile = $compiler->compile( $blueprint_v1 );
 	$second_compile = $compiler->compile( $blueprint_v1 );
-	$assert( $first_compile->is_valid(), 'Valid Blueprint did not compile.' );
+	$assert( $first_compile->is_valid(), 'Valid Blueprint did not compile: ' . wp_json_encode( $first_compile->errors() ) );
 	$assert( $first_compile->checksum() === $second_compile->checksum(), 'Compiler output is not idempotent.' );
 	$assert( 3 === count( $first_compile->bindings() ), 'Compiler did not bind all stable Field IDs.' );
 	$assert( in_array( 'relation_contract', array_column( $first_compile->artifacts(), 'kind' ), true ), 'Normalized relation artifact is missing.' );

@@ -819,6 +819,26 @@
     };
   }
 
+  // assets/src/frontend/entry-request-state.js
+  function uniqueEntryKey() {
+    var _a;
+    if ((_a = window.crypto) == null ? void 0 : _a.randomUUID) {
+      return `entry:${window.crypto.randomUUID()}`;
+    }
+    return `entry:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  }
+  function setEntryButtonsBusy(root, busy, focusedButton) {
+    root.querySelectorAll("button").forEach((button) => {
+      const keepsFocus = busy && button === focusedButton;
+      button.disabled = busy && !keepsFocus;
+      if (keepsFocus) {
+        button.setAttribute("aria-disabled", "true");
+      } else {
+        button.removeAttribute("aria-disabled");
+      }
+    });
+  }
+
   // assets/src/frontend/entry-values.js
   function jsonValue(value, fallback) {
     try {
@@ -886,13 +906,6 @@
   }
 
   // assets/src/frontend/entry-workspace.js
-  function uniqueKey() {
-    var _a;
-    if ((_a = window.crypto) == null ? void 0 : _a.randomUUID) {
-      return `entry:${window.crypto.randomUUID()}`;
-    }
-    return `entry:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  }
   var EntryWorkspace = class {
     constructor(root) {
       this.root = root;
@@ -904,7 +917,7 @@
       this.dirty = false;
       this.busy = false;
       this.abortController = null;
-      this.key = uniqueKey();
+      this.key = uniqueEntryKey();
       this.root.setAttribute("aria-busy", "false");
       this.bind();
       this.applyConditions();
@@ -1113,7 +1126,7 @@
         if (defaultAction)
           defaultAction.textContent = window.eitConfig.i18n.entrySaveChanges;
         this.dirty = false;
-        this.key = uniqueKey();
+        this.key = uniqueEntryKey();
         this.message(
           "autosave" === intent ? window.eitConfig.i18n.entryAutosaved : window.eitConfig.i18n.entrySaved,
           "success"
@@ -1124,7 +1137,7 @@
         if (redirect) window.location.assign(redirect);
       } catch (error) {
         if ("AbortError" === (error == null ? void 0 : error.name)) return;
-        this.key = uniqueKey();
+        this.key = uniqueEntryKey();
         this.showErrors(error);
       } finally {
         this.setBusy(false);
@@ -1205,9 +1218,18 @@
       this.root.querySelectorAll("[data-eit-field-error]").forEach((error) => error.textContent = "");
     }
     setBusy(busy, message = "") {
+      var _a, _b;
+      const active = document.activeElement;
+      if (busy && ((_a = active == null ? void 0 : active.matches) == null ? void 0 : _a.call(active, "button")) && this.root.contains(active)) {
+        this.busyFocus = active;
+      }
       this.busy = busy;
       this.root.setAttribute("aria-busy", String(busy));
-      this.root.querySelectorAll("button").forEach((button) => button.disabled = busy);
+      setEntryButtonsBusy(this.root, busy, this.busyFocus);
+      if (!busy && ((_b = this.busyFocus) == null ? void 0 : _b.isConnected)) {
+        this.busyFocus.focus({ preventScroll: true });
+        this.busyFocus = null;
+      }
       if (message) this.message(message, "info");
     }
     message(text, type) {

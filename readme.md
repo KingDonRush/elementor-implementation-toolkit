@@ -1,10 +1,16 @@
 # Elementor Implementation Toolkit
 
-V0.6.0 exposes the canonical `eit.dev/v1 Blueprint` as an executable Systems
-workspace inside wp-admin. Implementers can create and arrange typed nodes,
-connect compatible contracts, correct validation failures in a contextual
-inspector, switch to a keyboard-operable outline and review impact produced by
-the server compiler before confirming any runtime change.
+V0.7.0 adds governed Entry Surfaces to the canonical `eit.dev/v1 Blueprint`.
+Implementers define fields, workflow, steps, conditions, actions and guarded
+guest intake by public names in the Systems inspector; the compiler produces a
+frontend create/update workspace without exposing meta keys, storage columns or
+arbitrary code. Structured remains the default, while WordPress editorial
+content is enabled only by an explicit Editorial or Hybrid entity mode.
+
+V0.6.0 established the executable Systems workspace inside wp-admin.
+Implementers can arrange typed nodes, connect compatible contracts, correct
+validation failures in a contextual inspector, use a keyboard-operable outline
+and review server-compiled impact before confirming any runtime change.
 
 Drafts do not mutate runtime. Publication follows `save draft -> validate ->
 prepare impact -> confirm -> apply -> reconcile`; published versions and
@@ -69,6 +75,26 @@ Elementor editor, and filters the existing cards through AJAX.
 - adapter selection is compiled from the connected Adapter node; raw Entity
   adapter keys remain compatibility aliases only;
 - render failures produce a bounded recovery state instead of a blank screen.
+
+### Governed Entry Surfaces
+
+- frontend create/update, draft, review, publish, archive and restore workflows;
+- server-enforced capability, ownership and object-scope policy checks;
+- Field-ID request and response contracts with storage details removed from the
+  browser projection;
+- derived controls for semantic fields, media previews, inline validation,
+  conditional visibility, custom steps, repeaters and safe calculated values;
+- authenticated autosave and durable idempotency for content mutations;
+- redirect, email, notification and SSRF-guarded webhook actions isolated into
+  retryable Run jobs so external failure cannot duplicate content;
+- moderated guest creation with signed time trap, honeypot, rate limit and
+  opt-in constrained uploads; guest edit and privileged lifecycle operations
+  remain unavailable;
+- a hidden wp-admin recovery screen for operators, while the primary editorial
+  workspace remains on the frontend;
+- shortcode `[eit_entry_surface id="SURFACE-UUID"]` as the initial presentation
+  bridge; Elementor placement and styling arrive through the connector widget
+  in V0.9.
 
 The existing CPT/CCT and Filter Controller screens remain compatibility
 surfaces during the 1.x migration window. Active compiled Entity artifacts are

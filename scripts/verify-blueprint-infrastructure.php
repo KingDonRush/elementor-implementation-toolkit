@@ -60,7 +60,7 @@ try {
 	$cleanup();
 	$assert( true === SchemaManager::install(), 'Infrastructure installation failed.' );
 	$assert( true === SchemaManager::verify(), 'Infrastructure verification failed.' );
-	$assert( count( Tables::keys() ) === 11, 'Dedicated infrastructure table count drifted.' );
+	$assert( count( Tables::keys() ) === 13, 'Dedicated infrastructure table count drifted.' );
 
 	$document = [
 		'api_version' => 'eit.dev/v1',

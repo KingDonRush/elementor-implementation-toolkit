@@ -58,8 +58,6 @@ class EntryContractValidator {
 	private function validate_title_field( $configured, array $field_ids, $node_id, array &$errors ) {
 		if ( '' !== (string) $configured && ( ! isset( $field_ids[ (string) $configured ] ) || 'short_text' !== ( $field_ids[ (string) $configured ]['type'] ?? '' ) ) ) {
 			$errors[] = $this->error( 'entry_title_field_invalid', 'Entry Surface title field must belong to its Entity.', $node_id );
-		} elseif ( '' === (string) $configured && ! in_array( 'short_text', array_column( $field_ids, 'type' ), true ) ) {
-			$errors[] = $this->error( 'entry_title_field_required', 'Entry Surface needs a short text field for record identity.', $node_id );
 		}
 	}
 
