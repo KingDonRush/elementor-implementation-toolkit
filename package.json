@@ -1,0 +1,20 @@
+{
+  "name": "elementor-implementation-toolkit",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-assets.mjs",
+    "check:js": "node --check assets/js/eit-admin.js && node --check assets/js/eit-editor.js && node --check assets/js/eit-frontend.js",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.61.1",
+    "esbuild": "^0.25.0",
+    "jquery": "^3.7.1",
+    "jsdom": "^26.0.0",
+    "vitest": "^3.2.0"
+  }
+}

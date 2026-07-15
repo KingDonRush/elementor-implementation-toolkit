@@ -1,10 +1,17 @@
 {
   "name": "kingdonrush/elementor-implementation-toolkit",
-  "description": "Practical Elementor implementation helpers for existing WordPress listings.",
+  "description": "Contract-driven implementation tooling for WordPress and Elementor.",
   "type": "wordpress-plugin",
   "license": "proprietary",
   "require": {
-    "php": ">=7.4"
+    "php": ">=8.1"
+  },
+  "require-dev": {
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpstan/phpstan": "^2.1",
+    "phpunit/phpunit": "^10.5",
+    "szepeviktor/phpstan-wordpress": "^2.0",
+    "wp-coding-standards/wpcs": "^3.2"
   },
   "autoload": {
     "psr-4": {
@@ -12,6 +19,20 @@
     }
   },
   "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": false
+    },
     "sort-packages": true
+  },
+  "scripts": {
+    "analyse": "phpstan analyse --memory-limit=1G",
+    "lint": "@php scripts/lint-php.php",
+    "phpcs": "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T --entrypoint php wpcli /var/www/html/wp-content/plugins/elementor-implementation-toolkit/vendor/bin/phpcs --runtime-set installed_paths /var/www/html/wp-content/plugins/elementor-implementation-toolkit/vendor/wp-coding-standards/wpcs,/var/www/html/wp-content/plugins/elementor-implementation-toolkit/vendor/phpcompatibility/php-compatibility,/var/www/html/wp-content/plugins/elementor-implementation-toolkit/vendor/phpcompatibility/phpcompatibility-paragonie,/var/www/html/wp-content/plugins/elementor-implementation-toolkit/vendor/phpcompatibility/phpcompatibility-wp,/var/www/html/wp-content/plugins/elementor-implementation-toolkit/vendor/phpcsstandards/phpcsutils,/var/www/html/wp-content/plugins/elementor-implementation-toolkit/vendor/phpcsstandards/phpcsextra --standard=/var/www/html/wp-content/plugins/elementor-implementation-toolkit/phpcs.xml.dist --report=summary",
+    "test": "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T --entrypoint php wpcli /var/www/html/wp-content/plugins/elementor-implementation-toolkit/vendor/bin/phpunit --configuration /var/www/html/wp-content/plugins/elementor-implementation-toolkit/phpunit.xml.dist",
+    "test:wp": [
+      "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T wpcli eval-file wp-content/plugins/elementor-implementation-toolkit/scripts/verify-cpt.php",
+      "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T wpcli eval-file wp-content/plugins/elementor-implementation-toolkit/scripts/verify-cct.php",
+      "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T wpcli eval-file wp-content/plugins/elementor-implementation-toolkit/scripts/verify-filter-controller-robustness.php"
+    ]
   }
 }

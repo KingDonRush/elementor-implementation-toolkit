@@ -1,6 +1,9 @@
 .DS_Store
 node_modules/
 vendor/
+.phpunit.cache/
+playwright-report/
+test-results/
 .idea/
 .vscode/
 *.log

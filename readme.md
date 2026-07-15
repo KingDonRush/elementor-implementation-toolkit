@@ -1,8 +1,14 @@
 # Elementor Implementation Toolkit
 
-V0.3.2 makes the current runtime claims explicit and brings WordPress media
-selection to Toolkit-managed CPT image and gallery fields while preserving
-existing URL-backed values.
+V0.4.0 is the trust baseline for the future executable Blueprint kernel. It
+does not introduce the Blueprint yet. It hardens the current CPT, CCT, preset,
+REST, editor, and frontend surfaces so they can be migrated without carrying
+silent data loss, draft leakage, ambiguous controls, or unbounded requests.
+
+The baseline enforces stable published slugs and field keys, verified CCT
+schema changes, exact legacy token matching, public CCT status boundaries,
+request cost limits, current-response-wins frontend concurrency, explicit error
+and loading states, and reproducible PHP/JavaScript quality checks.
 
 V0.3.0 added table-backed Custom Content Types for implementation data that does
 not need WordPress singles. CCT records can be queried by the Filter Controller
@@ -31,6 +37,8 @@ Elementor editor, and filters the existing cards through AJAX.
 - DOM-provider filtering for existing listings
 - AJAX filtering, sorting, active chips, result count, reset, and pagination
 - Style controls for fields, options, chips, buttons, pagination, and states
+- Public request limits: 32 KB body, 20 filters, 24 default items, 48 maximum
+- Legacy DOM fallback limited to 200 items without server-side enrichment
 
 ## Admin Tools
 
@@ -80,6 +88,12 @@ date/time, checkbox, select, radio, color, image, and gallery. Image and gallery
 fields use the WordPress media selector while preserving existing URL-backed
 values.
 
+The WordPress editor is not enabled by default. Selecting the `editor` support
+is an explicit editorial decision; structured post types otherwise use the
+Toolkit fields without accidentally exposing Gutenberg as their content model.
+Required fields block publication through both the classic save path and REST,
+while valid values such as `0` remain accepted.
+
 Deleting a post type definition unregisters the structure on the next request.
 It does not delete posts, terms, or post meta.
 
@@ -93,6 +107,8 @@ portfolio projects, directories, catalogs, and comparison entries:
 - native WordPress CRUD screens without an automatic permalink or single;
 - archive/restore lifecycle that retains definitions, columns, and records;
 - explicit permanent deletion available only for archived definitions;
+- verified columns and indexes before a definition becomes the active runtime;
+- public queries restricted to published rows;
 - normal Elementor Loop Item templates populated through CCT Dynamic Tags when
   Elementor Pro / Loop Builder support is present.
 
@@ -104,10 +120,8 @@ stored values remain available for a future restoration or migration.
 The Diagnostics area reports current configuration facts. It does not certify
 that a page-level Elementor layout has been QA'd.
 
-- DOM provider for existing Elementor, WooCommerce, JetEngine, and generic
-  listings when usable item data is present;
-- best-effort WordPress enrichment when listing items expose a local post ID or
-  permalink;
+- bounded DOM provider for existing Elementor, WooCommerce, JetEngine, and
+  generic listings when usable item data is already present in the snapshot;
 - CCT provider for direct table queries and Loop Item rendering when the local
   Elementor runtime supports it.
 
@@ -116,25 +130,42 @@ longer offers a custom adapter mode as a normal setup path.
 
 ## Data Contract
 
-The controller works best when each listing item exposes at least one of:
+The legacy controller works best when each listing item exposes at least one of:
 
-- a local permalink;
-- a post ID through `data-eit-post-id`, `data-post-id`, `data-id`, or classes such as `post-123`;
 - visible text;
 - filterable attributes such as `data-eit-category`, `data-eit-price`, `data-eit-material`, `data-eit-rating`;
 - child fields using `data-eit-field="category"` and optional `data-eit-value`.
 
-Opaque third-party listings can still be detected and highlighted, but advanced
-filters need usable item data or a future adapter.
+Opaque third-party listings can still be detected and highlighted, but the
+server no longer performs N+1 post enrichment. Advanced filters need usable
+snapshot data, the CCT provider, or a future Collection adapter.
 
 ## Local Development
 
+The current workstation runs PHPUnit and PHPCS inside the WordPress PHP 8.3
+container because its host PHP intentionally lacks the XML extensions required
+by those tools. Install the locked dependencies locally with the matching
+platform extensions, or on this workstation with the explicit Composer
+platform exceptions below:
+
 ```bash
-composer dump-autoload
-docker compose run --rm --entrypoint sh wpcli -lc 'find /var/www/html/wp-content/plugins/elementor-implementation-toolkit -name "*.php" -print0 | xargs -0 -n1 php -l'
-node --check assets/js/eit-frontend.js
-node --check assets/js/eit-editor.js
-node --check assets/js/eit-admin.js
+composer install --ignore-platform-req=ext-dom --ignore-platform-req=ext-simplexml --ignore-platform-req=ext-xml --ignore-platform-req=ext-xmlwriter
+npm ci
+```
+
+Run the trust-baseline suite:
+
+```bash
+composer validate --strict --no-check-publish
+composer lint
+composer phpcs
+composer analyse -- --no-progress
+composer test
+composer test:wp
+npm run build
+npm test -- --run
+npm run check:js
+gitleaks git --redact --no-banner --exit-code 1
 ```
 
 Activate in the local WordPress runtime:

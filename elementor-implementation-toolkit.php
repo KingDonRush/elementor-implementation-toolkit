@@ -1,20 +1,20 @@
 <?php
 /**
  * Plugin Name: Elementor Implementation Toolkit
- * Description: Practical Elementor implementation helpers, starting with a parasitic AJAX filter controller for existing listings.
- * Version: 0.3.2
+ * Description: Contract-driven implementation helpers for structured WordPress data and Elementor presentation.
+ * Version: 0.4.0
  * Author: Guilherme Silva
  * Text Domain: elementor-implementation-toolkit
  * Domain Path: /languages
- * Requires at least: 6.0
- * Requires PHP: 7.4
+ * Requires at least: 6.7
+ * Requires PHP: 8.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EIT_VERSION', '0.3.2' );
+define( 'EIT_VERSION', '0.4.0' );
 define( 'EIT_FILE', __FILE__ );
 define( 'EIT_PATH', plugin_dir_path( __FILE__ ) );
 define( 'EIT_URL', plugin_dir_url( __FILE__ ) );

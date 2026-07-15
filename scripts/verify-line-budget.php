@@ -34,7 +34,6 @@ $excluded_dirs = [
 $tracked_debt = [
 	'assets/css/eit-admin.css'                                      => 'TASK-020',
 	'assets/js/eit-editor.js'                                       => 'TASK-021',
-	'assets/js/eit-frontend.js'                                     => 'TASK-022',
 	'includes/Admin/CptManagerAdmin.php'                            => 'TASK-024',
 	'includes/Admin/FilterPresetAdmin.php'                          => 'TASK-019',
 	'includes/CPT/CptManager.php'                                   => 'TASK-024',
@@ -56,6 +55,18 @@ function eit_line_budget_count_lines( $path ) {
 	}
 
 	return substr_count( $contents, "\n" ) + ( "\n" === substr( $contents, -1 ) ? 0 : 1 );
+}
+
+function eit_line_budget_is_generated( $path ) {
+	$handle = fopen( $path, 'rb' );
+	if ( false === $handle ) {
+		return false;
+	}
+
+	$prefix = fread( $handle, 200 );
+	fclose( $handle );
+
+	return false !== strpos( (string) $prefix, '@generated' );
 }
 
 function eit_line_budget_risk( $lines ) {
@@ -141,6 +152,9 @@ function eit_line_budget_scan( $root, array $extensions, array $excluded_dirs ) 
 		$extension = strtolower( $file->getExtension() );
 
 		if ( ! isset( $extensions[ $extension ] ) ) {
+			continue;
+		}
+		if ( eit_line_budget_is_generated( $file->getPathname() ) ) {
 			continue;
 		}
 

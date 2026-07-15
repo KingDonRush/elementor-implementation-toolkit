@@ -1,0 +1,15 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    level: 3
+    paths:
+        - includes/CCT
+        - includes/CPT
+        - includes/Rest
+        - includes/Support/LegacyDomMatcher.php
+        - includes/Support/LegacyDomPayload.php
+    excludePaths:
+        analyse:
+            - includes/Rest/FilterPresetEndpoint.php
+    treatPhpDocTypesAsCertain: false
