@@ -521,7 +521,7 @@ class FilterPresetAdmin {
 			'severity' => 'ok',
 			'label'    => __( 'Healthy', 'elementor-implementation-toolkit' ),
 			'class'    => 'eit-status-pill',
-			'summary'  => __( 'Ready for reuse', 'elementor-implementation-toolkit' ),
+			'summary'  => __( 'Configured for reuse', 'elementor-implementation-toolkit' ),
 		];
 	}
 
@@ -1026,7 +1026,7 @@ class FilterPresetAdmin {
 				<div class="eit-panel__header">
 					<div>
 						<h3><?php esc_html_e( 'Preset setup', 'elementor-implementation-toolkit' ); ?></h3>
-						<p><?php esc_html_e( 'Name the preset, then hand it to Elementor when you need a reusable Theme Builder filter area.', 'elementor-implementation-toolkit' ); ?></p>
+						<p><?php esc_html_e( 'Name the preset, then create reusable filter controls or place the widget manually in Elementor.', 'elementor-implementation-toolkit' ); ?></p>
 					</div>
 				</div>
 				<div class="eit-setup-layout">
@@ -1071,8 +1071,8 @@ class FilterPresetAdmin {
 			<div class="eit-handoff-card__head">
 				<span class="dashicons dashicons-admin-page" aria-hidden="true"></span>
 				<div>
-					<h4><?php esc_html_e( 'Theme Builder handoff', 'elementor-implementation-toolkit' ); ?></h4>
-					<p><?php esc_html_e( 'Open this preset in Elementor and use it in your Theme Builder to build archive templates with these filters.', 'elementor-implementation-toolkit' ); ?></p>
+					<h4><?php esc_html_e( 'Filter controls handoff', 'elementor-implementation-toolkit' ); ?></h4>
+					<p><?php esc_html_e( 'Open this preset in Elementor to design reusable filter controls for a page or template.', 'elementor-implementation-toolkit' ); ?></p>
 				</div>
 			</div>
 
@@ -1089,7 +1089,7 @@ class FilterPresetAdmin {
 				</button>
 				<button type="submit" class="button" name="eit_after_save" value="open_template" <?php disabled( ! FilterTemplateManager::is_elementor_available() ); ?>>
 					<span class="dashicons dashicons-grid-view" aria-hidden="true"></span>
-					<?php esc_html_e( 'Use in Theme Builder', 'elementor-implementation-toolkit' ); ?>
+					<?php esc_html_e( 'Create filter controls', 'elementor-implementation-toolkit' ); ?>
 				</button>
 			</div>
 
@@ -1106,7 +1106,7 @@ class FilterPresetAdmin {
 						?>
 					</span>
 				<?php else : ?>
-					<span><?php esc_html_e( 'This preset is compatible with Elementor Theme Builder.', 'elementor-implementation-toolkit' ); ?></span>
+					<span><?php esc_html_e( 'This preset can create an Elementor filter-controls template.', 'elementor-implementation-toolkit' ); ?></span>
 				<?php endif; ?>
 			</p>
 		</aside>
@@ -1115,6 +1115,7 @@ class FilterPresetAdmin {
 
 	private function render_advanced_preset_options( array $preset ) {
 		$modal_id = 'eit-preset-advanced-modal';
+		$provider_mode = $preset['provider_mode'] ?? 'dom';
 		?>
 		<div class="eit-advanced-panel eit-advanced-panel--global">
 			<?php $this->renderer->render_advanced_button( __( 'Advanced options', 'elementor-implementation-toolkit' ), $modal_id ); ?>
@@ -1144,7 +1145,14 @@ class FilterPresetAdmin {
 				<section>
 					<h4><?php esc_html_e( 'Provider defaults', 'elementor-implementation-toolkit' ); ?></h4>
 					<div class="eit-form-grid">
-						<?php $this->select_field( 'preset[provider_mode]', __( 'Data provider', 'elementor-implementation-toolkit' ), $preset['provider_mode'] ?? 'dom', FilterPresets::provider_modes() ); ?>
+						<?php
+						$this->select_field(
+							'preset[provider_mode]',
+							__( 'DOM runtime provider', 'elementor-implementation-toolkit' ),
+							$provider_mode,
+							FilterPresets::editable_provider_modes( $provider_mode )
+						);
+						?>
 						<?php $this->text_field( 'preset[target_selector]', __( 'Default target selector', 'elementor-implementation-toolkit' ), $preset['target_selector'] ?? '', '.elementor-loop-container' ); ?>
 						<?php $this->text_field( 'preset[item_selector]', __( 'Default item selector', 'elementor-implementation-toolkit' ), $preset['item_selector'] ?? '', '.product, article' ); ?>
 					</div>
@@ -1363,7 +1371,7 @@ class FilterPresetAdmin {
 			<div class="eit-panel__header">
 				<div>
 					<h3><?php esc_html_e( 'Linked Elementor templates', 'elementor-implementation-toolkit' ); ?></h3>
-					<p><?php esc_html_e( 'Manage the templates created from this preset. The main handoff stays at the top of the form.', 'elementor-implementation-toolkit' ); ?></p>
+					<p><?php esc_html_e( 'Manage filter-control templates created from this preset. The main handoff stays at the top of the form.', 'elementor-implementation-toolkit' ); ?></p>
 				</div>
 			</div>
 
@@ -1394,7 +1402,7 @@ class FilterPresetAdmin {
 			?>
 			<div class="eit-empty-panel eit-empty-panel--compact">
 				<h3><?php esc_html_e( 'No Elementor template yet', 'elementor-implementation-toolkit' ); ?></h3>
-				<p><?php esc_html_e( 'Create one when you want a reusable filter layout for a page or theme template.', 'elementor-implementation-toolkit' ); ?></p>
+				<p><?php esc_html_e( 'Create one when you want reusable filter controls for a page or theme template.', 'elementor-implementation-toolkit' ); ?></p>
 			</div>
 			<?php
 			return;

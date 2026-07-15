@@ -206,10 +206,25 @@ class FilterPresets {
 
 	public static function provider_modes() {
 		return [
-			'dom'          => __( 'Read visible listing HTML', 'elementor-implementation-toolkit' ),
-			'wp_post_link' => __( 'Read listing HTML and enrich from WordPress posts', 'elementor-implementation-toolkit' ),
-			'adapter'      => __( 'Custom adapter', 'elementor-implementation-toolkit' ),
+			'dom'          => __( 'DOM listing runtime', 'elementor-implementation-toolkit' ),
+			'wp_post_link' => __( 'Legacy: DOM listing with WordPress enrichment hint', 'elementor-implementation-toolkit' ),
+			'adapter'      => __( 'Unsupported saved value: custom adapter', 'elementor-implementation-toolkit' ),
 		];
+	}
+
+	public static function editable_provider_modes( $current = 'dom' ) {
+		$options = [
+			'dom' => __( 'DOM listing runtime', 'elementor-implementation-toolkit' ),
+		];
+
+		$all = self::provider_modes();
+		$current = sanitize_key( $current );
+
+		if ( isset( $all[ $current ] ) && ! isset( $options[ $current ] ) ) {
+			$options[ $current ] = $all[ $current ];
+		}
+
+		return $options;
 	}
 
 	public static function apply_modes() {

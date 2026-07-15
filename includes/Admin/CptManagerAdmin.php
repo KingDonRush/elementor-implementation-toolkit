@@ -235,7 +235,7 @@ class CptManagerAdmin {
 								</td>
 								<td><?php echo esc_html( $this->row_labels( $definition['meta_fields'] ?? [], 'label', 'key' ) ?: count( $definition['meta_fields'] ?? [] ) ); ?></td>
 								<td><?php echo esc_html( $this->row_labels( $definition['taxonomies'] ?? [], 'plural', 'slug' ) ?: count( $definition['taxonomies'] ?? [] ) ); ?></td>
-								<td><?php esc_html_e( 'Archive templates', 'elementor-implementation-toolkit' ); ?></td>
+								<td><?php esc_html_e( 'Elementor layout-ready', 'elementor-implementation-toolkit' ); ?></td>
 								<td><span class="eit-status-pill <?php echo empty( $definition['public'] ) ? 'is-neutral' : ''; ?>"><?php echo ! empty( $definition['public'] ) ? esc_html__( 'Active', 'elementor-implementation-toolkit' ) : esc_html__( 'Private', 'elementor-implementation-toolkit' ); ?></span></td>
 								<td class="eit-row-actions">
 									<a class="eit-mini-button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . AdminPages::CPT_SLUG . '&cpt=' . rawurlencode( $slug ) ) ); ?>"><?php esc_html_e( 'Edit', 'elementor-implementation-toolkit' ); ?></a>
@@ -354,7 +354,7 @@ class CptManagerAdmin {
 		?>
 		<section class="eit-panel">
 			<div class="eit-panel__header">
-				<h3><?php esc_html_e( 'Elementor bridge', 'elementor-implementation-toolkit' ); ?></h3>
+				<h3><?php esc_html_e( 'Elementor handoff', 'elementor-implementation-toolkit' ); ?></h3>
 			</div>
 			<div class="eit-panel__body eit-field-stack">
 				<div class="eit-handoff-card">
@@ -362,7 +362,9 @@ class CptManagerAdmin {
 						<span class="dashicons dashicons-admin-page" aria-hidden="true"></span>
 						<div>
 							<h4><?php esc_html_e( 'Templates can use this data model', 'elementor-implementation-toolkit' ); ?></h4>
-							<p><?php esc_html_e( 'Create the data model here. Style archive and single templates in Elementor.', 'elementor-implementation-toolkit' ); ?></p>
+							<p>
+								<?php esc_html_e( 'Create the data model here, then connect archives, singles, and widgets through Elementor.', 'elementor-implementation-toolkit' ); ?>
+							</p>
 						</div>
 					</div>
 					<div class="eit-handoff-actions">

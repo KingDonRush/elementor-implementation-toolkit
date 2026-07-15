@@ -43,7 +43,7 @@ class ContentControls {
 				'default' => 'dom',
 				'options' => [
 					'dom' => esc_html__( 'Existing DOM listing', 'elementor-implementation-toolkit' ),
-					'cct' => esc_html__( 'Toolkit CCT', 'elementor-implementation-toolkit' ),
+					'cct' => esc_html__( 'Toolkit CCT query', 'elementor-implementation-toolkit' ),
 				],
 			]
 		);
@@ -64,7 +64,10 @@ class ContentControls {
 				'label'       => esc_html__( 'Loop Item Template', 'elementor-implementation-toolkit' ),
 				'type'        => Controls_Manager::SELECT,
 				'options'     => CctLoopTemplateCatalog::options(),
-				'description' => esc_html__( 'Used when the filter endpoint replaces the CCT listing results.', 'elementor-implementation-toolkit' ),
+				'description' => esc_html__(
+					'Requires a Loop Item template and target selector. Rich Loop rendering depends on Elementor Pro / Loop Builder.',
+					'elementor-implementation-toolkit'
+				),
 				'condition'   => [ 'data_provider' => 'cct' ],
 			]
 		);
@@ -161,7 +164,10 @@ class ContentControls {
 				'label'              => esc_html__( 'Target Selector', 'elementor-implementation-toolkit' ),
 				'type'               => Controls_Manager::TEXT,
 				'placeholder'        => '.elementor-element-abc123, .my-listing',
-				'description'        => esc_html__( 'Use the detected listings helper in the editor, or enter a CSS selector manually.', 'elementor-implementation-toolkit' ),
+				'description'        => esc_html__(
+					'Use detection or enter a CSS selector. CCT mode needs a target container for replacement HTML.',
+					'elementor-implementation-toolkit'
+				),
 				'frontend_available' => true,
 				'condition'          => [],
 			]

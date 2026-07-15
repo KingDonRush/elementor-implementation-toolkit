@@ -181,13 +181,18 @@ class AdminPages {
 		?>
 		<div class="eit-notice-line">
 			<span class="dashicons dashicons-yes" aria-hidden="true"></span>
-			<p><?php esc_html_e( 'Elementor bridge is ready. Presets and post types can be edited from WordPress and opened in Elementor when visual work begins.', 'elementor-implementation-toolkit' ); ?></p>
+			<p>
+				<?php esc_html_e( 'Configuration is stored in WordPress; Elementor output still depends on the selected page/template runtime.', 'elementor-implementation-toolkit' ); ?>
+			</p>
 		</div>
 
 		<div class="eit-metrics-grid">
 			<div class="eit-metric"><strong><?php echo esc_html( $filter_count ); ?></strong><p><?php esc_html_e( 'Filter presets', 'elementor-implementation-toolkit' ); ?></p></div>
 			<div class="eit-metric"><strong><?php echo esc_html( $post_type_count ); ?></strong><p><?php esc_html_e( 'Custom post types', 'elementor-implementation-toolkit' ); ?></p></div>
-			<div class="eit-metric"><strong><?php echo esc_html( $linked_template_count ); ?></strong><p><?php esc_html_e( 'Elementor templates linked', 'elementor-implementation-toolkit' ); ?></p></div>
+			<div class="eit-metric">
+				<strong><?php echo esc_html( $linked_template_count ); ?></strong>
+				<p><?php esc_html_e( 'Filter templates linked', 'elementor-implementation-toolkit' ); ?></p>
+			</div>
 		</div>
 
 		<div class="eit-layout-grid eit-layout-grid--dashboard">
@@ -212,7 +217,7 @@ class AdminPages {
 								<tr>
 									<th><?php esc_html_e( 'Preset', 'elementor-implementation-toolkit' ); ?></th>
 									<th><?php esc_html_e( 'Filters', 'elementor-implementation-toolkit' ); ?></th>
-									<th><?php esc_html_e( 'Template', 'elementor-implementation-toolkit' ); ?></th>
+									<th><?php esc_html_e( 'Filter template', 'elementor-implementation-toolkit' ); ?></th>
 									<th><?php esc_html_e( 'Status', 'elementor-implementation-toolkit' ); ?></th>
 								</tr>
 							</thead>
@@ -221,12 +226,24 @@ class AdminPages {
 									<?php
 									$templates = \EIT\Elementor\FilterTemplateManager::get_templates( $id );
 									$filters = $preset['filters'] ?? [];
+									$template_label = __( 'Not linked', 'elementor-implementation-toolkit' );
+									$status_class = 'eit-status-pill';
+									$status_label = __( 'Configured', 'elementor-implementation-toolkit' );
+
+									if ( ! empty( $templates ) ) {
+										$template_label = __( 'Controls linked', 'elementor-implementation-toolkit' );
+									}
+
+									if ( empty( $filters ) ) {
+										$status_class = 'eit-status-pill is-neutral';
+										$status_label = __( 'Draft', 'elementor-implementation-toolkit' );
+									}
 									?>
 									<tr>
 										<td><a class="eit-row-title" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::FILTERS_SLUG . '&preset=' . rawurlencode( $id ) ) ); ?>"><?php echo esc_html( $preset['name'] ?? $id ); ?></a><span class="eit-row-sub"><?php echo esc_html( $preset['slug'] ?? $id ); ?></span></td>
 										<td><?php echo esc_html( sprintf( _n( '%d filter', '%d filters', count( $filters ), 'elementor-implementation-toolkit' ), count( $filters ) ) ); ?></td>
-										<td><?php echo empty( $templates ) ? esc_html__( 'Not linked', 'elementor-implementation-toolkit' ) : esc_html__( 'Archive template', 'elementor-implementation-toolkit' ); ?></td>
-										<td><span class="eit-status-pill <?php echo empty( $filters ) ? 'is-neutral' : ''; ?>"><?php echo empty( $filters ) ? esc_html__( 'Draft', 'elementor-implementation-toolkit' ) : esc_html__( 'Ready', 'elementor-implementation-toolkit' ); ?></span></td>
+										<td><?php echo esc_html( $template_label ); ?></td>
+										<td><span class="<?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span></td>
 									</tr>
 								<?php endforeach; ?>
 							</tbody>
@@ -244,8 +261,8 @@ class AdminPages {
 						<div class="eit-handoff-card__head">
 							<span class="dashicons dashicons-admin-page" aria-hidden="true"></span>
 							<div>
-								<h4><?php esc_html_e( 'Open the archive in Elementor', 'elementor-implementation-toolkit' ); ?></h4>
-								<p><?php esc_html_e( 'Continue visual layout from the linked preset or create a new Theme Builder handoff.', 'elementor-implementation-toolkit' ); ?></p>
+								<h4><?php esc_html_e( 'Prepare filter controls for Elementor', 'elementor-implementation-toolkit' ); ?></h4>
+								<p><?php esc_html_e( 'Use linked filter-control templates or place the widget manually in the Elementor layout.', 'elementor-implementation-toolkit' ); ?></p>
 							</div>
 						</div>
 						<div class="eit-handoff-actions">
@@ -272,23 +289,51 @@ class AdminPages {
 	}
 
 	private function render_diagnostics_cards() {
+		$cpt_count = count( \EIT\CPT\CptManager::all() );
+		$preset_count = count( \EIT\Support\FilterPresets::all() );
+		$elementor_status = \EIT\Elementor\FilterTemplateManager::is_elementor_available()
+			? __( 'Active', 'elementor-implementation-toolkit' )
+			: __( 'Inactive', 'elementor-implementation-toolkit' );
+		$cpt_status = sprintf(
+			_n( '%d stored definition', '%d stored definitions', $cpt_count, 'elementor-implementation-toolkit' ),
+			$cpt_count
+		);
+		$preset_status = sprintf(
+			_n( '%d stored preset', '%d stored presets', $preset_count, 'elementor-implementation-toolkit' ),
+			$preset_count
+		);
 		?>
 		<div class="eit-settings-grid">
 			<section class="eit-setting-card">
-				<h2><?php esc_html_e( 'Elementor bridge', 'elementor-implementation-toolkit' ); ?></h2>
-				<p><?php esc_html_e( 'Presets and post types are handed off to Elementor templates without replacing Elementor as the builder.', 'elementor-implementation-toolkit' ); ?></p>
-				<div class="eit-switch-line"><span><?php esc_html_e( 'Preset handoff buttons', 'elementor-implementation-toolkit' ); ?></span><span class="eit-status-pill"><?php esc_html_e( 'Ready', 'elementor-implementation-toolkit' ); ?></span></div>
-				<div class="eit-switch-line"><span><?php esc_html_e( 'Widget preset selector', 'elementor-implementation-toolkit' ); ?></span><span class="eit-status-pill"><?php esc_html_e( 'Ready', 'elementor-implementation-toolkit' ); ?></span></div>
+				<h2><?php esc_html_e( 'Elementor handoff', 'elementor-implementation-toolkit' ); ?></h2>
+				<p><?php esc_html_e( 'Presets and content models can be handed to Elementor, but page/template QA remains per layout.', 'elementor-implementation-toolkit' ); ?></p>
+				<div class="eit-switch-line">
+					<span><?php esc_html_e( 'Preset handoff buttons', 'elementor-implementation-toolkit' ); ?></span>
+					<span class="eit-status-pill"><?php esc_html_e( 'Available', 'elementor-implementation-toolkit' ); ?></span>
+				</div>
+				<div class="eit-switch-line">
+					<span><?php esc_html_e( 'Widget preset selector', 'elementor-implementation-toolkit' ); ?></span>
+					<span class="eit-status-pill"><?php esc_html_e( 'Available', 'elementor-implementation-toolkit' ); ?></span>
+				</div>
 			</section>
 
 			<section class="eit-setting-card">
 				<h2><?php esc_html_e( 'Data providers', 'elementor-implementation-toolkit' ); ?></h2>
-				<p><?php esc_html_e( 'Current provider status for the Filter Controller runtime.', 'elementor-implementation-toolkit' ); ?></p>
+				<p><?php esc_html_e( 'Current provider assumptions for the Filter Controller runtime.', 'elementor-implementation-toolkit' ); ?></p>
 				<table class="widefat eit-admin-table">
 					<tbody>
-						<tr><td><?php esc_html_e( 'DOM provider', 'elementor-implementation-toolkit' ); ?></td><td><span class="eit-status-pill"><?php esc_html_e( 'Active', 'elementor-implementation-toolkit' ); ?></span></td></tr>
-						<tr><td><?php esc_html_e( 'WordPress enrichment', 'elementor-implementation-toolkit' ); ?></td><td><span class="eit-status-pill"><?php esc_html_e( 'Automatic', 'elementor-implementation-toolkit' ); ?></span></td></tr>
-						<tr><td><?php esc_html_e( 'Template links', 'elementor-implementation-toolkit' ); ?></td><td><span class="eit-status-pill is-warning"><?php esc_html_e( 'Check per preset', 'elementor-implementation-toolkit' ); ?></span></td></tr>
+						<tr>
+							<td><?php esc_html_e( 'DOM provider', 'elementor-implementation-toolkit' ); ?></td>
+							<td><span class="eit-status-pill"><?php esc_html_e( 'Available', 'elementor-implementation-toolkit' ); ?></span></td>
+						</tr>
+						<tr>
+							<td><?php esc_html_e( 'WordPress enrichment', 'elementor-implementation-toolkit' ); ?></td>
+							<td><span class="eit-status-pill is-warning"><?php esc_html_e( 'Best effort', 'elementor-implementation-toolkit' ); ?></span></td>
+						</tr>
+						<tr>
+							<td><?php esc_html_e( 'Template links', 'elementor-implementation-toolkit' ); ?></td>
+							<td><span class="eit-status-pill is-warning"><?php esc_html_e( 'Check per preset', 'elementor-implementation-toolkit' ); ?></span></td>
+						</tr>
 					</tbody>
 				</table>
 			</section>
@@ -301,12 +346,21 @@ class AdminPages {
 
 			<section class="eit-setting-card">
 				<h2><?php esc_html_e( 'Diagnostics', 'elementor-implementation-toolkit' ); ?></h2>
-				<p><?php esc_html_e( 'Compatibility checks for Elementor, CPT registration, and preset template links.', 'elementor-implementation-toolkit' ); ?></p>
+				<p><?php esc_html_e( 'Configuration facts for Elementor availability, stored CPT definitions, and stored filter presets.', 'elementor-implementation-toolkit' ); ?></p>
 				<table class="widefat eit-admin-table">
 					<tbody>
-						<tr><td><?php esc_html_e( 'Elementor', 'elementor-implementation-toolkit' ); ?></td><td><span class="eit-status-pill"><?php echo \EIT\Elementor\FilterTemplateManager::is_elementor_available() ? esc_html__( 'Ready', 'elementor-implementation-toolkit' ) : esc_html__( 'Inactive', 'elementor-implementation-toolkit' ); ?></span></td></tr>
-						<tr><td><?php esc_html_e( 'CPT definitions', 'elementor-implementation-toolkit' ); ?></td><td><span class="eit-status-pill"><?php esc_html_e( 'Ready', 'elementor-implementation-toolkit' ); ?></span></td></tr>
-						<tr><td><?php esc_html_e( 'Filter presets', 'elementor-implementation-toolkit' ); ?></td><td><span class="eit-status-pill"><?php esc_html_e( 'Ready', 'elementor-implementation-toolkit' ); ?></span></td></tr>
+						<tr>
+							<td><?php esc_html_e( 'Elementor', 'elementor-implementation-toolkit' ); ?></td>
+							<td><span class="eit-status-pill"><?php echo esc_html( $elementor_status ); ?></span></td>
+						</tr>
+						<tr>
+							<td><?php esc_html_e( 'CPT definitions', 'elementor-implementation-toolkit' ); ?></td>
+							<td><span class="eit-status-pill"><?php echo esc_html( $cpt_status ); ?></span></td>
+						</tr>
+						<tr>
+							<td><?php esc_html_e( 'Filter presets', 'elementor-implementation-toolkit' ); ?></td>
+							<td><span class="eit-status-pill"><?php echo esc_html( $preset_status ); ?></span></td>
+						</tr>
 					</tbody>
 				</table>
 			</section>
