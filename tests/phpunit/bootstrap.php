@@ -24,3 +24,9 @@ if ( ! function_exists( 'wp_json_encode' ) ) {
 		return json_encode( $value, $flags );
 	}
 }
+
+if ( ! function_exists( 'is_wp_error' ) ) {
+	function is_wp_error( $value ) {
+		return $value instanceof WP_Error;
+	}
+}

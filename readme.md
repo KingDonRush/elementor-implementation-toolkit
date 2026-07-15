@@ -1,15 +1,21 @@
 # Elementor Implementation Toolkit
 
-V0.5.0 introduces the executable `eit.dev/v1 Blueprint` kernel behind the
-existing dogfood surfaces. A canonical Blueprint now validates stable UUIDs,
-typed connections, orphan references, dependency cycles and complete Field
-Contracts before deterministic compilation.
+V0.6.0 exposes the canonical `eit.dev/v1 Blueprint` as an executable Systems
+workspace inside wp-admin. Implementers can create and arrange typed nodes,
+connect compatible contracts, correct validation failures in a contextual
+inspector, switch to a keyboard-operable outline and review impact produced by
+the server compiler before confirming any runtime change.
 
 Drafts do not mutate runtime. Publication follows `save draft -> validate ->
 prepare impact -> confirm -> apply -> reconcile`; published versions and
 artifacts are immutable, and rollback reactivates an earlier version without
-deleting later data. The visual Systems map and its administrative REST UI are
-the next delivery wave, not hidden inside this kernel release.
+deleting later data. Canvas position remains presentational and never changes a
+Blueprint checksum.
+
+The Toolkit navigation is now limited to `Systems`, `Runs`, `Diagnostics` and
+`Settings`. Legacy CPT, CCT and Filter Preset screens remain reachable as
+recovery surfaces during 1.x, but neither definitions nor CCT records create
+top-level menus. Systems assets load only in the Systems workspace.
 
 V0.4.0 remains the trust baseline underneath the compiler: stable published
 slugs and keys, verified CCT schema changes, exact legacy matching, public status
@@ -46,13 +52,31 @@ Elementor editor, and filters the existing cards through AJAX.
 - versioned PHP extension contracts for field primitives, storage adapters,
   Collection providers, form actions and presentation adapters.
 
+### Executable Systems Workspace
+
+- native wp-admin shell using WordPress components and a scoped React Flow map;
+- node cards limited to name, function, observed health and compiled output;
+- contextual inspector ordered by purpose, flow position, compiled effect,
+  access, essential decisions and collapsed technical details;
+- typed connection inference, auto-layout and manual positions that do not alter
+  semantic checksums;
+- accessible outline equivalent, keyboard node selection, focus indicators,
+  live validation state and reduced-motion support;
+- administrative REST endpoints for draft CRUD, validation, compiler impact,
+  apply, reconcile, rollback, Runs, schema and Diagnostics;
+- incomplete drafts remain saveable for correction, while impact preparation
+  and publication remain blocked;
+- adapter selection is compiled from the connected Adapter node; raw Entity
+  adapter keys remain compatibility aliases only;
+- render failures produce a bounded recovery state instead of a blank screen.
+
 The existing CPT/CCT and Filter Controller screens remain compatibility
 surfaces during the 1.x migration window. Active compiled Entity artifacts are
 projected into the existing registrars without writing back into legacy options.
 
 - Elementor widget category: `Elementor Implementation Toolkit`
 - Widget: `Filter Controller`
-- Admin menu: `Implementation Toolkit`
+- Admin navigation: `Systems`, `Runs`, `Diagnostics`, `Settings`
 - Filter preset manager with Elementor filter-control template handoff
 - Lightweight Post Types manager for custom post types, taxonomies, and typed fields
 - Custom Content Types stored in dedicated tables
@@ -75,11 +99,13 @@ Elementor remains responsible for layout, placement, preview, and visual styling
 The WordPress backend is used for reusable structures that should survive across
 pages and projects:
 
-- reusable Filter Presets consumed by the Elementor widget or a plugin-owned
-  Elementor template;
-- compact Post Types for custom post types, taxonomies, and typed fields;
-- Content Types for structured listings that do not need posts or permalinks;
-- provider and diagnostic status for the current filtering runtime.
+- Systems for executable Blueprint drafts and governed publication;
+- Runs for factual execution history;
+- Diagnostics for schema and registered-extension health checks;
+- Settings for product boundaries and legacy recovery links.
+
+Legacy Filter Presets, Post Types and Content Types remain available from
+Settings while their runtime contracts migrate to Blueprints.
 
 Local visual assets live in `assets/images/icons/` as transparent, tightly
 cropped WebP files. The palette/tokens used by the admin surface are documented

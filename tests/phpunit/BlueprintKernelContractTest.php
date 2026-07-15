@@ -5,11 +5,14 @@
 
 use EIT\Blueprint\BlueprintValidator;
 use EIT\Blueprint\Canonicalizer;
+use EIT\Blueprint\Compiler;
 use EIT\Blueprint\FieldContractFactory;
 use EIT\Blueprint\FieldPrimitiveRegistry;
 use EIT\Blueprint\ImpactPlanner;
+use EIT\Blueprint\ReadOnlyLegacyStorageAdapter;
 use EIT\Blueprint\StorageRecommendation;
 use EIT\Blueprint\Uuid;
+use EIT\Registry\RegistryHub;
 use PHPUnit\Framework\TestCase;
 
 class BlueprintKernelContractTest extends TestCase {
@@ -137,6 +140,24 @@ class BlueprintKernelContractTest extends TestCase {
 
 		$errors = ( new BlueprintValidator() )->validate( $blueprint )->errors();
 		self::assertContains( 'storage_column_collision', array_column( $errors, 'code' ) );
+	}
+
+	public function test_connected_adapter_node_is_the_compiler_authority(): void {
+		$blueprint = $this->valid_blueprint();
+		$entity_id = $blueprint['nodes'][0]['id'];
+		$adapter_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'adapter:authority' );
+		$blueprint['nodes'][0]['config']['adapter_id'] = 'untrusted_raw_alias';
+		$blueprint['nodes'][] = [ 'id' => $adapter_id, 'type' => 'adapter', 'lane' => 'governance', 'name' => 'Legacy adapter', 'config' => [ 'adapter_id' => 'legacy_dom' ] ];
+		$blueprint['connections'][] = [ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'edge:adapter-authority' ), 'type' => 'adapts', 'from' => $adapter_id, 'to' => $entity_id ];
+
+		$registries = new RegistryHub();
+		$registries->storage_adapters()->register( new ReadOnlyLegacyStorageAdapter() );
+		$result = ( new Compiler( null, null, null, $registries ) )->compile( $blueprint );
+		$entity = current( array_filter( $result->artifacts(), fn( $artifact ) => 'entity_definition' === $artifact['kind'] ) );
+
+		self::assertTrue( $result->is_valid(), wp_json_encode( $result->errors() ) );
+		self::assertSame( 'legacy_dom', $entity['payload']['adapter']['id'] );
+		self::assertSame( 'adapter', $entity['payload']['recommendation']['recommended'] );
 	}
 
 	private function valid_blueprint(): array {
