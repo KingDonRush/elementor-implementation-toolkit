@@ -293,6 +293,27 @@ body.implementation-toolkit_page_eit-integrations #wpbody-content {
 	resize: vertical;
 }
 
+.eit-media-control {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.eit-media-control input {
+	flex: 1 1 260px;
+}
+
+.eit-managed-field .eit-media-control {
+	margin-top: 6px;
+}
+
+.eit-managed-field .description {
+	display: block;
+	margin-top: 6px;
+	color: #646970;
+}
+
 .eit-check-field input[type="checkbox"],
 .eit-filter-table input[type="checkbox"],
 .eit-admin-table input[type="checkbox"] {

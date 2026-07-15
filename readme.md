@@ -1,8 +1,14 @@
 # Elementor Implementation Toolkit
 
-V0.3.0 adds table-backed Custom Content Types that can feed Elementor Loop Grid,
-Loop Carousel, Dynamic Tags, and the Filter Controller without creating
-WordPress singles.
+V0.3.2 makes the current runtime claims explicit and brings WordPress media
+selection to Toolkit-managed CPT image and gallery fields while preserving
+existing URL-backed values.
+
+V0.3.0 added table-backed Custom Content Types for implementation data that does
+not need WordPress singles. CCT records can be queried by the Filter Controller
+and exposed through CCT Dynamic Tags. Elementor Loop Grid/Carousel rendering is
+available only when the local Elementor Pro / Loop Builder runtime exposes the
+required Loop APIs.
 
 The widget is intentionally parasitic: it does not render its own grid. It detects
 an existing listing on the page, lets the implementer select that target in the
@@ -13,13 +19,13 @@ Elementor editor, and filters the existing cards through AJAX.
 - Elementor widget category: `Elementor Implementation Toolkit`
 - Widget: `Filter Controller`
 - Admin menu: `Implementation Toolkit`
-- Filter preset manager with an Elementor template bridge
+- Filter preset manager with Elementor filter-control template handoff
 - Lightweight Post Types manager for custom post types, taxonomies, and typed fields
 - Custom Content Types stored in dedicated tables
-- Toolkit CCT source for Elementor Loop Grid and Loop Carousel
+- Optional Toolkit CCT skin for Elementor Pro Loop Grid and Loop Carousel
 - CCT Dynamic Tags for text, URL, image, and gallery values
 - Server-side CCT filtering and pagination through the Filter Controller
-- Providers / Diagnostics status for the current filtering runtime
+- Provider/runtime configuration summary for the current filtering surface
 - Editor listing detection with hover highlight
 - Manual CSS selector fallback
 - DOM-provider filtering for existing listings
@@ -50,9 +56,9 @@ Filter presets move reusable behavior out of the Elementor widget panel:
 - apply mode, URL sync, result count, active chips, empty copy, and pagination;
 - filter definitions for search, checkbox, radio, select, chips, toggle, range,
   date, swatches, and rating;
-- advanced provider/selector/query metadata when the DOM fallback needs help;
-- Elementor template creation so layout and styling happen in Elementor instead
-  of a custom admin builder.
+- advanced DOM selector/query metadata when the fallback needs help;
+- Elementor filter-control template creation so layout and styling happen in
+  Elementor instead of a custom admin builder.
 
 The widget can still use inline controls, but when `Configuration Source` is set
 to `Admin filter preset`, the preset supplies the filter definitions and runtime
@@ -70,7 +76,9 @@ with native WordPress APIs:
 - repeatable typed fields rendered in a native meta box.
 
 Supported field types include text, textarea, number, URL, email, date, time,
-date/time, checkbox, select, radio, color, image URL, and gallery URLs.
+date/time, checkbox, select, radio, color, image, and gallery. Image and gallery
+fields use the WordPress media selector while preserving existing URL-backed
+values.
 
 Deleting a post type definition unregisters the structure on the next request.
 It does not delete posts, terms, or post meta.
@@ -85,21 +93,26 @@ portfolio projects, directories, catalogs, and comparison entries:
 - native WordPress CRUD screens without an automatic permalink or single;
 - archive/restore lifecycle that retains definitions, columns, and records;
 - explicit permanent deletion available only for archived definitions;
-- normal Elementor Loop Item templates populated through CCT Dynamic Tags.
+- normal Elementor Loop Item templates populated through CCT Dynamic Tags when
+  Elementor Pro / Loop Builder support is present.
 
 Removing a field from a definition marks it inactive. Its database column and
 stored values remain available for a future restoration or migration.
 
 ### Providers / Diagnostics
 
-The Diagnostics area reports the providers that are real today:
+The Diagnostics area reports current configuration facts. It does not certify
+that a page-level Elementor layout has been QA'd.
 
 - DOM provider for existing Elementor, WooCommerce, JetEngine, and generic
-  listings;
-- WordPress enrichment when listing items expose a local post ID or permalink.
-- CCT provider for direct table queries and server-rendered Loop Items.
+  listings when usable item data is present;
+- best-effort WordPress enrichment when listing items expose a local post ID or
+  permalink;
+- CCT provider for direct table queries and Loop Item rendering when the local
+  Elementor runtime supports it.
 
-Deep adapters remain future work until a real project needs them.
+Deep adapters remain future work until a real project needs them. The admin no
+longer offers a custom adapter mode as a normal setup path.
 
 ## Data Contract
 

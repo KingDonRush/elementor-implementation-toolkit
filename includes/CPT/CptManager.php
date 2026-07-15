@@ -140,8 +140,8 @@ class CptManager {
 			'select'   => __( 'Select', 'elementor-implementation-toolkit' ),
 			'radio'    => __( 'Radio', 'elementor-implementation-toolkit' ),
 			'color'    => __( 'Color', 'elementor-implementation-toolkit' ),
-			'image'    => __( 'Image URL', 'elementor-implementation-toolkit' ),
-			'gallery'  => __( 'Gallery URLs', 'elementor-implementation-toolkit' ),
+			'image'    => __( 'Image', 'elementor-implementation-toolkit' ),
+			'gallery'  => __( 'Gallery', 'elementor-implementation-toolkit' ),
 		];
 	}
 
@@ -337,10 +337,20 @@ class CptManager {
 		$id = 'eit-meta-' . $key;
 		$name = 'eit_meta[' . $key . ']';
 
-		echo '<p class="eit-managed-field eit-managed-field--' . esc_attr( $field['type'] ) . '">';
+		$media_attrs = in_array( $field['type'], [ 'image', 'gallery' ], true )
+			? ' data-eit-media-field data-eit-media-multiple="' . ( 'gallery' === $field['type'] ? '1' : '0' ) . '"'
+			: '';
+
+		echo '<p class="eit-managed-field eit-managed-field--' . esc_attr( $field['type'] ) . '"' . $media_attrs . '>';
 		echo '<label for="' . esc_attr( $id ) . '"><strong>' . esc_html( $field['label'] ?: $key ) . '</strong></label>';
 
-		if ( in_array( $field['type'], [ 'textarea', 'gallery' ], true ) ) {
+		if ( in_array( $field['type'], [ 'image', 'gallery' ], true ) ) {
+			$help = 'gallery' === $field['type']
+				? __( 'Select media library items or keep existing comma-separated URLs.', 'elementor-implementation-toolkit' )
+				: __( 'Select a media library item or keep an existing URL.', 'elementor-implementation-toolkit' );
+			echo '<span class="eit-media-control"><input id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="widefat" type="text" value="' . esc_attr( $value ) . '" /><button type="button" class="button" data-eit-select-media>' . esc_html__( 'Select media', 'elementor-implementation-toolkit' ) . '</button><button type="button" class="button-link" data-eit-clear-media>' . esc_html__( 'Clear', 'elementor-implementation-toolkit' ) . '</button></span>';
+			echo '<span class="description">' . esc_html( $help ) . '</span>';
+		} elseif ( 'textarea' === $field['type'] ) {
 			echo '<textarea id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="widefat" rows="4">' . esc_textarea( $value ) . '</textarea>';
 		} elseif ( 'select' === $field['type'] ) {
 			echo '<select id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="widefat">';
@@ -357,7 +367,6 @@ class CptManager {
 		} else {
 			$type = in_array( $field['type'], [ 'number', 'url', 'email', 'date', 'time', 'color' ], true ) ? $field['type'] : 'text';
 			$type = 'datetime' === $field['type'] ? 'datetime-local' : $type;
-			$type = 'image' === $field['type'] ? 'url' : $type;
 			echo '<input id="' . esc_attr( $id ) . '" name="' . esc_attr( $name ) . '" class="widefat" type="' . esc_attr( $type ) . '" value="' . esc_attr( $value ) . '" />';
 		}
 
@@ -486,7 +495,7 @@ class CptManager {
 		}
 
 		if ( 'image' === $type ) {
-			return esc_url_raw( $value );
+			return self::sanitize_media_reference( $value );
 		}
 
 		if ( 'email' === $type ) {
@@ -510,7 +519,7 @@ class CptManager {
 		}
 
 		if ( 'gallery' === $type ) {
-			return self::sanitize_gallery_urls( $value );
+			return self::sanitize_gallery_references( $value );
 		}
 
 		if ( 'textarea' === $type ) {
@@ -591,19 +600,33 @@ class CptManager {
 		return implode( "\n", $lines );
 	}
 
-	private static function sanitize_gallery_urls( $value ) {
+	private static function sanitize_media_reference( $value ) {
+		$value = trim( (string) $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		if ( ctype_digit( $value ) ) {
+			return (string) absint( $value );
+		}
+
+		return esc_url_raw( $value );
+	}
+
+	private static function sanitize_gallery_references( $value ) {
 		$lines = preg_split( '/\r\n|\r|\n|,/', (string) $value );
-		$urls = [];
+		$references = [];
 
 		foreach ( $lines as $line ) {
-			$url = esc_url_raw( trim( $line ) );
+			$reference = self::sanitize_media_reference( $line );
 
-			if ( '' !== $url ) {
-				$urls[] = $url;
+			if ( '' !== $reference ) {
+				$references[] = $reference;
 			}
 		}
 
-		return implode( "\n", array_slice( $urls, 0, 80 ) );
+		return implode( ',', array_slice( $references, 0, 80 ) );
 	}
 
 	private static function sanitize_post_type_slug( $value ) {

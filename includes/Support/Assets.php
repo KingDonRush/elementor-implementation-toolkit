@@ -166,10 +166,10 @@ class Assets {
 		}
 
 		$this->register_assets();
-		if ( $is_toolkit_page || $is_cct_screen ) {
+		if ( $is_toolkit_page || $is_cct_screen || $is_managed_cpt_screen ) {
 			wp_enqueue_script( 'eit-admin' );
 		}
-		if ( $is_cct_screen ) {
+		if ( $is_cct_screen || $is_managed_cpt_screen ) {
 			wp_enqueue_media();
 		}
 		wp_enqueue_style( 'eit-admin' );
