@@ -20,6 +20,7 @@ class FieldContractFactory {
 	public function make( $id, $name, $type, array $overrides = [] ) {
 		$primitive = $this->primitives->get( $type );
 		if ( ! $primitive ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal SDK exception, not rendered output.
 			throw new \InvalidArgumentException( 'Unknown field primitive: ' . (string) $type );
 		}
 		$definition = $primitive->get_definition();

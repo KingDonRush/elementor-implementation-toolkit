@@ -20,6 +20,7 @@ class ExtensionRegistry {
 
 	public function register( $extension ) {
 		if ( ! $extension instanceof $this->interface ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal SDK exception, not rendered output.
 			throw new \InvalidArgumentException( 'Toolkit extension does not implement ' . $this->interface . '.' );
 		}
 
@@ -32,6 +33,7 @@ class ExtensionRegistry {
 			throw new \InvalidArgumentException( 'Toolkit extension version must use semantic versioning.' );
 		}
 		if ( isset( $this->extensions[ $id ] ) ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal SDK exception, not rendered output.
 			throw new \LogicException( 'Toolkit extension ID is already registered: ' . $id );
 		}
 

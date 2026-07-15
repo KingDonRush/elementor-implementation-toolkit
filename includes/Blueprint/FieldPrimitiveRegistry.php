@@ -27,6 +27,7 @@ class FieldPrimitiveRegistry {
 			throw new \InvalidArgumentException( 'Field primitive ID is invalid.' );
 		}
 		if ( isset( $this->primitives[ $id ] ) ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal SDK exception, not rendered output.
 			throw new \LogicException( 'Field primitive is already registered: ' . $id );
 		}
 		$this->primitives[ $id ] = $primitive;

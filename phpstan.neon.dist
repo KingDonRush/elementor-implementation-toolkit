@@ -8,6 +8,7 @@ parameters:
         - includes/Blueprint
         - includes/Contracts
         - includes/CPT
+        - includes/Infrastructure
         - includes/Registry
         - includes/Rest
         - includes/Support/LegacyDomMatcher.php

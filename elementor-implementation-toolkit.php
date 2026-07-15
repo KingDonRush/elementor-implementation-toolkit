@@ -29,7 +29,7 @@ if ( file_exists( $eit_composer_autoload ) ) {
 
 require_once EIT_PATH . 'includes/functions.php';
 
-register_activation_hook( EIT_FILE, [ '\EIT\CCT\SchemaManager', 'install_all' ] );
+register_activation_hook( EIT_FILE, [ '\EIT\Infrastructure\SchemaManager', 'install' ] );
 
 use EIT\Core\Plugin;
 
