@@ -13,6 +13,7 @@ use EIT\Elementor\ElementorIntegration;
 use EIT\Infrastructure\InfrastructureModule;
 use EIT\Rest\FilterControllerEndpoint;
 use EIT\Rest\FilterPresetEndpoint;
+use EIT\Rest\BlueprintAdminController;
 use EIT\Support\Assets;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -30,6 +31,7 @@ class Plugin {
 		( new AdminPages() )->init_hooks();
 		( new FilterControllerEndpoint() )->init_hooks();
 		( new FilterPresetEndpoint() )->init_hooks();
+		( new BlueprintAdminController() )->init_hooks();
 		( new ElementorIntegration() )->init_hooks();
 	}
 }

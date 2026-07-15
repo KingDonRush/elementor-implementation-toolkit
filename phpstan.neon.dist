@@ -4,6 +4,7 @@ includes:
 parameters:
     level: 3
     paths:
+        - includes/Admin/BlueprintAdminPresenter.php
         - includes/CCT
         - includes/Blueprint
         - includes/Contracts

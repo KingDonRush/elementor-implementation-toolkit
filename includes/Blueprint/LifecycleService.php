@@ -61,10 +61,6 @@ class LifecycleService {
 
 	public function save_draft( array $document ) {
 		unset( $document['checksum'] );
-		$validation = $this->validator->validate( $document );
-		if ( ! $validation->is_valid() ) {
-			return new \WP_Error( 'eit_blueprint_invalid', __( 'Blueprint draft is not valid.', 'elementor-implementation-toolkit' ), [ 'validation' => $validation->to_array() ] );
-		}
 		$checksum = $this->canonicalizer->checksum( $document );
 		$document['checksum'] = $checksum;
 		return $this->blueprints->save_draft( $document, $checksum );

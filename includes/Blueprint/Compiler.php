@@ -49,14 +49,19 @@ class Compiler {
 				continue;
 			}
 			$fields = $this->entity_fields( $node['id'], $nodes, $connections );
-			$recommendation = $this->recommendation->recommend( $node );
+			$adapter_node = $this->entity_adapter( $node['id'], $nodes, $connections );
+			$recommendation_input = $node;
+			if ( $adapter_node ) {
+				$recommendation_input['config']['adapter_id'] = $adapter_node['config']['adapter_id'] ?? '';
+			}
+			$recommendation = $this->recommendation->recommend( $recommendation_input );
 			$recommendations[ $node['id'] ] = $recommendation;
 			if ( ! $recommendation['valid'] ) {
 				$errors[] = $this->error( 'storage_override_reason', 'Storage override requires a documented reason.', $node['id'] );
 				continue;
 			}
 
-			$adapter_id = $this->adapter_id( $node, $recommendation['selected'] );
+			$adapter_id = $this->adapter_id( $node, $recommendation['selected'], $adapter_node );
 			$adapter = $this->registries->storage_adapters()->get( $adapter_id );
 			if ( ! $adapter ) {
 				$errors[] = $this->error( 'storage_adapter_missing', 'Selected storage adapter is not registered.', $node['id'] );
@@ -174,12 +179,24 @@ class Compiler {
 		return $fields;
 	}
 
-	private function adapter_id( array $entity, $strategy ) {
+	private function adapter_id( array $entity, $strategy, array $adapter_node = null ) {
 		if ( 'adapter' !== $strategy ) {
 			return $strategy;
 		}
+		if ( $adapter_node ) {
+			return sanitize_key( $adapter_node['config']['adapter_id'] ?? '' );
+		}
 		$config = $entity['config'] ?? [];
 		return sanitize_key( $config['adapter_id'] ?? ( 'woocommerce' === ( $config['owner'] ?? '' ) ? 'woocommerce' : 'external' ) );
+	}
+
+	private function entity_adapter( $entity_id, array $nodes, array $connections ) {
+		foreach ( $connections as $connection ) {
+			if ( 'adapts' === $connection['type'] && $entity_id === $connection['to'] ) {
+				return $nodes[ $connection['from'] ] ?? null;
+			}
+		}
+		return null;
 	}
 
 	private function capabilities( array $fields, $adapter ) {

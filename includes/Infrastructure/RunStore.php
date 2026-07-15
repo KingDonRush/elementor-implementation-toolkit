@@ -63,6 +63,18 @@ class RunStore {
 		return $row ?: null;
 	}
 
+	public function recent( $limit = 50 ) {
+		global $wpdb;
+
+		$table = Tables::name( Tables::RUNS );
+		$limit = min( 100, max( 1, absint( $limit ) ) );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$table}` ORDER BY started_at DESC LIMIT %d", $limit ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		foreach ( $rows ?: [] as &$row ) {
+			$row['context'] = JsonCodec::decode( $row['context'], [] );
+		}
+		return $rows ?: [];
+	}
+
 	private function redact( array $context ) {
 		foreach ( $context as $key => $value ) {
 			if ( preg_match( '/secret|token|password|authorization|cookie/i', (string) $key ) ) {

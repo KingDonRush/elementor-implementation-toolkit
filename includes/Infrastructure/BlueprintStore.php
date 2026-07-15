@@ -100,6 +100,31 @@ class BlueprintStore {
 			: true;
 	}
 
+	public function delete_unpublished( $blueprint_id ) {
+		global $wpdb;
+
+		$record = $this->get( $blueprint_id );
+		if ( ! $record ) {
+			return false;
+		}
+		if ( ! empty( $record['active_version_id'] ) ) {
+			return new \WP_Error( 'eit_blueprint_delete_published', __( 'Published Blueprints remain auditable and cannot be deleted.', 'elementor-implementation-toolkit' ) );
+		}
+
+		return ( new Transaction() )->run(
+			function () use ( $wpdb, $blueprint_id ) {
+				$change_sets = $wpdb->delete( Tables::name( Tables::CHANGE_SETS ), [ 'blueprint_id' => (string) $blueprint_id ] );
+				if ( false === $change_sets ) {
+					return new \WP_Error( 'eit_blueprint_delete_changes_failed', __( 'Blueprint draft change sets could not be removed.', 'elementor-implementation-toolkit' ) );
+				}
+				$deleted = $wpdb->delete( Tables::name( Tables::BLUEPRINTS ), [ 'id' => (string) $blueprint_id ] );
+				return false === $deleted
+					? new \WP_Error( 'eit_blueprint_delete_failed', __( 'Blueprint draft could not be deleted.', 'elementor-implementation-toolkit' ) )
+					: 1 === $deleted;
+			}
+		);
+	}
+
 	public function hydrate( array $row ) {
 		$row['draft_revision'] = (int) $row['draft_revision'];
 		$row['active_version_id'] = null === $row['active_version_id'] ? null : (int) $row['active_version_id'];

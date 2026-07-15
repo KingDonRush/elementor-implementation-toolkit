@@ -102,6 +102,9 @@ class BlueprintValidator {
 			if ( empty( trim( (string) ( $node['name'] ?? '' ) ) ) ) {
 				$errors[] = $this->error( $path . '.name', 'required', 'Node name is required.', $id );
 			}
+			if ( 'adapter' === $type && empty( trim( (string) ( $node['config']['adapter_id'] ?? '' ) ) ) ) {
+				$errors[] = $this->error( $path . '.config.adapter_id', 'adapter_id_required', 'Adapter node must select a registered adapter.', $id );
+			}
 
 			$index[ $id ] = $node;
 			if ( 'field_group' === $type ) {
@@ -251,6 +254,12 @@ class BlueprintValidator {
 			}
 			if ( isset( $owners[ $node['type'] ] ) && 1 !== ( $counts[ $id ][ $owners[ $node['type'] ][0] ] ?? 0 ) ) {
 				$errors[] = $this->error( 'connections', 'single_owner_required', $owners[ $node['type'] ][1], $id );
+			}
+			if ( 'adapter' === $node['type'] && 1 !== ( $counts[ $id ]['adapts'] ?? 0 ) ) {
+				$errors[] = $this->error( 'connections', 'adapter_target_required', 'Adapter must connect to exactly one Entity.', $id );
+			}
+			if ( 'entity' === $node['type'] && 1 < ( $counts[ $id ]['adapts'] ?? 0 ) ) {
+				$errors[] = $this->error( 'connections', 'multiple_entity_adapters', 'Entity cannot be owned by more than one Adapter.', $id );
 			}
 		}
 	}
