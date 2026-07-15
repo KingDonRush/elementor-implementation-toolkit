@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SchemaManager {
 
-	const VERSION = '2';
+	const VERSION = '3';
 	const VERSION_OPTION = 'eit_cct_schema_version';
 
 	public static function maybe_upgrade() {
@@ -101,6 +101,7 @@ class SchemaManager {
 			'id bigint(20) unsigned NOT NULL AUTO_INCREMENT',
 			'title text NOT NULL',
 			'status varchar(20) NOT NULL DEFAULT \'publish\'',
+			'author_id bigint(20) unsigned NOT NULL DEFAULT 0',
 			'menu_order int(11) NOT NULL DEFAULT 0',
 			'created_at datetime NOT NULL',
 			'updated_at datetime NOT NULL',
@@ -120,6 +121,7 @@ class SchemaManager {
 		$indexes = [
 			'PRIMARY KEY  (id)',
 			'KEY status (status)',
+			'KEY author_status (author_id,status)',
 			'KEY menu_order (menu_order)',
 			'KEY updated_at (updated_at)',
 		];
@@ -147,7 +149,7 @@ class SchemaManager {
 		}
 
 		$actual_columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$expected_columns = [ 'id', 'title', 'status', 'menu_order', 'created_at', 'updated_at' ];
+		$expected_columns = [ 'id', 'title', 'status', 'author_id', 'menu_order', 'created_at', 'updated_at' ];
 		foreach ( $definition['fields'] ?? [] as $field ) {
 			$expected_columns[] = self::column_name( $field['key'] ?? '' );
 		}
@@ -182,7 +184,7 @@ class SchemaManager {
 	}
 
 	private static function expected_index_names( array $definition ) {
-		$names = [ 'PRIMARY', 'status', 'menu_order', 'updated_at' ];
+		$names = [ 'PRIMARY', 'status', 'author_status', 'menu_order', 'updated_at' ];
 		foreach ( $definition['fields'] ?? [] as $field ) {
 			if ( ( ! empty( $field['filterable'] ) || ! empty( $field['sortable'] ) ) && ! empty( $field['active'] ) && FieldTypes::is_indexable( $field['type'] ?? '' ) ) {
 				$names[] = self::index_name( self::column_name( $field['key'] ?? '' ) );

@@ -22,6 +22,8 @@ class Tables {
 	const ROLLBACKS = 'rollbacks';
 	const RELATIONS = 'relation_values';
 	const MULTIVALUES = 'multivalue_values';
+	const ENTRY_SUBMISSIONS = 'entry_submissions';
+	const ACTION_JOBS = 'entry_action_jobs';
 
 	public static function name( $table ) {
 		global $wpdb;
@@ -45,6 +47,8 @@ class Tables {
 			self::ROLLBACKS,
 			self::RELATIONS,
 			self::MULTIVALUES,
+			self::ENTRY_SUBMISSIONS,
+			self::ACTION_JOBS,
 		];
 	}
 }

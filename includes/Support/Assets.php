@@ -75,6 +75,7 @@ class Assets {
 			'eitConfig',
 			[
 				'restUrl' => esc_url_raw( rest_url( 'eit/v1/filter' ) ),
+				'entryRestUrl' => esc_url_raw( rest_url( 'eit/v1' ) ),
 				'nonce'   => wp_create_nonce( 'wp_rest' ),
 				'i18n'    => [
 					'loading'    => __( 'Filtering...', 'elementor-implementation-toolkit' ),
@@ -89,6 +90,13 @@ class Assets {
 					'to'         => __( 'to', 'elementor-implementation-toolkit' ),
 					'clear'      => __( 'Clear', 'elementor-implementation-toolkit' ),
 					'all'        => __( 'All', 'elementor-implementation-toolkit' ),
+					'entrySaving' => __( 'Saving…', 'elementor-implementation-toolkit' ),
+					'entrySaved' => __( 'Your changes were saved.', 'elementor-implementation-toolkit' ),
+					'entrySaveChanges' => __( 'Save changes', 'elementor-implementation-toolkit' ),
+					'entryAutosaved' => __( 'Draft autosaved.', 'elementor-implementation-toolkit' ),
+					'entryError' => __( 'Your changes are still in the form. Review the error and try again.', 'elementor-implementation-toolkit' ),
+					'entryUploading' => __( 'Uploading media…', 'elementor-implementation-toolkit' ),
+					'entryCalculationWaiting' => __( 'Complete the number fields to calculate.', 'elementor-implementation-toolkit' ),
 				],
 			]
 		);

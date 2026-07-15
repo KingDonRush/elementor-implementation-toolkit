@@ -53,6 +53,7 @@ class Repository {
 		$data = [
 			'title'      => sanitize_text_field( $values['title'] ?? '' ),
 			'status'     => $this->sanitize_status( $values['status'] ?? 'publish' ),
+			'author_id'  => absint( $values['author_id'] ?? get_current_user_id() ),
 			'menu_order' => intval( $values['menu_order'] ?? 0 ),
 			'updated_at' => $now,
 		];
@@ -252,6 +253,7 @@ class Repository {
 			'id'         => absint( $row['id'] ?? 0 ),
 			'title'      => (string) ( $row['title'] ?? '' ),
 			'status'     => (string) ( $row['status'] ?? '' ),
+			'author_id'  => absint( $row['author_id'] ?? 0 ),
 			'menu_order' => intval( $row['menu_order'] ?? 0 ),
 			'created_at' => (string) ( $row['created_at'] ?? '' ),
 			'updated_at' => (string) ( $row['updated_at'] ?? '' ),
@@ -268,13 +270,13 @@ class Repository {
 
 	private function sanitize_status( $status ) {
 		$status = sanitize_key( $status );
-		return in_array( $status, [ 'publish', 'draft', 'archived' ], true ) ? $status : 'draft';
+		return in_array( $status, [ 'publish', 'draft', 'review', 'archived' ], true ) ? $status : 'draft';
 	}
 
 	private function normalize_statuses( $statuses ) {
 		$statuses = is_array( $statuses ) ? $statuses : [ $statuses ];
 		$statuses = array_map( 'sanitize_key', $statuses );
-		$statuses = array_values( array_intersect( $statuses, [ 'publish', 'draft', 'archived' ] ) );
+		$statuses = array_values( array_intersect( $statuses, [ 'publish', 'draft', 'review', 'archived' ] ) );
 
 		return $statuses ?: [ 'publish' ];
 	}

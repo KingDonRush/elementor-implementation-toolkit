@@ -37,6 +37,7 @@ class EntryContractCompiler {
 				'adapter' => $entity['adapter'] ?? [],
 			],
 			'fields' => $fields,
+			'title_field_id' => $this->title_field_id( $fields, $config['title_field_id'] ?? '' ),
 			'groups' => $this->selected_groups( $groups, $fields ),
 			'steps' => $this->steps( $config, $fields, $entry['id'] ),
 			'conditions' => array_values( $config['conditions'] ?? [] ),
@@ -96,6 +97,20 @@ class EntryContractCompiler {
 			}
 		}
 		return $result;
+	}
+
+	private function title_field_id( array $fields, $configured ) {
+		foreach ( $fields as $field ) {
+			if ( (string) $configured === ( $field['id'] ?? '' ) ) {
+				return $field['id'];
+			}
+		}
+		foreach ( $fields as $field ) {
+			if ( 'short_text' === ( $field['type'] ?? '' ) ) {
+				return $field['id'];
+			}
+		}
+		return '';
 	}
 
 	private function steps( array $config, array $fields, $surface_id ) {

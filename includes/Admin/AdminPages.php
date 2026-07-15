@@ -19,6 +19,7 @@ class AdminPages {
 	const FILTERS_SLUG = 'eit-filter-presets';
 	const CPT_SLUG = 'eit-cpt-manager';
 	const CCT_SLUG = 'eit-content-types';
+	const ENTRY_RECOVERY_SLUG = 'eit-entry-recovery';
 
 	private $renderer;
 	private $views;
@@ -26,6 +27,7 @@ class AdminPages {
 	private $cpt_manager_admin;
 	private $cct_definition_admin;
 	private $cct_item_admin;
+	private $entry_recovery_admin;
 
 	public function init_hooks() {
 		add_action( 'admin_menu', [ $this, 'register_menu' ] );
@@ -44,6 +46,7 @@ class AdminPages {
 		add_action( 'admin_post_' . CctItemAdmin::SAVE_ACTION, [ $this->cct_item_admin(), 'handle_save' ] );
 		add_action( 'admin_post_' . CctItemAdmin::DELETE_ACTION, [ $this->cct_item_admin(), 'handle_delete' ] );
 		add_action( 'admin_menu', [ $this->cct_item_admin(), 'register_menus' ], 20 );
+		add_action( 'admin_post_' . EntryRecoveryAdmin::RETRY_ACTION, [ $this->entry_recovery_admin(), 'handle_retry' ] );
 	}
 
 	public function register_menu() {
@@ -56,6 +59,7 @@ class AdminPages {
 		add_submenu_page( null, __( 'Filter Presets', 'elementor-implementation-toolkit' ), __( 'Filter Presets', 'elementor-implementation-toolkit' ), self::CAPABILITY, self::FILTERS_SLUG, [ $this, 'render_filters' ] );
 		add_submenu_page( null, __( 'Legacy Post Types', 'elementor-implementation-toolkit' ), __( 'Legacy Post Types', 'elementor-implementation-toolkit' ), self::CAPABILITY, self::CPT_SLUG, [ $this, 'render_cpts' ] );
 		add_submenu_page( null, __( 'Legacy Content Types', 'elementor-implementation-toolkit' ), __( 'Legacy Content Types', 'elementor-implementation-toolkit' ), self::CAPABILITY, self::CCT_SLUG, [ $this, 'render_ccts' ] );
+		add_submenu_page( null, __( 'Entry Recovery', 'elementor-implementation-toolkit' ), __( 'Entry Recovery', 'elementor-implementation-toolkit' ), self::CAPABILITY, self::ENTRY_RECOVERY_SLUG, [ $this, 'render_entry_recovery' ] );
 	}
 
 	public function render_systems() {
@@ -84,6 +88,10 @@ class AdminPages {
 
 	public function render_ccts() {
 		$this->cct_definition_admin()->render( self::CCT_SLUG, $this->tabs() );
+	}
+
+	public function render_entry_recovery() {
+		$this->shell( self::INTEGRATIONS_SLUG, __( 'Entry Recovery', 'elementor-implementation-toolkit' ), __( 'Retry failed side effects without recreating or editing the content mutation that already succeeded.', 'elementor-implementation-toolkit' ), [ $this->entry_recovery_admin(), 'render' ] );
 	}
 
 	private function submenu( $slug, $label, $callback ) {
@@ -143,5 +151,12 @@ class AdminPages {
 			$this->cct_item_admin = new CctItemAdmin();
 		}
 		return $this->cct_item_admin;
+	}
+
+	private function entry_recovery_admin() {
+		if ( ! $this->entry_recovery_admin ) {
+			$this->entry_recovery_admin = new EntryRecoveryAdmin();
+		}
+		return $this->entry_recovery_admin;
 	}
 }

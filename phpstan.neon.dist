@@ -10,6 +10,7 @@ parameters:
         - includes/Contracts
         - includes/CPT
         - includes/Infrastructure
+        - includes/Entry
         - includes/Registry
         - includes/Rest
         - includes/Support/LegacyDomMatcher.php

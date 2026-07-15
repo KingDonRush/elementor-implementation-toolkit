@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SchemaManager {
 
-	const VERSION = '1';
+	const VERSION = '2';
 	const VERSION_OPTION = 'eit_blueprint_schema_version';
 
 	public static function maybe_upgrade() {
@@ -215,6 +215,45 @@ class SchemaManager {
 				UNIQUE KEY field_row (blueprint_id,field_id,owner_id,row_id),
 				KEY field_owner (blueprint_id,field_id,owner_id,position)
 			) {$collate};",
+			"CREATE TABLE {$table( Tables::ENTRY_SUBMISSIONS )} (
+				id char(36) NOT NULL,
+				blueprint_id char(36) NOT NULL,
+				surface_id char(36) NOT NULL,
+				actor_key char(64) NOT NULL,
+				idempotency_hash char(64) NOT NULL,
+				payload_checksum char(64) NOT NULL,
+				operation varchar(32) NOT NULL,
+				item_id varchar(191) DEFAULT NULL,
+				status varchar(24) NOT NULL,
+				response longtext DEFAULT NULL,
+				error_code varchar(96) DEFAULT NULL,
+				created_at datetime NOT NULL,
+				updated_at datetime NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY idempotent_actor (surface_id,actor_key,idempotency_hash),
+				KEY surface_created (surface_id,created_at)
+			) {$collate};",
+			"CREATE TABLE {$table( Tables::ACTION_JOBS )} (
+				id char(36) NOT NULL,
+				blueprint_id char(36) NOT NULL,
+				surface_id char(36) NOT NULL,
+				submission_id char(36) NOT NULL,
+				action_id char(36) NOT NULL,
+				action_type varchar(64) NOT NULL,
+				event varchar(32) NOT NULL,
+				status varchar(24) NOT NULL,
+				attempts smallint(5) unsigned NOT NULL DEFAULT 0,
+				context longtext NOT NULL,
+				result longtext DEFAULT NULL,
+				error_code varchar(96) DEFAULT NULL,
+				error_message text DEFAULT NULL,
+				available_at datetime NOT NULL,
+				created_at datetime NOT NULL,
+				updated_at datetime NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY submission_action (submission_id,action_id,event),
+				KEY retry_queue (status,available_at)
+			) {$collate};",
 		];
 	}
 
@@ -231,6 +270,8 @@ class SchemaManager {
 			Tables::ROLLBACKS => [ 'id', 'from_version_id', 'to_version_id', 'reason' ],
 			Tables::RELATIONS => [ 'id', 'relation_id', 'source_id', 'target_id' ],
 			Tables::MULTIVALUES => [ 'id', 'field_id', 'owner_id', 'row_id', 'value' ],
+			Tables::ENTRY_SUBMISSIONS => [ 'id', 'surface_id', 'actor_key', 'idempotency_hash', 'payload_checksum', 'status', 'response' ],
+			Tables::ACTION_JOBS => [ 'id', 'submission_id', 'action_id', 'action_type', 'status', 'attempts', 'context', 'available_at' ],
 		];
 	}
 

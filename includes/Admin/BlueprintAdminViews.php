@@ -118,6 +118,11 @@ class BlueprintAdminViews {
 				<p><a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . AdminPages::CPT_SLUG ) ); ?>"><?php esc_html_e( 'Open legacy post types', 'elementor-implementation-toolkit' ); ?></a></p>
 				<p><a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . AdminPages::CCT_SLUG ) ); ?>"><?php esc_html_e( 'Open legacy content types', 'elementor-implementation-toolkit' ); ?></a></p>
 			</section>
+			<section class="eit-setting-card">
+				<h2><?php esc_html_e( 'Entry workflow recovery', 'elementor-implementation-toolkit' ); ?></h2>
+				<p><?php esc_html_e( 'Retry failed notifications and webhooks without resubmitting or duplicating content.', 'elementor-implementation-toolkit' ); ?></p>
+				<p><a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . AdminPages::ENTRY_RECOVERY_SLUG ) ); ?>"><?php esc_html_e( 'Open Entry recovery', 'elementor-implementation-toolkit' ); ?></a></p>
+			</section>
 		</div>
 		<?php
 	}

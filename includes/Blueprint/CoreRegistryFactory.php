@@ -5,6 +5,7 @@
 
 namespace EIT\Blueprint;
 
+use EIT\Entry\CoreFormAction;
 use EIT\Registry\RegistryHub;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -18,6 +19,9 @@ class CoreRegistryFactory {
 		$hub->storage_adapters()->register( new CoreStorageAdapter( 'cpt' ) );
 		$hub->storage_adapters()->register( new CoreStorageAdapter( 'cct' ) );
 		$hub->storage_adapters()->register( new ReadOnlyLegacyStorageAdapter() );
+		foreach ( [ 'redirect', 'email', 'notification', 'webhook' ] as $action_type ) {
+			$hub->form_actions()->register( new CoreFormAction( $action_type ) );
+		}
 		do_action( 'eit_register_blueprint_extensions', $hub );
 		return $hub;
 	}

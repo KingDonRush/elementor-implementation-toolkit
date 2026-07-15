@@ -176,7 +176,7 @@ class CoreStorageAdapter implements StorageAdapterInterface {
 			'integer' => 'number', 'decimal' => 'number', 'money' => 'number', 'percentage' => 'number', 'calculated' => 'number',
 			'boolean' => 'cpt' === $adapter ? 'checkbox' : 'boolean', 'single_choice' => 'select', 'multiple_choice' => 'cpt' === $adapter ? 'select' : 'multiselect',
 			'date' => 'date', 'time' => 'time', 'datetime' => 'datetime', 'image' => 'image', 'gallery' => 'gallery',
-			'email' => 'email', 'url' => 'url', 'file' => 'url',
+			'email' => 'email', 'phone' => 'text', 'url' => 'url', 'file' => 'image',
 		];
 		return $shared[ $type ] ?? ( 'cpt' === $adapter ? 'textarea' : 'textarea' );
 	}
