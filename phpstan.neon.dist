@@ -5,7 +5,10 @@ parameters:
     level: 3
     paths:
         - includes/CCT
+        - includes/Blueprint
+        - includes/Contracts
         - includes/CPT
+        - includes/Registry
         - includes/Rest
         - includes/Support/LegacyDomMatcher.php
         - includes/Support/LegacyDomPayload.php

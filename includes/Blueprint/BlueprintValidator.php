@@ -1,0 +1,290 @@
+<?php
+/**
+ * Validates the executable eit.dev/v1 Blueprint contract.
+ */
+
+namespace EIT\Blueprint;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class BlueprintValidator {
+
+	const API_VERSION = 'eit.dev/v1';
+	const KIND = 'Blueprint';
+	const MAX_NODES = 200;
+	const MAX_CONNECTIONS = 400;
+	const MAX_FIELDS_PER_GROUP = 80;
+
+	private $nodes;
+	private $primitives;
+	private $canonicalizer;
+
+	public function __construct(
+		NodeTypeRegistry $nodes = null,
+		FieldPrimitiveRegistry $primitives = null,
+		Canonicalizer $canonicalizer = null
+	) {
+		$this->nodes = $nodes ?: new NodeTypeRegistry();
+		$this->primitives = $primitives ?: new FieldPrimitiveRegistry();
+		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
+	}
+
+	public function validate( array $blueprint ) {
+		$errors = [];
+		$this->validate_header( $blueprint, $errors );
+		$node_index = $this->validate_nodes( $blueprint['nodes'] ?? null, $errors );
+		$connections = $this->validate_connections( $blueprint['connections'] ?? null, $node_index, $errors );
+		$this->validate_orphans( $node_index, $connections, $errors );
+		$this->validate_cardinality( $node_index, $connections, $errors );
+		$this->validate_cycles( $node_index, $connections, $errors );
+
+		if ( isset( $blueprint['checksum'] ) && ! hash_equals( (string) $blueprint['checksum'], $this->canonicalizer->checksum( $blueprint ) ) ) {
+			$errors[] = $this->error( 'checksum', 'checksum_mismatch', 'Blueprint checksum does not match its semantic document.' );
+		}
+
+		return new ValidationResult( $errors );
+	}
+
+	private function validate_header( array $blueprint, array &$errors ) {
+		if ( self::API_VERSION !== ( $blueprint['api_version'] ?? '' ) ) {
+			$errors[] = $this->error( 'api_version', 'unsupported_api_version', 'Blueprint api_version must be eit.dev/v1.' );
+		}
+		if ( self::KIND !== ( $blueprint['kind'] ?? '' ) ) {
+			$errors[] = $this->error( 'kind', 'invalid_kind', 'Blueprint kind must be Blueprint.' );
+		}
+		if ( ! Uuid::is_valid( $blueprint['id'] ?? '' ) ) {
+			$errors[] = $this->error( 'id', 'invalid_uuid', 'Blueprint ID must be a UUID.' );
+		}
+		if ( empty( trim( (string) ( $blueprint['name'] ?? '' ) ) ) ) {
+			$errors[] = $this->error( 'name', 'required', 'Blueprint name is required.' );
+		}
+		if ( ! is_int( $blueprint['version'] ?? null ) || ( $blueprint['version'] ?? 0 ) < 1 ) {
+			$errors[] = $this->error( 'version', 'invalid_version', 'Blueprint version must be a positive integer.' );
+		}
+	}
+
+	private function validate_nodes( $nodes, array &$errors ) {
+		if ( ! is_array( $nodes ) || ! array_is_list( $nodes ) ) {
+			$errors[] = $this->error( 'nodes', 'invalid_list', 'Blueprint nodes must be a list.' );
+			return [];
+		}
+		if ( count( $nodes ) > self::MAX_NODES ) {
+			$errors[] = $this->error( 'nodes', 'node_limit', 'Blueprint exceeds the 200-node limit.' );
+		}
+
+		$index = [];
+		$field_ids = [];
+		foreach ( array_slice( $nodes, 0, self::MAX_NODES ) as $offset => $node ) {
+			$path = 'nodes.' . $offset;
+			if ( ! is_array( $node ) ) {
+				$errors[] = $this->error( $path, 'invalid_node', 'Node must be an object.' );
+				continue;
+			}
+			$id = strtolower( (string) ( $node['id'] ?? '' ) );
+			$type = (string) ( $node['type'] ?? '' );
+			if ( ! Uuid::is_valid( $id ) ) {
+				$errors[] = $this->error( $path . '.id', 'invalid_uuid', 'Node ID must be a UUID.' );
+				continue;
+			}
+			if ( isset( $index[ $id ] ) ) {
+				$errors[] = $this->error( $path . '.id', 'duplicate_node_id', 'Node ID must be unique.', $id );
+				continue;
+			}
+			if ( ! $this->nodes->has( $type ) ) {
+				$errors[] = $this->error( $path . '.type', 'unknown_node_type', 'Node type is not registered.', $id );
+			}
+			if ( isset( $node['lane'] ) && $this->nodes->lane( $type ) !== $node['lane'] ) {
+				$errors[] = $this->error( $path . '.lane', 'invalid_lane', 'Node lane does not match its executable type.', $id );
+			}
+			if ( empty( trim( (string) ( $node['name'] ?? '' ) ) ) ) {
+				$errors[] = $this->error( $path . '.name', 'required', 'Node name is required.', $id );
+			}
+
+			$index[ $id ] = $node;
+			if ( 'field_group' === $type ) {
+				$this->validate_fields( $node, $path, $field_ids, $errors );
+			}
+		}
+		return $index;
+	}
+
+	private function validate_fields( array $node, $path, array &$field_ids, array &$errors ) {
+		$fields = $node['config']['fields'] ?? null;
+		if ( ! is_array( $fields ) || ! array_is_list( $fields ) || empty( $fields ) ) {
+			$errors[] = $this->error( $path . '.config.fields', 'invalid_fields', 'Field Group must contain a field list.', $node['id'] );
+			return;
+		}
+		if ( count( $fields ) > self::MAX_FIELDS_PER_GROUP ) {
+			$errors[] = $this->error( $path . '.config.fields', 'field_limit', 'Field Group exceeds the 80-field limit.', $node['id'] );
+		}
+
+		foreach ( array_slice( $fields, 0, self::MAX_FIELDS_PER_GROUP ) as $offset => $field ) {
+			$field_path = $path . '.config.fields.' . $offset;
+			if ( ! is_array( $field ) ) {
+				$errors[] = $this->error( $field_path, 'invalid_field', 'Field contract must be an object.', $node['id'] );
+				continue;
+			}
+			$id = strtolower( (string) ( $field['id'] ?? '' ) );
+			if ( ! Uuid::is_valid( $id ) ) {
+				$errors[] = $this->error( $field_path . '.id', 'invalid_uuid', 'Field ID must be a UUID.', $node['id'] );
+				continue;
+			}
+			if ( isset( $field_ids[ $id ] ) ) {
+				$errors[] = $this->error( $field_path . '.id', 'duplicate_field_id', 'Field ID must be unique across the Blueprint.', $node['id'] );
+			}
+			$field_ids[ $id ] = true;
+			$this->validate_field_contract( $field, $field_path, $node['id'], $errors );
+		}
+	}
+
+	private function validate_field_contract( array $field, $path, $node_id, array &$errors ) {
+		$type = (string) ( $field['type'] ?? '' );
+		$primitive = $this->primitives->get( $type );
+		if ( ! $primitive ) {
+			$errors[] = $this->error( $path . '.type', 'unknown_field_type', 'Field primitive is not registered.', $node_id );
+			return;
+		}
+		if ( empty( trim( (string) ( $field['name'] ?? '' ) ) ) ) {
+			$errors[] = $this->error( $path . '.name', 'required', 'Field public name is required.', $node_id );
+		}
+
+		$definition = $primitive->get_definition();
+		if ( ( $field['shape'] ?? '' ) !== ( $definition['shape'] ?? '' ) ) {
+			$errors[] = $this->error( $path . '.shape', 'invalid_shape', 'Field shape is incompatible with its primitive.', $node_id );
+		}
+		foreach ( [ 'validation', 'exposure', 'storage', 'indexing', 'components', 'elementor', 'capabilities' ] as $contract_key ) {
+			if ( ! isset( $field[ $contract_key ] ) || ! is_array( $field[ $contract_key ] ) ) {
+				$errors[] = $this->error( $path . '.' . $contract_key, 'missing_contract', 'Field contract section is required.', $node_id );
+			}
+		}
+
+		$storage_key = (string) ( $field['storage']['key'] ?? '' );
+		if ( ! preg_match( '/^[a-z][a-z0-9_]{2,63}$/', $storage_key ) ) {
+			$errors[] = $this->error( $path . '.storage.key', 'invalid_storage_key', 'Compiled storage key is invalid.', $node_id );
+		}
+		$capabilities = $definition['capabilities'] ?? [];
+		foreach ( [ 'search', 'filter', 'sort' ] as $capability ) {
+			if ( ! empty( $field['indexing'][ $capability ] ) && empty( $capabilities[ $capability ] ) ) {
+				$errors[] = $this->error( $path . '.indexing.' . $capability, 'unsupported_capability', 'Primitive cannot provide the requested query capability.', $node_id );
+			}
+		}
+	}
+
+	private function validate_connections( $connections, array $nodes, array &$errors ) {
+		if ( ! is_array( $connections ) || ! array_is_list( $connections ) ) {
+			$errors[] = $this->error( 'connections', 'invalid_list', 'Blueprint connections must be a list.' );
+			return [];
+		}
+		if ( count( $connections ) > self::MAX_CONNECTIONS ) {
+			$errors[] = $this->error( 'connections', 'connection_limit', 'Blueprint exceeds the 400-connection limit.' );
+		}
+
+		$valid = [];
+		$ids = [];
+		foreach ( array_slice( $connections, 0, self::MAX_CONNECTIONS ) as $offset => $connection ) {
+			$path = 'connections.' . $offset;
+			if ( ! is_array( $connection ) ) {
+				$errors[] = $this->error( $path, 'invalid_connection', 'Connection must be an object.' );
+				continue;
+			}
+			$id = strtolower( (string) ( $connection['id'] ?? '' ) );
+			$from = strtolower( (string) ( $connection['from'] ?? '' ) );
+			$to = strtolower( (string) ( $connection['to'] ?? '' ) );
+			$type = (string) ( $connection['type'] ?? '' );
+			if ( ! Uuid::is_valid( $id ) || isset( $ids[ $id ] ) ) {
+				$errors[] = $this->error( $path . '.id', isset( $ids[ $id ] ) ? 'duplicate_connection_id' : 'invalid_uuid', 'Connection ID must be a unique UUID.', null, $id );
+				continue;
+			}
+			$ids[ $id ] = true;
+			if ( ! isset( $nodes[ $from ], $nodes[ $to ] ) ) {
+				$errors[] = $this->error( $path, 'orphan_reference', 'Connection references a node that does not exist.', null, $id );
+				continue;
+			}
+			if ( ! $this->nodes->connection_is_valid( $type, $nodes[ $from ]['type'], $nodes[ $to ]['type'] ) ) {
+				$errors[] = $this->error( $path . '.type', 'invalid_connection_type', 'Connection is incompatible with its source and target node types.', null, $id );
+				continue;
+			}
+			$valid[] = $connection;
+		}
+		return $valid;
+	}
+
+	private function validate_orphans( array $nodes, array $connections, array &$errors ) {
+		$degree = array_fill_keys( array_keys( $nodes ), 0 );
+		foreach ( $connections as $connection ) {
+			++$degree[ $connection['from'] ];
+			++$degree[ $connection['to'] ];
+		}
+		foreach ( $degree as $node_id => $count ) {
+			if ( 0 === $count ) {
+				$errors[] = $this->error( 'nodes', 'orphan_node', 'Node is not connected to the executable system.', $node_id );
+			}
+		}
+	}
+
+	private function validate_cardinality( array $nodes, array $connections, array &$errors ) {
+		$counts = [];
+		foreach ( $connections as $connection ) {
+			$counts[ $connection['to'] ][ $connection['type'] ] = ( $counts[ $connection['to'] ][ $connection['type'] ] ?? 0 ) + 1;
+			$counts[ $connection['from'] ][ $connection['type'] ] = ( $counts[ $connection['from'] ][ $connection['type'] ] ?? 0 ) + 1;
+		}
+		foreach ( $nodes as $id => $node ) {
+			if ( 'field_group' === $node['type'] && 1 !== ( $counts[ $id ]['entity_fields'] ?? 0 ) ) {
+				$errors[] = $this->error( 'connections', 'field_group_owner', 'Field Group must belong to exactly one Entity.', $id );
+			}
+			if ( 'relation' === $node['type'] && ( 1 !== ( $counts[ $id ]['relation_source'] ?? 0 ) || 1 !== ( $counts[ $id ]['relation_target'] ?? 0 ) ) ) {
+				$errors[] = $this->error( 'connections', 'relation_endpoints', 'Relation must declare exactly one source and one target Entity.', $id );
+			}
+		}
+	}
+
+	private function validate_cycles( array $nodes, array $connections, array &$errors ) {
+		$graph = array_fill_keys( array_keys( $nodes ), [] );
+		foreach ( $connections as $connection ) {
+			if ( $this->nodes->connection_is_acyclic( $connection['type'] ) ) {
+				$graph[ $connection['from'] ][] = $connection['to'];
+			}
+		}
+		$state = [];
+		foreach ( array_keys( $graph ) as $node_id ) {
+			if ( $this->visit( $node_id, $graph, $state ) ) {
+				$errors[] = $this->error( 'connections', 'dependency_cycle', 'Blueprint contains a dependency cycle.', $node_id );
+				return;
+			}
+		}
+	}
+
+	private function visit( $node_id, array $graph, array &$state ) {
+		if ( 1 === ( $state[ $node_id ] ?? 0 ) ) {
+			return true;
+		}
+		if ( 2 === ( $state[ $node_id ] ?? 0 ) ) {
+			return false;
+		}
+		$state[ $node_id ] = 1;
+		foreach ( $graph[ $node_id ] as $target ) {
+			if ( $this->visit( $target, $graph, $state ) ) {
+				return true;
+			}
+		}
+		$state[ $node_id ] = 2;
+		return false;
+	}
+
+	private function error( $path, $code, $message, $node_id = null, $connection_id = null ) {
+		return array_filter(
+			[
+				'path'          => $path,
+				'code'          => $code,
+				'message'       => $message,
+				'node_id'       => $node_id,
+				'connection_id' => $connection_id,
+			],
+			function ( $value ) {
+				return null !== $value;
+			}
+		);
+	}
+}
