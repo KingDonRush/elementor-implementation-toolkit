@@ -44,7 +44,7 @@ class FilterSettings {
 		$resolved['show_apply']        = 'button' === ( $preset['apply_mode'] ?? 'auto' ) ? 'yes' : '';
 		$resolved['search_debounce_ms'] = $preset['search_debounce_ms'] ?? ( $settings['search_debounce_ms'] ?? 250 );
 		$resolved['sync_url']          = ! empty( $preset['sync_url'] ) ? 'yes' : '';
-		$resolved['per_page']          = $preset['per_page'] ?? ( $settings['per_page'] ?? 9 );
+		$resolved['per_page']          = $preset['per_page'] ?? ( $settings['per_page'] ?? 24 );
 		$resolved['show_result_count'] = ! empty( $preset['show_result_count'] ) ? 'yes' : '';
 		$resolved['result_count_text'] = $preset['result_count_text'] ?? ( $settings['result_count_text'] ?? '' );
 		$resolved['show_active_chips'] = ! empty( $preset['show_active_chips'] ) ? 'yes' : '';
@@ -73,7 +73,7 @@ class FilterSettings {
 			'show_apply'           => 'button' === ( $preset['apply_mode'] ?? 'auto' ) ? 'yes' : '',
 			'search_debounce_ms'   => $preset['search_debounce_ms'] ?? 250,
 			'sync_url'             => ! empty( $preset['sync_url'] ) ? 'yes' : '',
-			'per_page'             => $preset['per_page'] ?? 9,
+			'per_page'             => $preset['per_page'] ?? 24,
 			'show_result_count'    => ! empty( $preset['show_result_count'] ) ? 'yes' : '',
 			'result_count_text'    => $preset['result_count_text'] ?? '',
 			'show_active_chips'    => ! empty( $preset['show_active_chips'] ) ? 'yes' : '',
@@ -93,7 +93,7 @@ class FilterSettings {
 	public static function normalize_filters( array $filters ) {
 		$normalized = [];
 
-		foreach ( $filters as $index => $filter ) {
+		foreach ( array_slice( $filters, 0, FilterPresets::MAX_FILTERS ) as $index => $filter ) {
 			$type = FilterTypeRegistry::normalize_type( $filter['type'] ?? 'search' );
 			$field_contract = FieldBindingResolver::resolve_filter( $filter );
 			$id   = sanitize_key( $filter['_id'] ?? 'filter-' . $index );

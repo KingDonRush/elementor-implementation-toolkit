@@ -25,37 +25,6 @@ class Assets {
 	}
 
 	public function register_assets() {
-		$frontend_styles = [
-			'base',
-			'layout',
-			'fields',
-			'shared/options',
-			'types/rating',
-			'types/toggle-swatch',
-			'types/date',
-			'types/range',
-			'buttons',
-			'meta',
-			'pagination',
-			'state',
-			'responsive',
-		];
-		$frontend_style_handles = [];
-
-		foreach ( $frontend_styles as $index => $stylesheet ) {
-			$handle = 'eit-filter-controller-' . str_replace( '/', '-', $stylesheet );
-			$relative_path = 'assets/css/filter-controller/' . $stylesheet . '.css';
-			$absolute_path = EIT_PATH . $relative_path;
-			$frontend_style_handles[] = $handle;
-
-			wp_register_style(
-				$handle,
-				EIT_URL . $relative_path,
-				0 === $index ? [] : [ $frontend_style_handles[ $index - 1 ] ],
-				file_exists( $absolute_path ) ? (string) filemtime( $absolute_path ) : EIT_VERSION
-			);
-		}
-
 		wp_register_script(
 			'eit-frontend',
 			EIT_URL . 'assets/js/eit-frontend.js',
@@ -67,7 +36,7 @@ class Assets {
 		wp_register_style(
 			'eit-frontend',
 			EIT_URL . 'assets/css/eit-frontend.css',
-			$frontend_style_handles,
+			[],
 			(string) filemtime( EIT_PATH . 'assets/css/eit-frontend.css' )
 		);
 
@@ -110,9 +79,14 @@ class Assets {
 				'i18n'    => [
 					'loading'    => __( 'Filtering...', 'elementor-implementation-toolkit' ),
 					'empty'      => __( 'No matching items found.', 'elementor-implementation-toolkit' ),
+					'error'      => __( 'Filters could not be updated. Your current results are still visible.', 'elementor-implementation-toolkit' ),
+					'targetMissing' => __( 'The connected listing could not be found.', 'elementor-implementation-toolkit' ),
+					'filter'     => __( 'Filter', 'elementor-implementation-toolkit' ),
 					'page'       => __( 'Page', 'elementor-implementation-toolkit' ),
 					'previous'   => __( 'Previous', 'elementor-implementation-toolkit' ),
 					'next'       => __( 'Next', 'elementor-implementation-toolkit' ),
+					'from'       => __( 'From', 'elementor-implementation-toolkit' ),
+					'to'         => __( 'to', 'elementor-implementation-toolkit' ),
 					'clear'      => __( 'Clear', 'elementor-implementation-toolkit' ),
 					'all'        => __( 'All', 'elementor-implementation-toolkit' ),
 				],

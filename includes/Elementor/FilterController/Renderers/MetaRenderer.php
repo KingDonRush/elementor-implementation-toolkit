@@ -23,6 +23,8 @@ class MetaRenderer {
 		</div>
 
 		<div class="eit-empty-state" data-eit-empty hidden><?php echo esc_html( $config['emptyText'] ); ?></div>
+		<div class="eit-error-state" data-eit-error role="alert" tabindex="-1" hidden></div>
+		<div class="screen-reader-text" data-eit-status role="status" aria-live="polite" aria-atomic="true"></div>
 		<nav class="eit-pagination" data-eit-pagination aria-label="<?php echo esc_attr__( 'Filtered listing pagination', 'elementor-implementation-toolkit' ); ?>"></nav>
 		<?php
 	}

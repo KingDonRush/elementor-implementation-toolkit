@@ -81,7 +81,7 @@ class FilterController extends Widget_Base {
 		);
 
 		?>
-		<div <?php $this->print_render_attribute_string( 'wrapper' ); ?>>
+		<div <?php $this->print_render_attribute_string( 'wrapper' ); ?> aria-busy="false">
 			<div class="eit-editor-target-helper" hidden></div>
 			<?php PresetStateNoticeRenderer::render( $settings ); ?>
 			<form class="eit-filter-controller__form" action="#" method="get">

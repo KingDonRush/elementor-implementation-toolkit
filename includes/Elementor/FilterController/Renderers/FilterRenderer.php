@@ -30,6 +30,7 @@ class FilterRenderer {
 			class="eit-filter-group eit-filter-group--<?php echo esc_attr( $type ); ?>"
 			style="--eit-filter-column-span: <?php echo esc_attr( $layout_width ); ?>; --eit-filter-basis: <?php echo esc_attr( $layout_width ); ?>%;"
 			data-eit-filter-group="<?php echo esc_attr( $filter['id'] ); ?>"
+			data-eit-filter-label="<?php echo esc_attr( $filter['label'] ); ?>"
 			data-eit-field-source="<?php echo esc_attr( $filter['source'] ?? 'visible_text' ); ?>"
 			data-eit-compare="<?php echo esc_attr( $filter['compare'] ?? '' ); ?>"
 			data-eit-data-type="<?php echo esc_attr( $filter['dataType'] ?? '' ); ?>"

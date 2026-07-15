@@ -22,7 +22,7 @@ class RuntimeConfig {
 			'autoApply'       => ( $settings['auto_apply'] ?? 'yes' ) === 'yes',
 			'searchDebounceMs' => max( 0, min( 2000, absint( $settings['search_debounce_ms'] ?? 250 ) ) ),
 			'syncUrl'         => ( $settings['sync_url'] ?? 'yes' ) === 'yes',
-			'perPage'         => max( 1, min( 96, absint( $settings['per_page'] ?? 9 ) ) ),
+			'perPage'         => max( 1, min( 48, absint( $settings['per_page'] ?? 24 ) ) ),
 			'paginationType'  => sanitize_key( $settings['pagination_type'] ?? 'numbers' ),
 			'previousText'    => sanitize_text_field( $settings['previous_text'] ?? __( 'Previous', 'elementor-implementation-toolkit' ) ),
 			'nextText'        => sanitize_text_field( $settings['next_text'] ?? __( 'Next', 'elementor-implementation-toolkit' ) ),

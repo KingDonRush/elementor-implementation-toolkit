@@ -27,3 +27,8 @@
     opacity: .45;
     transform: none;
 }
+
+.eit-page-ellipsis {
+    min-width: 24px;
+    text-align: center;
+}

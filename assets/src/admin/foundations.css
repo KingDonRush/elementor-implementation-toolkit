@@ -1,0 +1,348 @@
+.eit-admin {
+	--eit-bg: #fff;
+	--eit-bg-soft: #f6f7f7;
+	--eit-page: #f0f0f1;
+	--eit-border: #c3c4c7;
+	--eit-border-soft: #dcdcde;
+	--eit-text: #1d2327;
+	--eit-muted: #646970;
+	--eit-blue: #2271b1;
+	--eit-blue-dark: #135e96;
+	--eit-green: #008a20;
+	--eit-red: #d63638;
+	--eit-yellow: #996800;
+	max-width: none;
+	color: var(--eit-text);
+}
+
+.eit-admin * {
+	box-sizing: border-box;
+}
+
+body.eit-modal-open {
+	overflow: hidden;
+}
+
+body.toplevel_page_eit-toolkit #wpfooter,
+body.implementation-toolkit_page_eit-filter-presets #wpfooter,
+body.implementation-toolkit_page_eit-cpt-manager #wpfooter,
+body.implementation-toolkit_page_eit-integrations #wpfooter {
+	display: none;
+}
+
+body.toplevel_page_eit-toolkit #wpbody-content,
+body.implementation-toolkit_page_eit-filter-presets #wpbody-content,
+body.implementation-toolkit_page_eit-cpt-manager #wpbody-content,
+body.implementation-toolkit_page_eit-integrations #wpbody-content {
+	padding-bottom: 0;
+}
+
+.eit-title-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 38px;
+	margin: 0 0 14px;
+}
+
+.eit-title-row h1 {
+	margin: 0;
+	font-size: 23px;
+	font-weight: 400;
+	line-height: 1.3;
+}
+
+.eit-title-row .page-title-action {
+	top: 0;
+	min-height: 34px;
+	display: inline-flex;
+	align-items: center;
+	padding: 0 12px;
+	border-color: var(--eit-blue);
+	background: #fff;
+	color: var(--eit-blue);
+	font-size: 14px;
+	line-height: 1;
+}
+
+.eit-page-description {
+	max-width: 760px;
+	margin: -4px 0 14px;
+	color: var(--eit-muted);
+}
+
+.eit-native-tabs {
+	display: flex;
+	gap: 0;
+	margin: 0 0 16px;
+	border-bottom: 1px solid var(--eit-border);
+}
+
+.eit-native-tabs .nav-tab {
+	min-height: 44px;
+	display: inline-flex;
+	align-items: center;
+	margin: 0 4px -1px 0;
+	padding: 0 16px;
+	border-color: var(--eit-border);
+	background: #e5e5e5;
+	color: #50575e;
+	font-size: 15px;
+}
+
+.eit-native-tabs .nav-tab-active {
+	background: #fff;
+	border-bottom-color: #fff;
+	color: var(--eit-text);
+	font-weight: 600;
+}
+
+.eit-native-content,
+.eit-admin-form {
+	max-width: 1480px;
+}
+
+.eit-layout-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(390px, 48%);
+	gap: 20px;
+	align-items: start;
+}
+
+.eit-layout-grid--dashboard {
+	margin-top: 14px;
+}
+
+.eit-layout-grid--collections {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 14px;
+	align-items: start;
+}
+
+.eit-metrics-grid,
+.eit-settings-grid,
+.eit-card-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 14px;
+}
+
+.eit-settings-grid {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.eit-panel,
+.eit-empty-panel,
+.eit-savebar,
+.eit-metric,
+.eit-setting-card,
+.eit-admin-card {
+	border: 1px solid var(--eit-border-soft);
+	border-radius: 4px;
+	background: var(--eit-bg);
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.eit-panel,
+.eit-savebar,
+.eit-card-grid,
+.eit-settings-grid,
+.eit-metrics-grid {
+	margin: 0 0 14px;
+}
+
+.eit-panel--table,
+.eit-panel--filters {
+	overflow: hidden;
+}
+
+.eit-panel__header {
+	min-height: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 0 20px;
+	border-bottom: 1px solid var(--eit-border-soft);
+	background: #fff;
+}
+
+.eit-panel__header > div {
+	min-width: 0;
+	padding: 12px 0;
+}
+
+.eit-panel__header h2,
+.eit-panel__header h3,
+.eit-setting-card h2 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 500;
+	line-height: 1.35;
+}
+
+.eit-panel__header h3 {
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.eit-panel__header p,
+.eit-setting-card p,
+.eit-admin-card p,
+.eit-empty-panel p,
+.eit-handoff-card p,
+.eit-handoff-note,
+.eit-panel-footnote,
+.eit-filter-table-note,
+.eit-muted-strip {
+	margin: 0;
+	color: var(--eit-muted);
+	line-height: 1.45;
+}
+
+.eit-panel__header .button {
+	flex: 0 0 auto;
+}
+
+.eit-panel__body {
+	padding: 16px 20px;
+}
+
+.eit-setup-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(390px, 48%);
+	gap: 20px;
+	padding: 16px 20px;
+	align-items: stretch;
+}
+
+.eit-panel > .eit-form-grid,
+.eit-panel > .eit-repeater,
+.eit-panel > .eit-filter-table-wrap {
+	padding: 16px 20px;
+}
+
+.eit-form-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 14px;
+	align-content: start;
+}
+
+.eit-form-grid--four,
+.eit-filter-inline-grid {
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.eit-field-stack {
+	display: grid;
+	gap: 14px;
+}
+
+.eit-form-stack {
+	display: grid;
+	gap: 18px;
+	align-content: start;
+	max-width: 660px;
+}
+
+.eit-field,
+.eit-check-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 0;
+}
+
+.eit-field span,
+.eit-check-field span {
+	color: var(--eit-text);
+	font-weight: 500;
+}
+
+.eit-field .description {
+	margin-top: -2px;
+	color: var(--eit-muted);
+	font-size: 13px;
+	font-style: normal;
+}
+
+.eit-check-field {
+	flex-direction: row;
+	align-items: center;
+	min-height: 34px;
+}
+
+.eit-field input,
+.eit-field select,
+.eit-field textarea,
+.eit-search-box input,
+.eit-filter-table input,
+.eit-filter-table select,
+.eit-filter-table textarea {
+	width: 100%;
+	max-width: 100%;
+	min-height: 34px;
+	box-sizing: border-box;
+	border-color: #8c8f94;
+	border-radius: 4px;
+}
+
+.eit-field textarea {
+	min-height: 76px;
+	resize: vertical;
+}
+
+.eit-media-control {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.eit-media-control input {
+	flex: 1 1 260px;
+}
+
+.eit-managed-field .eit-media-control {
+	margin-top: 6px;
+}
+
+.eit-managed-field .description {
+	display: block;
+	margin-top: 6px;
+	color: #646970;
+}
+
+.eit-check-field input[type="checkbox"],
+.eit-filter-table input[type="checkbox"],
+.eit-admin-table input[type="checkbox"] {
+	width: auto;
+	min-width: 16px;
+	min-height: 16px;
+}
+
+.eit-field--wide,
+.eit-advanced-panel--inline {
+	grid-column: 1 / -1;
+}
+
+.eit-notice-line {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0 0 14px;
+	padding: 10px 12px;
+	border-left: 4px solid var(--eit-blue);
+	background: #fff;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.eit-notice-line p {
+	margin: 0;
+	color: var(--eit-muted);
+}
+
+.eit-notice-line .dashicons {
+	color: var(--eit-green);
+}

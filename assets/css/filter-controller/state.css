@@ -1,11 +1,37 @@
 .eit-filter-controller.is-loading {
-    pointer-events: none;
+    cursor: progress;
 }
 
 .eit-target-is-loading {
+    opacity: .72;
     transition: opacity 180ms ease;
+}
+
+.eit-error-state {
+    margin-top: 12px;
+    border-inline-start: 4px solid #d63638;
+    background: #fcf0f1;
+    color: #3c434a;
+    padding: 10px 12px;
+}
+
+.eit-error-state:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
 }
 
 .eit-is-filtered-out {
     display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .eit-target-is-loading,
+    .eit-filter-controller *,
+    .eit-filter-controller *::before,
+    .eit-filter-controller *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+    }
 }
