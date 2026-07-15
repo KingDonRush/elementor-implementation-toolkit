@@ -26,19 +26,17 @@ class CctItemAdmin {
 	}
 
 	public function register_menus() {
-		$position = 59;
 		foreach ( DefinitionManager::all( false ) as $slug => $definition ) {
 			$page_slug = self::PAGE_PREFIX . $slug;
-			add_menu_page(
+			add_submenu_page(
+				null,
 				$definition['plural'] ?: ucfirst( $slug ),
 				$definition['plural'] ?: ucfirst( $slug ),
 				AdminPages::CAPABILITY,
 				$page_slug,
 				function () use ( $slug ) {
 					$this->render( $slug );
-				},
-				$definition['menu_icon'] ?: 'dashicons-database',
-				$position++
+				}
 			);
 		}
 	}

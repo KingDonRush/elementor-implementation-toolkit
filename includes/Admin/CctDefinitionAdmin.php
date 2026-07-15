@@ -160,6 +160,7 @@ class CctDefinitionAdmin {
 							<td><code><?php echo esc_html( $GLOBALS['wpdb']->prefix . 'eit_cct_' . $slug ); ?></code></td>
 							<td><span class="eit-status-pill <?php echo $archived ? 'is-neutral' : ''; ?>"><?php echo $archived ? esc_html__( 'Archived', 'elementor-implementation-toolkit' ) : esc_html__( 'Active', 'elementor-implementation-toolkit' ); ?></span></td>
 							<td class="eit-row-actions">
+								<?php if ( ! $archived ) : ?><a class="eit-mini-button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . CctItemAdmin::PAGE_PREFIX . rawurlencode( $slug ) ) ); ?>"><?php esc_html_e( 'Open items', 'elementor-implementation-toolkit' ); ?></a><?php endif; ?>
 								<a class="eit-mini-button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . AdminPages::CCT_SLUG . '&cct=' . rawurlencode( $slug ) ) ); ?>"><?php esc_html_e( 'Edit', 'elementor-implementation-toolkit' ); ?></a>
 								<?php if ( $archived ) : ?>
 									<a class="eit-mini-button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=' . self::RESTORE_ACTION . '&cct=' . rawurlencode( $slug ) ), self::RESTORE_ACTION . '_' . $slug ) ); ?>"><?php esc_html_e( 'Restore', 'elementor-implementation-toolkit' ); ?></a>

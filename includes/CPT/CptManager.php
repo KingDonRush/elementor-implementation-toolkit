@@ -125,7 +125,7 @@ class CptManager {
 		$plural = $definition['plural'] ?: $singular . 's';
 		register_post_type( $slug, [
 			'labels' => [ 'name' => $plural, 'singular_name' => $singular, 'add_new_item' => sprintf( __( 'Add New %s', 'elementor-implementation-toolkit' ), $singular ), 'edit_item' => sprintf( __( 'Edit %s', 'elementor-implementation-toolkit' ), $singular ), 'new_item' => sprintf( __( 'New %s', 'elementor-implementation-toolkit' ), $singular ), 'view_item' => sprintf( __( 'View %s', 'elementor-implementation-toolkit' ), $singular ), 'search_items' => sprintf( __( 'Search %s', 'elementor-implementation-toolkit' ), $plural ), 'not_found' => sprintf( __( 'No %s found', 'elementor-implementation-toolkit' ), strtolower( $plural ) ), 'not_found_in_trash' => sprintf( __( 'No %s found in Trash', 'elementor-implementation-toolkit' ), strtolower( $plural ) ) ],
-			'description' => $definition['description'] ?? '', 'public' => ! empty( $definition['public'] ), 'show_ui' => true, 'show_in_menu' => true,
+			'description' => $definition['description'] ?? '', 'public' => ! empty( $definition['public'] ), 'show_ui' => true, 'show_in_menu' => false,
 			'show_in_rest' => ! empty( $definition['show_in_rest'] ), 'has_archive' => ! empty( $definition['has_archive'] ), 'hierarchical' => ! empty( $definition['hierarchical'] ),
 			'menu_icon' => $definition['menu_icon'] ?: 'dashicons-screenoptions', 'rewrite' => [ 'slug' => $definition['rewrite_slug'] ?: $slug ], 'supports' => $definition['supports'] ?? [ 'title' ],
 		] );

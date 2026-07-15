@@ -132,6 +132,7 @@ class Assets {
 	public function enqueue_admin_assets( $hook_suffix ) {
 		$is_toolkit_page = false !== strpos( (string) $hook_suffix, 'eit-' ) || false !== strpos( (string) $hook_suffix, 'implementation-toolkit' );
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		$is_systems_screen = $screen && 'toplevel_page_' . AdminPages::DASHBOARD_SLUG === $screen->id;
 		$is_managed_cpt_screen = $screen && ! empty( $screen->post_type ) && array_key_exists( $screen->post_type, CptManager::all() );
 		$is_cct_screen = false !== strpos( (string) $hook_suffix, CctItemAdmin::PAGE_PREFIX );
 
@@ -147,5 +148,36 @@ class Assets {
 			wp_enqueue_media();
 		}
 		wp_enqueue_style( 'eit-admin' );
+		if ( $is_systems_screen ) {
+			$this->enqueue_systems_assets();
+		}
+	}
+
+	private function enqueue_systems_assets() {
+		wp_register_script(
+			'eit-systems',
+			EIT_URL . 'assets/js/eit-systems.js',
+			[ 'wp-api-fetch', 'wp-components', 'wp-data', 'wp-element', 'wp-i18n' ],
+			EIT_VERSION,
+			true
+		);
+		wp_register_style(
+			'eit-systems',
+			EIT_URL . 'assets/css/eit-systems.css',
+			[ 'wp-components' ],
+			EIT_VERSION
+		);
+		wp_localize_script(
+			'eit-systems',
+			'eitSystemsConfig',
+			[
+				'nonce' => wp_create_nonce( 'wp_rest' ),
+				'restRoot' => '/eit/v1',
+				'version' => EIT_VERSION,
+			]
+		);
+		wp_set_script_translations( 'eit-systems', 'elementor-implementation-toolkit', EIT_PATH . 'languages' );
+		wp_enqueue_script( 'eit-systems' );
+		wp_enqueue_style( 'eit-systems' );
 	}
 }
