@@ -71,6 +71,10 @@ class SkinLoopCct extends Skin_Loop_Base {
 		$per_page = max( 1, absint( $this->parent->get_settings_for_display( 'posts_per_page' ) ) ?: 6 );
 		$page = max( 1, absint( $this->parent->get_current_page() ) );
 		$statuses = 'any' === $status ? [ 'publish', 'draft', 'archived' ] : [ $status ?: 'publish' ];
+		$is_editor = Plugin::elementor()->editor && Plugin::elementor()->editor->is_edit_mode();
+		if ( ! $is_editor || ! current_user_can( 'edit_posts' ) ) {
+			$statuses = [ 'publish' ];
+		}
 
 		$this->result = $this->repository()->query(
 			$type,

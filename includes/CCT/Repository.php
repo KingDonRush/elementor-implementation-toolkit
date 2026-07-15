@@ -35,8 +35,19 @@ class Repository {
 		if ( ! $definition ) {
 			return new \WP_Error( 'eit_cct_missing', __( 'Content type not found.', 'elementor-implementation-toolkit' ) );
 		}
+		if ( $this->missing_required_value( $values['title'] ?? null ) ) {
+			return new \WP_Error( 'eit_cct_title_required', __( 'A title is required.', 'elementor-implementation-toolkit' ) );
+		}
+		foreach ( DefinitionManager::fields( $type ) as $key => $field ) {
+			if ( ! empty( $field['required'] ) && $this->missing_required_value( $values[ $key ] ?? null ) ) {
+				return new \WP_Error( 'eit_cct_required_field', sprintf( __( 'The field "%s" is required.', 'elementor-implementation-toolkit' ), $field['label'] ?: $key ) );
+			}
+		}
 
-		SchemaManager::sync_definition( $definition );
+		$schema_result = SchemaManager::sync_definition( $definition );
+		if ( is_wp_error( $schema_result ) ) {
+			return $schema_result;
+		}
 		$table = SchemaManager::table_name( $type );
 		$now = current_time( 'mysql' );
 		$data = [
@@ -133,6 +144,11 @@ class Repository {
 		];
 	}
 
+	public function query_public( $type, array $args = [] ) {
+		$args['status'] = [ 'publish' ];
+		return $this->query( $type, $args );
+	}
+
 	private function append_id_filters( array &$where, array &$params, array $args ) {
 		foreach ( [ 'include' => 'IN', 'exclude' => 'NOT IN' ] as $key => $operator ) {
 			$ids = array_values( array_filter( array_map( 'absint', (array) ( $args[ $key ] ?? [] ) ) ) );
@@ -169,7 +185,7 @@ class Repository {
 	private function append_field_filters( array &$where, array &$params, array $filters, array $fields ) {
 		global $wpdb;
 
-		foreach ( array_slice( $filters, 0, 40 ) as $filter ) {
+		foreach ( array_slice( $filters, 0, 20 ) as $filter ) {
 			if ( ! is_array( $filter ) ) {
 				continue;
 			}
@@ -226,7 +242,9 @@ class Repository {
 			return $key;
 		}
 
-		return isset( $fields[ $key ] ) ? SchemaManager::column_name( $key ) : 'menu_order';
+		return isset( $fields[ $key ] ) && ! empty( $fields[ $key ]['filterable'] ) && FieldTypes::is_indexable( $fields[ $key ]['type'] ?? '' )
+			? SchemaManager::column_name( $key )
+			: 'menu_order';
 	}
 
 	private function hydrate( array $row, array $definition ) {
@@ -269,5 +287,18 @@ class Repository {
 			'per_page' => 20,
 			'pages'    => 1,
 		];
+	}
+
+	private function missing_required_value( $value ) {
+		if ( is_array( $value ) ) {
+			foreach ( $value as $item ) {
+				if ( ! $this->missing_required_value( $item ) ) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		return null === $value || '' === trim( (string) $value );
 	}
 }

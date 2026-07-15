@@ -46,17 +46,21 @@ class CctItemAdmin {
 	public function handle_save() {
 		$this->assert_can_manage();
 		check_admin_referer( self::SAVE_ACTION );
-		$type = DefinitionManager::sanitize_slug( wp_unslash( $_POST['cct'] ?? '' ) );
+		$requested_type = isset( $_POST['cct'] ) ? sanitize_key( wp_unslash( $_POST['cct'] ) ) : '';
+		$type = DefinitionManager::sanitize_slug( $requested_type );
 		$id = absint( $_POST['item_id'] ?? 0 );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Repository sanitizes each value against its field definition.
 		$values = isset( $_POST['item'] ) && is_array( $_POST['item'] ) ? wp_unslash( $_POST['item'] ) : [];
 		$definition = DefinitionManager::get( $type, false );
 
 		if ( ! $definition || ! $this->required_fields_present( $type, $values ) ) {
+			AdminFormState::store( $this->form_context( $type, $id ), $values, __( 'Complete every required field before saving.', 'elementor-implementation-toolkit' ) );
 			$this->redirect( $type, [ 'view' => $id ? 'edit' : 'new', 'item_id' => $id, 'eit_notice' => 'error' ] );
 		}
 
 		$saved = $this->repository->save( $type, $values, $id );
 		if ( is_wp_error( $saved ) ) {
+			AdminFormState::store( $this->form_context( $type, $id ), $values, $saved->get_error_message() );
 			$this->redirect( $type, [ 'view' => $id ? 'edit' : 'new', 'item_id' => $id, 'eit_notice' => 'error' ] );
 		}
 
@@ -65,8 +69,9 @@ class CctItemAdmin {
 
 	public function handle_delete() {
 		$this->assert_can_manage();
-		$type = DefinitionManager::sanitize_slug( wp_unslash( $_REQUEST['cct'] ?? '' ) );
-		$id = absint( $_REQUEST['item_id'] ?? 0 );
+		$requested_type = isset( $_GET['cct'] ) ? sanitize_key( wp_unslash( $_GET['cct'] ) ) : '';
+		$type = DefinitionManager::sanitize_slug( $requested_type );
+		$id = absint( $_GET['item_id'] ?? 0 );
 		check_admin_referer( self::DELETE_ACTION . '_' . $type . '_' . $id );
 		$this->repository->delete( $type, $id );
 		$this->redirect( $type, [ 'eit_notice' => 'deleted' ] );
@@ -82,6 +87,10 @@ class CctItemAdmin {
 		$id = absint( $_GET['item_id'] ?? 0 );
 		$item = $id ? $this->repository->get( $type, $id ) : null;
 		$is_form = in_array( $view, [ 'new', 'edit' ], true );
+		$form_state = $is_form ? AdminFormState::pull( $this->form_context( $type, $id ) ) : null;
+		if ( $form_state ) {
+			$item = array_merge( is_array( $item ) ? $item : [], $form_state['values'] ?? [] );
+		}
 		?>
 		<div class="wrap eit-admin">
 			<div class="eit-title-row">
@@ -90,6 +99,7 @@ class CctItemAdmin {
 			</div>
 			<div class="eit-native-content">
 				<?php ( new AdminRenderer() )->render_notice( sanitize_key( wp_unslash( $_GET['eit_notice'] ?? '' ) ) ); ?>
+				<?php ( new AdminRenderer() )->render_form_error( $form_state['error'] ?? '' ); ?>
 				<?php $is_form ? $this->render_form( $type, $definition, $item ) : $this->render_list( $type, $definition ); ?>
 			</div>
 		</div>
@@ -216,11 +226,28 @@ class CctItemAdmin {
 			return false;
 		}
 		foreach ( DefinitionManager::fields( $type ) as $key => $field ) {
-			if ( ! empty( $field['required'] ) && empty( $values[ $key ] ) ) {
+			if ( ! empty( $field['required'] ) && $this->is_missing( $values[ $key ] ?? null ) ) {
 				return false;
 			}
 		}
 		return true;
+	}
+
+	private function is_missing( $value ) {
+		if ( is_array( $value ) ) {
+			foreach ( $value as $item ) {
+				if ( ! $this->is_missing( $item ) ) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		return null === $value || '' === trim( (string) $value );
+	}
+
+	private function form_context( $type, $id ) {
+		return 'cct-item-' . DefinitionManager::sanitize_slug( $type ) . '-' . absint( $id );
 	}
 
 	private function assert_can_manage() {

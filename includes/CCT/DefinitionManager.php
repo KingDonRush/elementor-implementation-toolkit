@@ -13,6 +13,7 @@ class DefinitionManager {
 
 	const OPTION = 'eit_cct_definitions';
 	const MAX_FIELDS = 80;
+	const RESERVED_FIELDS = [ 'id', 'title', 'status', 'menu_order', 'created_at', 'updated_at' ];
 
 	public static function all( $include_archived = true ) {
 		$definitions = get_option( self::OPTION, [] );
@@ -76,21 +77,34 @@ class DefinitionManager {
 			$slug = self::sanitize_slug( $raw['plural'] ?? $raw['singular'] ?? 'content' );
 		}
 
-		if ( '' !== $original_slug && $slug !== $original_slug && isset( $definitions[ $original_slug ] ) ) {
-			$slug = $original_slug;
+		if ( '' !== $original_slug && isset( $definitions[ $original_slug ] ) && $slug !== $original_slug ) {
+			return new \WP_Error( 'eit_cct_slug_locked', __( 'A published content type slug cannot be renamed without a migration plan.', 'elementor-implementation-toolkit' ) );
 		}
 
+		$slug = $original_slug && isset( $definitions[ $original_slug ] ) ? $original_slug : $slug;
 		$existing = $definitions[ $slug ] ?? null;
+		if ( ! is_array( $existing ) && SchemaManager::table_exists( $slug ) ) {
+			return new \WP_Error( 'eit_cct_orphan_table', __( 'Storage already exists for this slug but is not owned by a published definition.', 'elementor-implementation-toolkit' ) );
+		}
 		if ( is_array( $existing ) && ! isset( $raw['state'] ) ) {
 			$raw['state'] = $existing['state'] ?? 'active';
 		}
 
+		$validation = self::validate_fields( (array) ( $raw['fields'] ?? [] ), is_array( $existing ) ? $existing : [] );
+		if ( is_wp_error( $validation ) ) {
+			return $validation;
+		}
+
 		$definition = self::sanitize_definition( $raw, $slug, is_array( $existing ) ? $existing : [] );
+		$schema_result = SchemaManager::sync_definition( $definition );
+		if ( is_wp_error( $schema_result ) ) {
+			return $schema_result;
+		}
+
 		$definitions[ $slug ] = $definition;
-		update_option( self::OPTION, $definitions, false );
-
-		SchemaManager::sync_definition( $definition );
-
+		if ( ! update_option( self::OPTION, $definitions, false ) && self::all() !== $definitions ) {
+			return new \WP_Error( 'eit_cct_definition_write_failed', __( 'The content type definition could not be saved.', 'elementor-implementation-toolkit' ) );
+		}
 		return $slug;
 	}
 
@@ -104,7 +118,9 @@ class DefinitionManager {
 
 		$definitions[ $slug ]['state'] = 'archived';
 		$definitions[ $slug ]['updated_at'] = current_time( 'mysql' );
-		update_option( self::OPTION, $definitions, false );
+		if ( ! update_option( self::OPTION, $definitions, false ) && self::all() !== $definitions ) {
+			return new \WP_Error( 'eit_cct_archive_failed', __( 'The content type could not be archived.', 'elementor-implementation-toolkit' ) );
+		}
 
 		return true;
 	}
@@ -119,8 +135,13 @@ class DefinitionManager {
 
 		$definitions[ $slug ]['state'] = 'active';
 		$definitions[ $slug ]['updated_at'] = current_time( 'mysql' );
-		update_option( self::OPTION, $definitions, false );
-		SchemaManager::sync_definition( $definitions[ $slug ] );
+		$result = SchemaManager::sync_definition( $definitions[ $slug ] );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		if ( ! update_option( self::OPTION, $definitions, false ) && self::all() !== $definitions ) {
+			return new \WP_Error( 'eit_cct_restore_failed', __( 'The content type storage was verified, but its active state could not be saved.', 'elementor-implementation-toolkit' ) );
+		}
 
 		return true;
 	}
@@ -136,9 +157,20 @@ class DefinitionManager {
 			return false;
 		}
 
-		SchemaManager::drop_table( $slug );
+		$previous_definitions = $definitions;
 		unset( $definitions[ $slug ] );
-		update_option( self::OPTION, $definitions, false );
+		if ( ! update_option( self::OPTION, $definitions, false ) && self::all() !== $definitions ) {
+			return new \WP_Error( 'eit_cct_delete_prepare_failed', __( 'The content type could not be prepared for deletion, so its table was preserved.', 'elementor-implementation-toolkit' ) );
+		}
+
+		$result = SchemaManager::drop_table( $slug );
+		if ( is_wp_error( $result ) ) {
+			$restored = update_option( self::OPTION, $previous_definitions, false ) || self::all() === $previous_definitions;
+			if ( ! $restored ) {
+				return new \WP_Error( 'eit_cct_delete_recovery_failed', __( 'Table deletion failed and the definition could not be restored automatically.', 'elementor-implementation-toolkit' ) );
+			}
+			return $result;
+		}
 
 		return true;
 	}
@@ -224,12 +256,51 @@ class DefinitionManager {
 		];
 	}
 
-	private static function sanitize_field_key( $key ) {
+	public static function sanitize_field_key( $key ) {
 		$key = sanitize_key( $key );
 		$key = preg_replace( '/[^a-z0-9_]/', '_', $key );
-		$key = substr( trim( $key, '_' ), 0, 48 );
+		return substr( trim( $key, '_' ), 0, 48 );
+	}
 
-		$reserved = [ 'id', 'title', 'status', 'menu_order', 'created_at', 'updated_at' ];
-		return in_array( $key, $reserved, true ) ? 'custom_' . $key : $key;
+	private static function validate_fields( array $raw_fields, array $existing ) {
+		if ( count( $raw_fields ) > self::MAX_FIELDS ) {
+			return new \WP_Error( 'eit_cct_field_limit', sprintf( __( 'A content type can contain at most %d fields.', 'elementor-implementation-toolkit' ), self::MAX_FIELDS ) );
+		}
+
+		$seen = [];
+		$existing_fields = [];
+		foreach ( $existing['fields'] ?? [] as $field ) {
+			$existing_fields[ self::sanitize_field_key( $field['key'] ?? '' ) ] = $field;
+		}
+
+		foreach ( $raw_fields as $raw_field ) {
+			if ( ! is_array( $raw_field ) ) {
+				continue;
+			}
+
+			$key = self::sanitize_field_key( $raw_field['key'] ?? '' );
+			if ( '' === $key ) {
+				continue;
+			}
+			if ( in_array( $key, self::RESERVED_FIELDS, true ) ) {
+				return new \WP_Error( 'eit_cct_reserved_field', sprintf( __( 'The field key "%s" is reserved by the content table.', 'elementor-implementation-toolkit' ), $key ) );
+			}
+			if ( isset( $seen[ $key ] ) ) {
+				return new \WP_Error( 'eit_cct_duplicate_field', sprintf( __( 'The field key "%s" is duplicated.', 'elementor-implementation-toolkit' ), $key ) );
+			}
+
+			$original_key = self::sanitize_field_key( $raw_field['original_key'] ?? '' );
+			if ( '' !== $original_key && $key !== $original_key ) {
+				return new \WP_Error( 'eit_cct_field_key_locked', sprintf( __( 'The published field key "%s" requires a migration plan to rename.', 'elementor-implementation-toolkit' ), $original_key ) );
+			}
+
+			$type = sanitize_key( $raw_field['type'] ?? 'text' );
+			if ( isset( $existing_fields[ $key ] ) && $type !== ( $existing_fields[ $key ]['type'] ?? 'text' ) ) {
+				return new \WP_Error( 'eit_cct_field_type_locked', sprintf( __( 'The published field "%s" requires a migration plan to change type.', 'elementor-implementation-toolkit' ), $key ) );
+			}
+			$seen[ $key ] = true;
+		}
+
+		return true;
 	}
 }

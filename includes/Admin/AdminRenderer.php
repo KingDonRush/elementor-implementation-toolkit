@@ -64,6 +64,17 @@ class AdminRenderer {
 		<?php
 	}
 
+	public function render_form_error( $message ) {
+		if ( '' === trim( (string) $message ) ) {
+			return;
+		}
+		?>
+		<div class="notice notice-error" role="alert">
+			<p><?php echo esc_html( $message ); ?></p>
+		</div>
+		<?php
+	}
+
 	public function render_empty_state( $title, $description, $action_url = '', $action_label = '' ) {
 		?>
 		<div class="eit-empty-panel">

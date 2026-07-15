@@ -31,63 +31,6 @@ class FilterPresetEndpoint {
 		'source_widget',
 	];
 
-	private $preset_keys = [
-		'name',
-		'slug',
-		'description',
-		'target_selector',
-		'item_selector',
-		'apply_mode',
-		'search_debounce_ms',
-		'sync_url',
-		'per_page',
-		'show_result_count',
-		'result_count_text',
-		'show_active_chips',
-		'show_sort',
-		'sort_label',
-		'sort_options',
-		'apply_text',
-		'reset_text',
-		'empty_text',
-		'pagination_type',
-		'previous_text',
-		'next_text',
-		'filters',
-	];
-
-	private $filter_keys = [
-		'enabled',
-		'label',
-		'type',
-		'field_binding',
-		'field_binding_dynamic',
-		'key',
-		'resolved_key',
-		'key_source',
-		'source',
-		'query_var',
-		'compare',
-		'data_type',
-		'placeholder',
-		'options',
-		'radio_show_all',
-		'radio_all_label',
-		'range_min',
-		'range_max',
-		'range_step',
-		'layout_width',
-		'default_value',
-		'empty_behavior',
-		'show_count',
-		'show_label',
-	];
-
-	private $source_widget_keys = [
-		'element_id',
-		'document_id',
-	];
-
 	public function init_hooks() {
 		add_action( 'rest_api_init', [ $this, 'register_routes' ] );
 	}
@@ -188,13 +131,14 @@ class FilterPresetEndpoint {
 			return $this->field_error( 'after_save', __( 'Unsupported after-save behavior.', 'elementor-implementation-toolkit' ) );
 		}
 
-		$preset = $this->validate_preset( $payload['preset'] ?? null );
+		$validator = new FilterPresetPayloadValidator();
+		$preset = $validator->validate_preset( $payload['preset'] ?? null );
 
 		if ( is_wp_error( $preset ) ) {
 			return $preset;
 		}
 
-		$source_widget = $this->validate_source_widget( $payload['source_widget'] ?? [] );
+		$source_widget = $validator->validate_source_widget( $payload['source_widget'] ?? [] );
 
 		if ( is_wp_error( $source_widget ) ) {
 			return $source_widget;
@@ -226,6 +170,9 @@ class FilterPresetEndpoint {
 		}
 
 		$id = FilterPresets::save( $preset );
+		if ( is_wp_error( $id ) ) {
+			return $this->error( $id->get_error_code(), $id->get_error_message(), 400 );
+		}
 		$saved = FilterPresets::get( $id );
 
 		if ( ! $saved ) {
@@ -241,111 +188,22 @@ class FilterPresetEndpoint {
 
 	private function response_payload( $id, array $saved, $after_save ) {
 		return [
-			'ok'            => true,
-			'preset'        => [
+			'ok'              => true,
+			'preset'          => [
 				'id'           => $id,
 				'name'         => $saved['name'] ?? $id,
 				'slug'         => $saved['slug'] ?? $id,
 				'updated_at'   => $saved['updated_at'] ?? '',
 				'filter_count' => count( $saved['filters'] ?? [] ),
 				'edit_url'     => admin_url( 'admin.php?page=' . AdminPages::FILTERS_SLUG . '&preset=' . rawurlencode( $id ) ),
-				],
-				'editor_update' => 'link' === $after_save ? [
-					'configuration_source' => 'preset',
-					'filter_preset'        => $id,
-				] : [],
-				'widget_settings' => FilterSettings::preset_to_widget_settings( $saved ),
-				'warnings'        => $this->warnings_for_preset( $saved ),
-			];
-	}
-
-	private function validate_preset( $preset ) {
-		if ( ! is_array( $preset ) ) {
-			return $this->field_error( 'preset', __( 'Preset must be an object.', 'elementor-implementation-toolkit' ) );
-		}
-
-		$unknown = $this->unknown_keys( $preset, $this->preset_keys );
-
-		if ( ! empty( $unknown ) ) {
-			return $this->field_error( 'preset', __( 'Unknown preset fields.', 'elementor-implementation-toolkit' ), $unknown );
-		}
-
-		if ( empty( trim( (string) ( $preset['name'] ?? '' ) ) ) ) {
-			return $this->field_error( 'preset.name', __( 'Preset name is required.', 'elementor-implementation-toolkit' ) );
-		}
-
-		if ( isset( $preset['filters'] ) ) {
-			$filters = $this->validate_filters( $preset['filters'] );
-
-			if ( is_wp_error( $filters ) ) {
-				return $filters;
-			}
-
-			$preset['filters'] = $filters;
-		}
-
-		return $preset;
-	}
-
-	private function validate_source_widget( $source_widget ) {
-		if ( ! is_array( $source_widget ) ) {
-			return $this->field_error( 'source_widget', __( 'Source widget must be an object.', 'elementor-implementation-toolkit' ) );
-		}
-
-		$unknown = $this->unknown_keys( $source_widget, $this->source_widget_keys );
-
-		if ( ! empty( $unknown ) ) {
-			return $this->field_error( 'source_widget', __( 'Unknown source widget fields.', 'elementor-implementation-toolkit' ), $unknown );
-		}
-
-		return [
-			'source'      => 'elementor_widget',
-			'saved_via'   => 'elementor_editor',
-			'document_id' => absint( $source_widget['document_id'] ?? 0 ),
-			'element_id'  => sanitize_text_field( $source_widget['element_id'] ?? '' ),
+			],
+			'editor_update'   => 'link' === $after_save ? [
+				'configuration_source' => 'preset',
+				'filter_preset'        => $id,
+			] : [],
+			'widget_settings' => FilterSettings::preset_to_widget_settings( $saved ),
+			'warnings'        => $this->warnings_for_preset( $saved ),
 		];
-	}
-
-	private function validate_filters( $filters ) {
-		if ( ! is_array( $filters ) ) {
-			return $this->field_error( 'preset.filters', __( 'Filters must be an array.', 'elementor-implementation-toolkit' ) );
-		}
-
-		$filters = array_slice( array_values( $filters ), 0, FilterPresets::MAX_FILTERS );
-		$types = array_keys( FilterPresets::filter_types() );
-		$normalized = [];
-
-		foreach ( $filters as $index => $filter ) {
-			$field = 'preset.filters.' . $index;
-
-			if ( ! is_array( $filter ) ) {
-				return $this->field_error( $field, __( 'Filter row must be an object.', 'elementor-implementation-toolkit' ) );
-			}
-
-			$unknown = $this->unknown_keys( $filter, $this->filter_keys );
-
-			if ( ! empty( $unknown ) ) {
-				return $this->field_error( $field, __( 'Unknown filter fields.', 'elementor-implementation-toolkit' ), $unknown );
-			}
-
-			$type = sanitize_key( $filter['type'] ?? 'search' );
-
-			if ( ! in_array( $type, $types, true ) ) {
-				return $this->field_error( $field . '.type', __( 'Unknown filter type.', 'elementor-implementation-toolkit' ) );
-			}
-
-			if ( 'range' === $type ) {
-				foreach ( [ 'range_min', 'range_max', 'range_step' ] as $range_field ) {
-					if ( isset( $filter[ $range_field ] ) && '' !== (string) $filter[ $range_field ] && ! is_numeric( $filter[ $range_field ] ) ) {
-						return $this->field_error( $field . '.' . $range_field, __( 'Range value must be numeric.', 'elementor-implementation-toolkit' ) );
-					}
-				}
-			}
-
-			$normalized[] = $filter;
-		}
-
-		return $normalized;
 	}
 
 	private function warnings_for_preset( array $preset ) {

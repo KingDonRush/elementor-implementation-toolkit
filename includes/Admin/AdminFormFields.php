@@ -11,11 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 trait AdminFormFields {
 
-	private function text_field( $name, $label, $value, $placeholder = '' ) {
+	private function text_field( $name, $label, $value, $placeholder = '', array $attributes = [] ) {
 		?>
 		<label class="eit-field">
 			<span><?php echo esc_html( $label ); ?></span>
-			<input type="text" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( $value ); ?>" placeholder="<?php echo esc_attr( $placeholder ); ?>" />
+			<input type="text" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( $value ); ?>" placeholder="<?php echo esc_attr( $placeholder ); ?>" <?php wp_readonly( ! empty( $attributes['readonly'] ) ); ?> <?php required( ! empty( $attributes['required'] ) ); ?> />
 		</label>
 		<?php
 	}
@@ -38,11 +38,11 @@ trait AdminFormFields {
 		<?php
 	}
 
-	private function select_field( $name, $label, $value, array $options ) {
+	private function select_field( $name, $label, $value, array $options, array $attributes = [] ) {
 		?>
 		<label class="eit-field">
 			<span><?php echo esc_html( $label ); ?></span>
-			<select name="<?php echo esc_attr( $name ); ?>">
+			<select name="<?php echo esc_attr( $name ); ?>" <?php disabled( ! empty( $attributes['disabled'] ) ); ?>>
 				<?php foreach ( $options as $option_value => $option_label ) : ?>
 					<option value="<?php echo esc_attr( $option_value ); ?>" <?php selected( (string) $value, (string) $option_value ); ?>><?php echo esc_html( $option_label ); ?></option>
 				<?php endforeach; ?>

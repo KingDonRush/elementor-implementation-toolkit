@@ -51,6 +51,19 @@ class FieldTypes {
 		return $types[ sanitize_key( $type ) ] ?? $types['text'];
 	}
 
+	public static function is_indexable( $type ) {
+		return in_array(
+			sanitize_key( $type ),
+			[ 'text', 'number', 'email', 'date', 'boolean', 'select', 'color', 'image' ],
+			true
+		);
+	}
+
+	public static function index_column_sql( $column, $type ) {
+		$type = sanitize_key( $type );
+		return in_array( $type, [ 'text', 'email' ], true ) ? "`{$column}`(191)" : "`{$column}`";
+	}
+
 	public static function sanitize( $value, array $field ) {
 		$type = sanitize_key( $field['type'] ?? 'text' );
 

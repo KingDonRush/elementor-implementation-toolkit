@@ -29,7 +29,7 @@ class CctFilterProvider {
 		}
 
 		$query_args = $this->query_args( $payload );
-		$result = ( new Repository() )->query( $type, $query_args );
+		$result = ( new Repository() )->query_public( $type, $query_args );
 
 		return [
 			'ids'        => array_values( wp_list_pluck( $result['items'], 'id' ) ),
@@ -70,11 +70,11 @@ class CctFilterProvider {
 		$args = [
 			'status'   => [ 'publish' ],
 			'page'     => max( 1, absint( $payload['page'] ?? 1 ) ),
-			'per_page' => max( 1, min( 96, absint( $payload['perPage'] ?? 12 ) ) ),
+			'per_page' => max( 1, min( FilterRequestPolicy::MAX_PER_PAGE, absint( $payload['perPage'] ?? FilterRequestPolicy::DEFAULT_PER_PAGE ) ) ),
 			'filters'  => [],
 		];
 
-		foreach ( array_slice( (array) ( $payload['filters'] ?? [] ), 0, 40 ) as $filter ) {
+		foreach ( array_slice( (array) ( $payload['filters'] ?? [] ), 0, FilterRequestPolicy::MAX_FILTERS ) as $filter ) {
 			if ( ! is_array( $filter ) ) {
 				continue;
 			}

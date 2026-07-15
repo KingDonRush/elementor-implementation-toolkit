@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class FilterPresets {
 
 	const OPTION = 'eit_filter_presets';
-	const MAX_FILTERS = 40;
+	const MAX_FILTERS = 20;
 	const MAX_SORT_OPTIONS = 24;
 
 	public static function all() {
@@ -55,7 +55,7 @@ class FilterPresets {
 			'apply_mode'          => 'auto',
 			'search_debounce_ms'  => 250,
 			'sync_url'            => true,
-			'per_page'            => 9,
+			'per_page'            => 24,
 			'show_result_count'   => true,
 			'result_count_text'   => __( '{count} results', 'elementor-implementation-toolkit' ),
 			'show_active_chips'   => true,
@@ -115,6 +115,14 @@ class FilterPresets {
 	}
 
 	public static function save( array $raw ) {
+		if ( empty( trim( (string) ( $raw['name'] ?? '' ) ) ) ) {
+			return new \WP_Error( 'eit_filter_preset_name_required', __( 'Preset name is required.', 'elementor-implementation-toolkit' ) );
+		}
+
+		if ( count( (array) ( $raw['filters'] ?? [] ) ) > self::MAX_FILTERS ) {
+			return new \WP_Error( 'eit_filter_preset_limit', sprintf( __( 'A preset can contain at most %d filters.', 'elementor-implementation-toolkit' ), self::MAX_FILTERS ) );
+		}
+
 		$presets = self::all();
 		$had_id  = ! empty( $raw['id'] );
 		$id      = $had_id ? sanitize_key( $raw['id'] ) : '';
@@ -154,7 +162,9 @@ class FilterPresets {
 		$preset = self::sanitize_preset( $raw, $id );
 		$presets[ $id ] = $preset;
 
-		update_option( self::OPTION, $presets, false );
+		if ( ! update_option( self::OPTION, $presets, false ) && self::all() !== $presets ) {
+			return new \WP_Error( 'eit_filter_preset_write_failed', __( 'The filter preset could not be saved.', 'elementor-implementation-toolkit' ) );
+		}
 
 		return $id;
 	}
@@ -207,7 +217,7 @@ class FilterPresets {
 	public static function provider_modes() {
 		return [
 			'dom'          => __( 'DOM listing runtime', 'elementor-implementation-toolkit' ),
-			'wp_post_link' => __( 'Legacy: DOM listing with WordPress enrichment hint', 'elementor-implementation-toolkit' ),
+			'wp_post_link' => __( 'Legacy saved value: DOM listing without enrichment', 'elementor-implementation-toolkit' ),
 			'adapter'      => __( 'Unsupported saved value: custom adapter', 'elementor-implementation-toolkit' ),
 		];
 	}
@@ -249,7 +259,7 @@ class FilterPresets {
 		$pagination_types = array_keys( self::pagination_types() );
 		$sort_options     = isset( $raw['sort_options_items'] )
 			? SortOptions::resolve_lines( $raw['sort_options_items'], $raw['sort_options'] ?? '' )
-			: self::limit_lines( sanitize_textarea_field( $raw['sort_options'] ?? '' ), self::MAX_SORT_OPTIONS );
+			: FilterPresetLines::limit( sanitize_textarea_field( $raw['sort_options'] ?? '' ), self::MAX_SORT_OPTIONS );
 
 		return [
 			'id'                => sanitize_key( $id ),
@@ -262,7 +272,7 @@ class FilterPresets {
 			'apply_mode'        => self::allowed_value( $raw['apply_mode'] ?? 'auto', $apply_modes, 'auto' ),
 			'search_debounce_ms' => max( 0, min( 2000, absint( $raw['search_debounce_ms'] ?? 250 ) ) ),
 			'sync_url'          => self::truthy( $raw['sync_url'] ?? false ),
-			'per_page'          => max( 1, min( 96, absint( $raw['per_page'] ?? 9 ) ) ),
+			'per_page'          => max( 1, min( 48, absint( $raw['per_page'] ?? 24 ) ) ),
 			'show_result_count' => self::truthy( $raw['show_result_count'] ?? false ),
 			'result_count_text' => sanitize_text_field( $raw['result_count_text'] ?? __( '{count} results', 'elementor-implementation-toolkit' ) ),
 			'show_active_chips' => self::truthy( $raw['show_active_chips'] ?? false ),
@@ -313,7 +323,7 @@ class FilterPresets {
 					'compare'        => self::allowed_value( $filter['compare'] ?? 'contains', $compares, 'contains' ),
 					'data_type'      => self::allowed_value( $filter['data_type'] ?? 'string', $data_types, 'string' ),
 					'placeholder'    => sanitize_text_field( $filter['placeholder'] ?? '' ),
-					'options'        => self::normalize_options_payload( $filter ),
+					'options'        => FilterPresetLines::normalize_options( $filter ),
 					'radio_show_all'  => self::truthy( $filter['radio_show_all'] ?? false ),
 					'radio_all_label' => sanitize_text_field( $filter['radio_all_label'] ?? __( 'All', 'elementor-implementation-toolkit' ) ),
 					'range_min'      => is_numeric( $filter['range_min'] ?? null ) ? (float) $filter['range_min'] : 0,
@@ -352,49 +362,6 @@ class FilterPresets {
 		];
 	}
 
-	private static function normalize_options_payload( array $filter ) {
-		$options = self::compile_options_lines( $filter['options_items'] ?? [], 120, true );
-
-		if ( '' !== $options ) {
-			return $options;
-		}
-
-		return self::limit_lines( sanitize_textarea_field( $filter['options'] ?? '' ), 120 );
-	}
-
-	private static function compile_options_lines( $items, $limit, $include_visual ) {
-		$items = is_array( $items ) ? array_slice( $items, 0, max( 1, absint( $limit ) ) ) : [];
-		$lines = [];
-
-		foreach ( $items as $item ) {
-			if ( ! is_array( $item ) ) {
-				continue;
-			}
-
-			$value = sanitize_title( $item['value'] ?? '' );
-			$label = sanitize_text_field( $item['label'] ?? '' );
-			$visual = sanitize_text_field( $item['visual'] ?? '' );
-
-			if ( '' === $value && '' !== $label ) {
-				$value = sanitize_title( $label );
-			}
-
-			if ( '' === $value ) {
-				continue;
-			}
-
-			$line = $value . '|' . ( '' !== $label ? $label : $value );
-
-			if ( $include_visual && '' !== $visual ) {
-				$line .= '|' . $visual;
-			}
-
-			$lines[] = $line;
-		}
-
-		return implode( "\n", $lines );
-	}
-
 	private static function unique_id( $base, array $existing ) {
 		$base = sanitize_key( $base );
 		$base = '' !== $base ? $base : 'filter-preset';
@@ -409,14 +376,4 @@ class FilterPresets {
 		return $id;
 	}
 
-	private static function limit_lines( $text, $limit ) {
-		$lines = preg_split( '/\r\n|\r|\n/', (string) $text );
-		$lines = array_slice( $lines, 0, max( 1, absint( $limit ) ) );
-
-		return implode( "\n", $lines );
-	}
-
-	private static function sanitize_dynamic_binding( $value ) {
-		return FieldBindingResolver::sanitize_dynamic_binding( $value );
-	}
 }

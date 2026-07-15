@@ -31,15 +31,24 @@ class FilterControllerEndpoint {
 	}
 
 	public function filter( WP_REST_Request $request ) {
-		$payload = $request->get_json_params();
+		$payload = ( new FilterRequestPolicy() )->validate( $request );
+		if ( is_wp_error( $payload ) ) {
+			return $payload;
+		}
 
 		if ( is_array( $payload ) && 'cct' === ( $payload['provider'] ?? '' ) ) {
 			$result = ( new CctFilterProvider() )->resolve( $payload );
+			if ( ! is_wp_error( $result ) ) {
+				$result['requestCost'] = absint( $payload['_eitRequestCost'] ?? 0 );
+			}
 			return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
 		}
 
 		$resolver = new FilterResolver();
 
-		return rest_ensure_response( $resolver->resolve( $payload ) );
+		$result = $resolver->resolve( $payload );
+		$result['requestCost'] = absint( $payload['_eitRequestCost'] ?? 0 );
+
+		return rest_ensure_response( $result );
 	}
 }

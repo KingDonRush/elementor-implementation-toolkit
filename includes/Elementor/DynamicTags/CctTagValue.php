@@ -17,7 +17,7 @@ class CctTagValue {
 	public static function resolve( $type, $field ) {
 		$item = CurrentItemContext::item();
 
-		if ( ! $item && self::is_editor() && $type ) {
+		if ( ! $item && self::is_editor() && current_user_can( 'edit_posts' ) && $type ) {
 			$result = ( new Repository() )->query(
 				$type,
 				[

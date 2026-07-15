@@ -228,7 +228,7 @@ class AdminPages {
 									$filters = $preset['filters'] ?? [];
 									$template_label = __( 'Not linked', 'elementor-implementation-toolkit' );
 									$status_class = 'eit-status-pill';
-									$status_label = __( 'Configured', 'elementor-implementation-toolkit' );
+									$status_label = __( 'Saved', 'elementor-implementation-toolkit' );
 
 									if ( ! empty( $templates ) ) {
 										$template_label = __( 'Controls linked', 'elementor-implementation-toolkit' );
@@ -261,7 +261,7 @@ class AdminPages {
 						<div class="eit-handoff-card__head">
 							<span class="dashicons dashicons-admin-page" aria-hidden="true"></span>
 							<div>
-								<h4><?php esc_html_e( 'Prepare filter controls for Elementor', 'elementor-implementation-toolkit' ); ?></h4>
+								<h3 class="eit-handoff-card__title"><?php esc_html_e( 'Prepare filter controls for Elementor', 'elementor-implementation-toolkit' ); ?></h3>
 								<p><?php esc_html_e( 'Use linked filter-control templates or place the widget manually in the Elementor layout.', 'elementor-implementation-toolkit' ); ?></p>
 							</div>
 						</div>
@@ -275,16 +275,6 @@ class AdminPages {
 			</section>
 		</div>
 
-		<div class="eit-savebar">
-			<div class="eit-advanced-panel">
-				<?php $this->renderer()->render_advanced_button( __( 'Advanced diagnostics', 'elementor-implementation-toolkit' ), 'eit-dashboard-advanced-modal' ); ?>
-				<?php $this->renderer()->render_modal_open( 'eit-dashboard-advanced-modal', __( 'Advanced diagnostics', 'elementor-implementation-toolkit' ) ); ?>
-				<div class="eit-advanced-stack eit-advanced-stack--modal">
-					<p><?php esc_html_e( 'Use Settings for provider checks, template links, and admin behavior diagnostics.', 'elementor-implementation-toolkit' ); ?></p>
-				</div>
-				<?php $this->renderer()->render_modal_close(); ?>
-			</div>
-		</div>
 		<?php
 	}
 
@@ -323,12 +313,12 @@ class AdminPages {
 				<table class="widefat eit-admin-table">
 					<tbody>
 						<tr>
-							<td><?php esc_html_e( 'DOM provider', 'elementor-implementation-toolkit' ); ?></td>
-							<td><span class="eit-status-pill"><?php esc_html_e( 'Available', 'elementor-implementation-toolkit' ); ?></span></td>
+							<td><?php esc_html_e( 'Legacy DOM snapshot', 'elementor-implementation-toolkit' ); ?></td>
+							<td><span class="eit-status-pill is-warning"><?php esc_html_e( 'Limited to 200 items', 'elementor-implementation-toolkit' ); ?></span></td>
 						</tr>
 						<tr>
-							<td><?php esc_html_e( 'WordPress enrichment', 'elementor-implementation-toolkit' ); ?></td>
-							<td><span class="eit-status-pill is-warning"><?php esc_html_e( 'Best effort', 'elementor-implementation-toolkit' ); ?></span></td>
+							<td><?php esc_html_e( 'CCT query provider', 'elementor-implementation-toolkit' ); ?></td>
+							<td><span class="eit-status-pill"><?php esc_html_e( 'Server-side and status-scoped', 'elementor-implementation-toolkit' ); ?></span></td>
 						</tr>
 						<tr>
 							<td><?php esc_html_e( 'Template links', 'elementor-implementation-toolkit' ); ?></td>
@@ -336,12 +326,6 @@ class AdminPages {
 						</tr>
 					</tbody>
 				</table>
-			</section>
-
-			<section class="eit-setting-card">
-				<h2><?php esc_html_e( 'Admin behavior', 'elementor-implementation-toolkit' ); ?></h2>
-				<p><?php esc_html_e( 'Simple creation workflows stay visible. Provider tuning and compatibility checks stay behind advanced disclosures.', 'elementor-implementation-toolkit' ); ?></p>
-				<div class="eit-muted-strip"><?php esc_html_e( 'Settings that persist global options will be added only when the runtime needs them.', 'elementor-implementation-toolkit' ); ?></div>
 			</section>
 
 			<section class="eit-setting-card">

@@ -28,12 +28,17 @@ class CctDefinitionAdmin {
 	}
 
 	public function render( $active_slug, array $tabs ) {
-		$slug = DefinitionManager::sanitize_slug( wp_unslash( $_GET['cct'] ?? '' ) );
+		$requested_slug = isset( $_GET['cct'] ) ? sanitize_key( wp_unslash( $_GET['cct'] ) ) : '';
+		$slug = DefinitionManager::sanitize_slug( $requested_slug );
 		$is_form = 'new' === sanitize_key( wp_unslash( $_GET['view'] ?? '' ) ) || '' !== $slug;
 		$definition = $slug ? DefinitionManager::get( $slug ) : null;
+		$form_state = $is_form ? AdminFormState::pull( 'cct-definition' ) : null;
 
 		if ( $is_form && ! $definition ) {
 			$definition = DefinitionManager::blank();
+		}
+		if ( $form_state ) {
+			$definition = $this->form_definition( $form_state['values'] ?? [], $definition ?: DefinitionManager::blank() );
 		}
 
 		$this->renderer->render_shell(
@@ -48,8 +53,9 @@ class CctDefinitionAdmin {
 					],
 				],
 			],
-			function () use ( $is_form, $definition ) {
+			function () use ( $is_form, $definition, $form_state ) {
 				$this->renderer->render_notice( sanitize_key( wp_unslash( $_GET['eit_notice'] ?? '' ) ) );
+				$this->renderer->render_form_error( $form_state['error'] ?? '' );
 				if ( $is_form ) {
 					$this->render_form( $definition );
 				} else {
@@ -63,8 +69,18 @@ class CctDefinitionAdmin {
 		$this->assert_can_manage();
 		check_admin_referer( self::SAVE_ACTION );
 
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- DefinitionManager sanitizes the nested contract field by field.
 		$raw = isset( $_POST['definition'] ) && is_array( $_POST['definition'] ) ? wp_unslash( $_POST['definition'] ) : [];
 		$slug = DefinitionManager::save( $raw );
+		if ( is_wp_error( $slug ) ) {
+			AdminFormState::store( 'cct-definition', $raw, $slug->get_error_message() );
+			$original_slug = DefinitionManager::sanitize_slug( $raw['original_slug'] ?? '' );
+			$this->redirect(
+				$original_slug
+					? [ 'page' => AdminPages::CCT_SLUG, 'cct' => $original_slug, 'eit_notice' => 'error' ]
+					: [ 'page' => AdminPages::CCT_SLUG, 'view' => 'new', 'eit_notice' => 'error' ]
+			);
+		}
 		$this->redirect( [ 'page' => AdminPages::CCT_SLUG, 'cct' => $slug, 'eit_notice' => 'saved' ] );
 	}
 
@@ -78,7 +94,8 @@ class CctDefinitionAdmin {
 
 	public function handle_delete() {
 		$this->assert_can_manage();
-		$slug = DefinitionManager::sanitize_slug( wp_unslash( $_REQUEST['cct'] ?? '' ) );
+		$requested_slug = isset( $_GET['cct'] ) ? sanitize_key( wp_unslash( $_GET['cct'] ) ) : '';
+		$slug = DefinitionManager::sanitize_slug( $requested_slug );
 		check_admin_referer( self::DELETE_ACTION . '_' . $slug );
 		$definition = DefinitionManager::get( $slug );
 
@@ -86,16 +103,17 @@ class CctDefinitionAdmin {
 			$this->redirect( [ 'page' => AdminPages::CCT_SLUG, 'eit_notice' => 'error' ] );
 		}
 
-		DefinitionManager::delete_permanently( $slug );
-		$this->redirect( [ 'page' => AdminPages::CCT_SLUG, 'eit_notice' => 'deleted' ] );
+		$result = DefinitionManager::delete_permanently( $slug );
+		$this->redirect( [ 'page' => AdminPages::CCT_SLUG, 'eit_notice' => is_wp_error( $result ) ? 'error' : 'deleted' ] );
 	}
 
 	private function handle_state_action( $action, $callback, $notice ) {
 		$this->assert_can_manage();
-		$slug = DefinitionManager::sanitize_slug( wp_unslash( $_REQUEST['cct'] ?? '' ) );
+		$requested_slug = isset( $_GET['cct'] ) ? sanitize_key( wp_unslash( $_GET['cct'] ) ) : '';
+		$slug = DefinitionManager::sanitize_slug( $requested_slug );
 		check_admin_referer( $action . '_' . $slug );
-		call_user_func( $callback, $slug );
-		$this->redirect( [ 'page' => AdminPages::CCT_SLUG, 'eit_notice' => $notice ] );
+		$result = call_user_func( $callback, $slug );
+		$this->redirect( [ 'page' => AdminPages::CCT_SLUG, 'eit_notice' => is_wp_error( $result ) || ! $result ? 'error' : $notice ] );
 	}
 
 	private function render_list() {
@@ -179,7 +197,7 @@ class CctDefinitionAdmin {
 					<div class="eit-panel__body"><div class="eit-form-grid">
 						<?php $this->text_field( 'definition[singular]', __( 'Singular label', 'elementor-implementation-toolkit' ), $definition['singular'] ?? '', 'Project' ); ?>
 						<?php $this->text_field( 'definition[plural]', __( 'Plural label', 'elementor-implementation-toolkit' ), $definition['plural'] ?? '', 'Projects' ); ?>
-						<?php $this->text_field( 'definition[slug]', __( 'Slug', 'elementor-implementation-toolkit' ), $definition['slug'] ?? '', 'projects' ); ?>
+						<?php $this->text_field( 'definition[slug]', __( 'Slug', 'elementor-implementation-toolkit' ), $definition['slug'] ?? '', 'projects', [ 'readonly' => ! empty( $definition['original_slug'] ?? $definition['slug'] ?? '' ) ] ); ?>
 						<?php $this->text_field( 'definition[menu_icon]', __( 'Menu icon', 'elementor-implementation-toolkit' ), $definition['menu_icon'] ?? 'dashicons-database', 'dashicons-portfolio' ); ?>
 						<?php $this->textarea_field( 'definition[description]', __( 'Description', 'elementor-implementation-toolkit' ), $definition['description'] ?? '', 3 ); ?>
 						<?php $this->checkbox_field( 'definition[public]', __( 'Publicly queryable', 'elementor-implementation-toolkit' ), ! empty( $definition['public'] ) ); ?>
@@ -209,13 +227,16 @@ class CctDefinitionAdmin {
 
 	private function render_field_row( $index, array $field ) {
 		$base = 'definition[fields][' . $index . ']';
+		$original_key = DefinitionManager::sanitize_field_key( $field['original_key'] ?? $field['key'] ?? '' );
 		?>
 		<div class="eit-repeat-row eit-cct-field-row">
 			<div class="eit-repeat-row__summary"><span class="eit-row-index" data-eit-row-number></span><strong data-eit-row-title data-eit-row-title-source="label"><?php echo esc_html( $field['label'] ?: __( 'New field', 'elementor-implementation-toolkit' ) ); ?></strong><small data-eit-row-type><?php echo esc_html( FieldTypes::labels()[ $field['type'] ] ?? $field['type'] ); ?></small><button type="button" class="button-link-delete" data-eit-remove-row><?php esc_html_e( 'Remove', 'elementor-implementation-toolkit' ); ?></button></div>
 			<div class="eit-form-grid eit-repeat-row__fields">
 				<?php $this->text_field( $base . '[label]', __( 'Label', 'elementor-implementation-toolkit' ), $field['label'] ?? '', 'Project summary' ); ?>
-				<?php $this->text_field( $base . '[key]', __( 'Key', 'elementor-implementation-toolkit' ), $field['key'] ?? '', 'summary' ); ?>
-				<?php $this->select_field( $base . '[type]', __( 'Type', 'elementor-implementation-toolkit' ), $field['type'] ?? 'text', FieldTypes::labels() ); ?>
+				<input type="hidden" name="<?php echo esc_attr( $base . '[original_key]' ); ?>" value="<?php echo esc_attr( $original_key ); ?>">
+				<?php $this->text_field( $base . '[key]', __( 'Key', 'elementor-implementation-toolkit' ), $field['key'] ?? '', 'summary', [ 'readonly' => '' !== $original_key ] ); ?>
+				<?php if ( '' !== $original_key ) : ?><input type="hidden" name="<?php echo esc_attr( $base . '[type]' ); ?>" value="<?php echo esc_attr( $field['type'] ?? 'text' ); ?>"><?php endif; ?>
+				<?php $this->select_field( $base . '[type]', __( 'Type', 'elementor-implementation-toolkit' ), $field['type'] ?? 'text', FieldTypes::labels(), [ 'disabled' => '' !== $original_key ] ); ?>
 				<?php $this->text_field( $base . '[default]', __( 'Default', 'elementor-implementation-toolkit' ), is_array( $field['default'] ?? '' ) ? implode( ',', $field['default'] ) : ( $field['default'] ?? '' ) ); ?>
 				<?php $this->textarea_field( $base . '[options]', __( 'Options (value | Label)', 'elementor-implementation-toolkit' ), $field['options'] ?? '', 3 ); ?>
 				<?php $this->checkbox_field( $base . '[required]', __( 'Required', 'elementor-implementation-toolkit' ), ! empty( $field['required'] ) ); ?>
@@ -230,6 +251,19 @@ class CctDefinitionAdmin {
 		if ( ! current_user_can( AdminPages::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to manage content types.', 'elementor-implementation-toolkit' ) );
 		}
+	}
+
+	private function form_definition( array $values, array $fallback ) {
+		$definition = array_merge( DefinitionManager::blank(), $fallback, $values );
+		$definition['original_slug'] = DefinitionManager::sanitize_slug( $values['original_slug'] ?? $fallback['slug'] ?? '' );
+		$definition['fields'] = array_map(
+			function ( $field ) {
+				return array_merge( DefinitionManager::blank_field(), is_array( $field ) ? $field : [] );
+			},
+			(array) ( $values['fields'] ?? $fallback['fields'] ?? [] )
+		);
+
+		return $definition;
 	}
 
 	private function redirect( array $args ) {
