@@ -5,7 +5,9 @@
 
 namespace EIT\Blueprint;
 
+use EIT\Contracts\FieldContractSourceInterface;
 use EIT\Entry\SafeExpression;
+use EIT\Registry\RegistryHub;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -16,6 +18,11 @@ class EntryContractValidator {
 	const MAX_STEPS = 12;
 	const MAX_CONDITIONS = 40;
 	const MAX_ACTIONS = 20;
+	private $registries;
+
+	public function __construct( RegistryHub $registries = null ) {
+		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
+	}
 
 	public function validate( array $nodes, array $connections ) {
 		$errors = [];
@@ -26,6 +33,13 @@ class EntryContractValidator {
 			$entity_id = $this->connected_id( $node_id, 'entry_for', 'from', $connections );
 			$field_ids = $this->entity_field_ids( $entity_id, $nodes, $connections );
 			$this->validate_config( $node, $field_ids, $errors );
+			$adapter_id = $this->entity_adapter_id( $entity_id, $nodes, $connections );
+			if ( $adapter_id && 'woocommerce' !== $adapter_id ) {
+				$errors[] = $this->error( 'adapter_entry_unsupported', 'The selected Adapter does not provide Entry persistence.', $node_id );
+			}
+			if ( 'woocommerce' === $adapter_id && ! empty( $node['config']['guest']['enabled'] ) ) {
+				$errors[] = $this->error( 'adapter_guest_intake_forbidden', 'WooCommerce Entry Surfaces require an authenticated operator.', $node_id );
+			}
 			$this->validate_policy( $node_id, $nodes, $connections, $errors );
 		}
 		return $errors;
@@ -203,6 +217,11 @@ class EntryContractValidator {
 	}
 
 	private function entity_field_ids( $entity_id, array $nodes, array $connections ) {
+		$adapter = $this->entity_adapter( $entity_id, $nodes, $connections );
+		if ( $adapter instanceof FieldContractSourceInterface ) {
+			$fields = array_filter( $adapter->get_field_contracts( $nodes[ $entity_id ] ?? [] ), fn( $field ) => empty( $field['validation']['read_only'] ) );
+			return array_column( $fields, null, 'id' );
+		}
 		$result = [];
 		foreach ( $connections as $connection ) {
 			if ( 'entity_fields' === ( $connection['type'] ?? '' ) && $entity_id === ( $connection['from'] ?? '' ) ) {
@@ -212,6 +231,22 @@ class EntryContractValidator {
 			}
 		}
 		return $result;
+	}
+
+	private function entity_adapter( $entity_id, array $nodes, array $connections ) {
+		$adapter_id = $this->entity_adapter_id( $entity_id, $nodes, $connections );
+		return $this->registries->storage_adapters()->get( $adapter_id );
+	}
+
+	private function entity_adapter_id( $entity_id, array $nodes, array $connections ) {
+		$adapter_id = sanitize_key( $nodes[ $entity_id ]['config']['adapter_id'] ?? '' );
+		foreach ( $connections as $connection ) {
+			if ( 'adapts' === ( $connection['type'] ?? '' ) && $entity_id === ( $connection['to'] ?? '' ) ) {
+				$adapter_id = sanitize_key( $nodes[ $connection['from'] ]['config']['adapter_id'] ?? '' );
+				break;
+			}
+		}
+		return $adapter_id;
 	}
 
 	private function connected_id( $node_id, $type, $side, array $connections ) {

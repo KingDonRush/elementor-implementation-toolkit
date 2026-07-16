@@ -57,7 +57,7 @@ class EntryRenderer {
 		$fields = array_column( $contract['fields'], null, 'id' );
 		$steps = $contract['steps'];
 		?>
-		<section class="eit-entry-workspace" data-eit-entry-workspace data-surface-id="<?php echo esc_attr( $contract['surface_id'] ); ?>" data-item-id="<?php echo esc_attr( $contract['item']['id'] ?? 0 ); ?>">
+		<section id="eit-entry-<?php echo esc_attr( $contract['surface_id'] ); ?>" class="eit-entry-workspace" data-eit-entry-workspace data-surface-id="<?php echo esc_attr( $contract['surface_id'] ); ?>" data-item-id="<?php echo esc_attr( $contract['item']['id'] ?? 0 ); ?>">
 			<header class="eit-entry-header">
 				<p class="eit-entry-eyebrow"><?php echo esc_html( $contract['entity']['name'] ); ?></p>
 				<h2><?php echo esc_html( $contract['name'] ); ?></h2>

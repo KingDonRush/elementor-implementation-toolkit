@@ -98,7 +98,7 @@ class FilterTemplateManager {
 			self::get_supported_document_type(),
 			[
 				'post_title'  => $title,
-				'post_status' => 'publish',
+				'post_status' => 'draft',
 			],
 			[
 				self::ROLE_META  => self::ROLE_FILTER_CONTROLLER,
@@ -136,10 +136,6 @@ class FilterTemplateManager {
 
 	public static function get_edit_url( $template_id ) {
 		$template_id = absint( $template_id );
-
-		if ( self::is_filter_template( $template_id ) ) {
-			self::ensure_editor_surface( $template_id );
-		}
 
 		if ( self::is_elementor_available() ) {
 			$document = \Elementor\Plugin::$instance->documents->get( $template_id );

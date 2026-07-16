@@ -24,6 +24,14 @@ class CollectionInvalidator {
 		if ( ! $post || wp_is_post_revision( $post->ID ) || wp_is_post_autosave( $post->ID ) ) {
 			return;
 		}
+		if ( 'elementor_library' === $post->post_type ) {
+			$this->presentation_changed( $post->ID );
+			return;
+		}
+		if ( 'product' === $post->post_type ) {
+			$this->adapter_changed( 'woocommerce' );
+			return;
+		}
 		$this->source_changed( 'cpt', $post->post_type );
 	}
 
@@ -43,7 +51,9 @@ class CollectionInvalidator {
 
 	public function terms_changed( $object_id ) {
 		$post_type = get_post_type( $object_id );
-		if ( $post_type ) {
+		if ( 'product' === $post_type ) {
+			$this->adapter_changed( 'woocommerce' );
+		} elseif ( $post_type ) {
 			$this->source_changed( 'cpt', $post_type );
 		}
 	}
@@ -68,6 +78,22 @@ class CollectionInvalidator {
 	private function source_changed( $strategy, $slug ) {
 		foreach ( $this->source_contracts( $strategy, $slug ) as $contract ) {
 			$this->cache->bump( $contract['entity_id'] );
+		}
+	}
+
+	private function adapter_changed( $adapter_id ) {
+		foreach ( $this->resolver->all() as $contract ) {
+			if ( $adapter_id === ( $contract['entity']['adapter']['id'] ?? '' ) ) {
+				$this->cache->bump( $contract['entity_id'] );
+			}
+		}
+	}
+
+	private function presentation_changed( $template_id ) {
+		foreach ( $this->resolver->all() as $contract ) {
+			if ( absint( $template_id ) === absint( $contract['presentation']['template_id'] ?? 0 ) ) {
+				$this->cache->bump( $contract['entity_id'] );
+			}
 		}
 	}
 

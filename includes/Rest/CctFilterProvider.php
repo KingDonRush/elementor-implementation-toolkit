@@ -8,6 +8,7 @@ namespace EIT\Rest;
 use EIT\CCT\CurrentItemContext;
 use EIT\CCT\DefinitionManager;
 use EIT\CCT\Repository;
+use EIT\Elementor\ElementorDocumentRenderer;
 use EIT\Support\CctLoopTemplateCatalog;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -18,6 +19,11 @@ class CctFilterProvider {
 
 	private $current_item;
 	private $current_type;
+	private $documents;
+
+	public function __construct( ElementorDocumentRenderer $documents = null ) {
+		$this->documents = $documents ?: new ElementorDocumentRenderer();
+	}
 
 	public function resolve( array $payload ) {
 		$type = DefinitionManager::sanitize_slug( $payload['cctType'] ?? '' );
@@ -136,15 +142,6 @@ class CctFilterProvider {
 	}
 
 	private function render_items( $type, $template_id, array $items ) {
-		if ( ! class_exists( '\ElementorPro\Plugin' ) ) {
-			return '';
-		}
-
-		$document = \ElementorPro\Plugin::elementor()->documents->get( $template_id );
-		if ( ! $document ) {
-			return '';
-		}
-
 		ob_start();
 		try {
 			foreach ( $items as $item ) {
@@ -154,7 +151,7 @@ class CctFilterProvider {
 				add_filter( 'elementor/document/wrapper_attributes', [ $this, 'add_item_attributes' ], 20 );
 
 				try {
-					$document->print_content();
+					echo $this->documents->render( $template_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Elementor document manager owns trusted template rendering.
 				} finally {
 					remove_filter( 'elementor/document/wrapper_attributes', [ $this, 'add_item_attributes' ], 20 );
 					CurrentItemContext::pop();

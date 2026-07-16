@@ -1,12 +1,12 @@
-import { CheckboxControl, ToggleControl } from '@wordpress/components';
+import { CheckboxControl, SelectControl, ToggleControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { queryFields, selectedFacetIds, selectedFilterIds, toggleRequiredSelection } from '../collection-contracts';
 
 const FACET_TYPES = [ 'boolean', 'single_choice', 'multiple_choice', 'taxonomy', 'relation' ];
 
-export default function FilterSurfaceDecisions( { node, document, update } ) {
+export default function FilterSurfaceDecisions( { node, document, schema, update } ) {
 	const config = node.config || {};
-	const fields = queryFields( document, node, 'filter' );
+	const fields = queryFields( document, node, 'filter', schema );
 	const selected = selectedFilterIds( node, fields );
 	const facets = selectedFacetIds( node, fields, selected );
 	const change = ( decisions ) => update( { ...node, config: { ...config, ...decisions } } );
@@ -51,6 +51,15 @@ export default function FilterSurfaceDecisions( { node, document, update } ) {
 			label={ __( 'Show readable active-filter chips', 'elementor-implementation-toolkit' ) }
 			checked={ false !== config.active_chips }
 			onChange={ ( activeChips ) => change( { active_chips: activeChips } ) }
+		/>
+		<SelectControl
+			label={ __( 'Apply changes', 'elementor-implementation-toolkit' ) }
+			value={ config.apply_mode || 'automatic' }
+			options={ [
+				{ label: __( 'Automatically', 'elementor-implementation-toolkit' ), value: 'automatic' },
+				{ label: __( 'With an Apply button', 'elementor-implementation-toolkit' ), value: 'submit' },
+			] }
+			onChange={ ( applyMode ) => change( { apply_mode: applyMode } ) }
 		/>
 		</div>
 	);

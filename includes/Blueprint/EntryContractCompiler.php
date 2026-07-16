@@ -23,6 +23,15 @@ class EntryContractCompiler {
 		$policy = $nodes[ $policy_id ] ?? [];
 		$config = $entry['config'] ?? [];
 		$groups = $this->field_groups( $entity_id, $nodes, $connections );
+		if ( 'woocommerce' === ( $entity['adapter']['id'] ?? '' ) ) {
+			$groups = [
+				[
+					'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'adapter-entry-fields:' . $entity_id ),
+					'name' => __( 'WooCommerce product fields', 'elementor-implementation-toolkit' ),
+					'fields' => array_values( array_filter( $entity['fields'] ?? [], fn( $field ) => empty( $field['validation']['read_only'] ) ) ),
+				],
+			];
+		}
 		$fields = $this->selected_fields( $groups, $config['field_ids'] ?? [] );
 
 		return [

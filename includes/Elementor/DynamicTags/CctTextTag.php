@@ -21,11 +21,11 @@ class CctTextTag extends Data_Tag {
 	}
 
 	public function get_title() {
-		return __( 'CCT Field', 'elementor-implementation-toolkit' );
+		return __( 'Legacy CCT Field', 'elementor-implementation-toolkit' );
 	}
 
 	public function get_group() {
-		return DynamicTagsIntegration::GROUP;
+		return DynamicTagsIntegration::LEGACY_GROUP;
 	}
 
 	public function get_categories() {

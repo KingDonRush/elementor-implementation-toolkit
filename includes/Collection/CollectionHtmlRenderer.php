@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class CollectionHtmlRenderer {
 
-	public function render( array $items, array $fields ) {
+	public function render( array $items, array $fields, array $contract = [] ) {
 		if ( ! $items ) {
 			return '<div class="eit-collection-items" data-eit-collection-items><p class="eit-collection-empty">' . esc_html__( 'No matching items found.', 'elementor-implementation-toolkit' ) . '</p></div>';
 		}

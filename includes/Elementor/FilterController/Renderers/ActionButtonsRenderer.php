@@ -19,9 +19,11 @@ class ActionButtonsRenderer {
 					<?php echo esc_html( $settings['apply_text'] ?? __( 'Apply filters', 'elementor-implementation-toolkit' ) ); ?>
 				</button>
 			<?php endif; ?>
-			<button type="button" class="eit-button eit-button--reset" data-eit-reset>
-				<?php echo esc_html( $settings['reset_text'] ?? __( 'Reset', 'elementor-implementation-toolkit' ) ); ?>
-			</button>
+			<?php if ( ( $settings['show_reset'] ?? 'yes' ) === 'yes' ) : ?>
+				<button type="button" class="eit-button eit-button--reset" data-eit-reset>
+					<?php echo esc_html( $settings['reset_text'] ?? __( 'Reset', 'elementor-implementation-toolkit' ) ); ?>
+				</button>
+			<?php endif; ?>
 		</div>
 		<?php
 	}

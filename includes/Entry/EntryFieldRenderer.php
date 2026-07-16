@@ -57,7 +57,7 @@ class EntryFieldRenderer {
 	}
 
 	private function input( array $field, $value, $id, $required ) {
-		$types = [ 'integer' => 'number', 'decimal' => 'number', 'percentage' => 'number', 'email' => 'email', 'phone' => 'tel', 'url' => 'url', 'date' => 'date', 'time' => 'time', 'datetime' => 'datetime-local' ];
+		$types = [ 'integer' => 'number', 'decimal' => 'number', 'percentage' => 'number', 'email' => 'email', 'phone' => 'tel', 'url' => 'url', 'color' => 'color', 'date' => 'date', 'time' => 'time', 'datetime' => 'datetime-local' ];
 		$type = $types[ $field['type'] ] ?? 'text';
 		$attributes = $this->validation_attributes( $field );
 		printf( '<input id="%1$s" type="%2$s" value="%3$s" %4$s %5$s>', esc_attr( $id ), esc_attr( $type ), esc_attr( is_scalar( $value ) ? $value : '' ), $required ? 'required' : '', $attributes ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped

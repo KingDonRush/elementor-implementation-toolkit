@@ -29,6 +29,10 @@ class CollectionFieldSemantics {
 	}
 
 	public function operators( array $field ) {
+		$declared = array_values( array_intersect( [ 'equals', 'not_equals', 'gte', 'lte', 'between', 'in', 'not_in' ], $field['capabilities']['filter_operators'] ?? [] ) );
+		if ( $declared ) {
+			return $declared;
+		}
 		$type = $field['type'] ?? '';
 		if ( in_array( $type, [ 'integer', 'decimal', 'money', 'percentage', 'calculated', 'date', 'datetime', 'time' ], true ) ) {
 			return [ 'equals', 'gte', 'lte', 'between' ];

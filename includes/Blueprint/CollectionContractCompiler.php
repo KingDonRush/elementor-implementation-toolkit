@@ -25,7 +25,10 @@ class CollectionContractCompiler {
 	public function compile_collection( array $collection, array $nodes, array $connections, array $entities ) {
 		$entity_id = $this->connected_id( $collection['id'], 'collection_for', 'from', $connections );
 		$entity = $entities[ $entity_id ] ?? [];
-		$fields = $this->entity_fields( $entity_id, $nodes, $connections );
+		$fields = array_column( $entity['fields'] ?? [], null, 'id' );
+		if ( ! $fields ) {
+			$fields = $this->entity_fields( $entity_id, $nodes, $connections );
+		}
 		$config = $collection['config'] ?? [];
 		$provider_id = $this->provider_id( $entity );
 		$provider = $this->registries->collection_providers()->get( $provider_id );
@@ -76,6 +79,7 @@ class CollectionContractCompiler {
 				'ttl_seconds' => min( 3600, max( 30, absint( $config['cache']['ttl_seconds'] ?? 300 ) ) ),
 			],
 			'filter_surface_id' => $filter_id,
+			'presentation' => $this->presentation( $collection['id'], $nodes, $connections ),
 			'explain' => ! isset( $config['explain'] ) || ! empty( $config['explain'] ),
 		];
 	}
@@ -114,6 +118,7 @@ class CollectionContractCompiler {
 			'sort_options' => $this->sort_options( $contract['sort_field_ids'], $fields ),
 			'url_state' => ! isset( $config['url_state'] ) || ! empty( $config['url_state'] ),
 			'active_chips' => ! isset( $config['active_chips'] ) || ! empty( $config['active_chips'] ),
+			'apply_mode' => 'submit' === sanitize_key( $config['apply_mode'] ?? '' ) ? 'submit' : 'automatic',
 		];
 	}
 
@@ -218,5 +223,15 @@ class CollectionContractCompiler {
 			}
 		}
 		return '';
+	}
+
+	private function presentation( $collection_id, array $nodes, array $connections ) {
+		$presentation_id = $this->connected_id( $collection_id, 'presents_collection', 'to', $connections, 'from' );
+		$presentation = $nodes[ $presentation_id ] ?? [];
+		return $presentation ? [
+			'node_id' => $presentation_id,
+			'adapter' => sanitize_key( $presentation['config']['adapter'] ?? 'elementor' ),
+			'template_id' => absint( $presentation['config']['template_id'] ?? 0 ),
+		] : null;
 	}
 }

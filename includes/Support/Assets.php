@@ -99,6 +99,7 @@ class Assets {
 					'entryError' => __( 'Your changes are still in the form. Review the error and try again.', 'elementor-implementation-toolkit' ),
 					'entryUploading' => __( 'Uploading media…', 'elementor-implementation-toolkit' ),
 					'entryCalculationWaiting' => __( 'Complete the number fields to calculate.', 'elementor-implementation-toolkit' ),
+					'entryActionUnavailable' => __( 'This action is not available in the current item state.', 'elementor-implementation-toolkit' ),
 				],
 			]
 		);

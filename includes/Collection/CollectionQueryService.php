@@ -28,7 +28,7 @@ class CollectionQueryService {
 		$this->cache = $dependencies['cache'] ?? new CollectionCache();
 		$this->projector = $dependencies['projector'] ?? new CollectionProjector();
 		$this->hydrator = $dependencies['hydrator'] ?? new CollectionNormalizedHydrator();
-		$this->renderer = $dependencies['renderer'] ?? new CollectionHtmlRenderer();
+		$this->renderer = $dependencies['renderer'] ?? new CollectionPresentationRenderer();
 		$this->explainer = $dependencies['explainer'] ?? new CollectionExplainer();
 		$this->facets = $dependencies['facets'] ?? new CollectionFacetPresenter();
 	}
@@ -60,7 +60,7 @@ class CollectionQueryService {
 		$items = $this->projector->items( $result['items'], $fields );
 		$response = [
 			'items' => $items,
-			'html' => $this->renderer->render( $items, $fields ),
+			'html' => $this->renderer->render( $items, $fields, $contract ),
 			'pagination' => $this->pagination( $result ),
 			'facets' => $this->facets->present( $result['facets'] ?? [], $request, $contract, $fields ),
 			'applied' => $this->applied( $request, $fields ),

@@ -21,11 +21,11 @@ class ToolkitFieldKeyTag extends Data_Tag {
 	}
 
 	public function get_title() {
-		return __( 'Toolkit Field Key', 'elementor-implementation-toolkit' );
+		return __( 'Legacy Toolkit Field Key', 'elementor-implementation-toolkit' );
 	}
 
 	public function get_group() {
-		return DynamicTagsIntegration::GROUP;
+		return DynamicTagsIntegration::LEGACY_GROUP;
 	}
 
 	public function get_categories() {

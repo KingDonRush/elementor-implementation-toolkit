@@ -13,6 +13,8 @@ use EIT\Infrastructure\RunStore;
 use EIT\Infrastructure\SchemaManager;
 use EIT\Infrastructure\Tables;
 use EIT\Infrastructure\VersionStore;
+use EIT\Contracts\FieldContractSourceInterface;
+use EIT\Elementor\Contracts\ElementorTemplateCatalog;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -85,6 +87,7 @@ class BlueprintAdminPresenter {
 			'connections' => ( new NodeTypeRegistry() )->connections(),
 			'primitives' => $primitives,
 			'adapters' => $this->extension_metadata( $registries->storage_adapters()->all() ),
+			'elementor_templates' => ( new ElementorTemplateCatalog() )->all(),
 		];
 	}
 
@@ -158,6 +161,9 @@ class BlueprintAdminPresenter {
 				'capabilities' => $extension->get_capabilities(),
 				'health' => $extension->health_check(),
 			];
+			if ( $extension instanceof FieldContractSourceInterface ) {
+				$metadata[ $id ]['fields'] = $extension->get_field_contracts();
+			}
 		}
 		return $metadata;
 	}

@@ -13,7 +13,11 @@ class CollectionRenderer {
 
 	public function shortcode( $attributes ) {
 		$attributes = shortcode_atts( [ 'id' => '' ], $attributes, 'eit_collection' );
-		$contract = ( new CollectionSurfaceResolver() )->get( $attributes['id'] );
+		return $this->render( $attributes['id'] );
+	}
+
+	public function render( $collection_id ) {
+		$contract = ( new CollectionSurfaceResolver() )->get( $collection_id );
 		if ( ! $contract || is_wp_error( ( new CollectionAccessPolicy() )->authorize( $contract ) ) ) {
 			return '';
 		}
@@ -28,9 +32,10 @@ class CollectionRenderer {
 		wp_enqueue_script( 'eit-frontend' );
 		wp_enqueue_style( 'eit-frontend' );
 		return sprintf(
-			'<div class="eit-collection-surface" data-eit-collection="%1$s">%2$s</div>',
+			'<section class="eit-collection-surface eit-toolkit-collection" data-eit-collection-surface="%1$s" aria-label="%2$s"><div data-eit-collection-results tabindex="-1">%3$s</div></section>',
 			esc_attr( $contract['collection_id'] ),
-			wp_kses_post( $result['html'] )
+			esc_attr( $contract['name'] ),
+			$result['html'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Trusted renderer escapes data and may contain Elementor document markup.
 		);
 	}
 }

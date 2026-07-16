@@ -2,10 +2,10 @@ import { SelectControl, TextControl, ToggleControl } from '@wordpress/components
 import { __, sprintf } from '@wordpress/i18n';
 import { entityForCollection, queryFields } from '../collection-contracts';
 
-export default function CollectionDecisions( { node, document, update } ) {
+export default function CollectionDecisions( { node, document, schema, update } ) {
 	const config = node.config || {};
 	const entity = entityForCollection( document, node );
-	const sortFields = queryFields( document, node, 'sort' );
+	const sortFields = queryFields( document, node, 'sort', schema );
 	const inferredAccess = entity?.config?.public ? 'public' : 'authenticated';
 	const sortValue = config.default_sort?.field_id
 		? `${ config.default_sort.field_id }:${ config.default_sort.direction || 'asc' }`

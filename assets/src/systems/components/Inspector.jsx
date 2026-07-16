@@ -126,24 +126,41 @@ function EssentialDecisions({ node, update, schema, document }) {
     );
   }
   if ("entry_surface" === node.type) {
-    return <EntryDecisions node={node} document={document} update={update} />;
+    return <EntryDecisions node={node} document={document} schema={schema} update={update} />;
   }
   if ("collection" === node.type) {
-    return <CollectionDecisions node={node} document={document} update={update} />;
+    return <CollectionDecisions node={node} document={document} schema={schema} update={update} />;
   }
   if ("filter_surface" === node.type) {
-    return <FilterSurfaceDecisions node={node} document={document} update={update} />;
+    return <FilterSurfaceDecisions node={node} document={document} schema={schema} update={update} />;
   }
   if ("presentation" === node.type) {
     return (
-      <SelectControl
-        label={__("Presentation adapter", "elementor-implementation-toolkit")}
-        value={config.adapter || "elementor"}
-        options={[{ label: "Elementor", value: "elementor" }]}
-        onChange={(adapter) =>
-          update({ ...node, config: { ...config, adapter } })
-        }
-      />
+      <>
+        <SelectControl
+          label={__("Presentation adapter", "elementor-implementation-toolkit")}
+          value={config.adapter || "elementor"}
+          options={[{ label: "Elementor", value: "elementor" }]}
+          onChange={(adapter) =>
+            update({ ...node, config: { ...config, adapter } })
+          }
+        />
+        <SelectControl
+          label={__("Existing Elementor template", "elementor-implementation-toolkit")}
+          help={__("A published template controls item layout. Reading this list never creates or changes templates.", "elementor-implementation-toolkit")}
+          value={String(config.template_id || "")}
+          options={[
+            { label: __("Use semantic fallback", "elementor-implementation-toolkit"), value: "" },
+            ...(schema.elementor_templates || []).map((template) => ({
+              label: `${template.name} · ${humanize(template.type)} · ${humanize(template.status)}`,
+              value: String(template.id),
+            })),
+          ]}
+          onChange={(templateId) =>
+            update({ ...node, config: { ...config, template_id: Number(templateId) || 0 } })
+          }
+        />
+      </>
     );
   }
   if ("route" === node.type) {
@@ -165,6 +182,9 @@ function EssentialDecisions({ node, update, schema, document }) {
             "read",
             "edit_posts",
             "publish_posts",
+            "edit_products",
+            "publish_products",
+            "manage_woocommerce",
             "manage_options",
           ].map((value) => ({ label: humanize(value), value }))}
           onChange={(capability) =>

@@ -4,10 +4,12 @@ import { installFacets } from './facets.js';
 import { $ } from './runtime.js';
 import { installView } from './view.js';
 import { EntryWorkspace } from './entry-workspace.js';
+import { installConnectorActions } from './connector-actions.js';
 
 installControls(Controller);
 installFacets(Controller);
 installView(Controller);
+installConnectorActions();
 
 $(() => {
   $('.eit-filter-controller').each((index, element) => new Controller(element));

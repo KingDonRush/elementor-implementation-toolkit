@@ -5,6 +5,7 @@
 
 namespace EIT\Blueprint;
 
+use EIT\Contracts\FieldContractSourceInterface;
 use EIT\Registry\RegistryHub;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -27,7 +28,7 @@ class Compiler {
 		RegistryHub $registries = null
 	) {
 		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
-		$this->validator = $validator ?: new BlueprintValidator( null, $this->registries->field_primitives() );
+		$this->validator = $validator ?: new BlueprintValidator( null, $this->registries->field_primitives(), null, $this->registries );
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
 		$this->recommendation = $recommendation ?: new StorageRecommendation();
 		$this->entry_contracts = new EntryContractCompiler();
@@ -77,6 +78,16 @@ class Compiler {
 				$errors[] = $this->error( 'storage_adapter_unhealthy', 'Selected storage adapter failed its health check.', $node['id'] );
 				continue;
 			}
+			if ( $adapter instanceof FieldContractSourceInterface ) {
+				$fields = $adapter->get_field_contracts(
+					$node,
+					[ 'blueprint_id' => $blueprint['id'], 'adapter_node' => $adapter_node ]
+				);
+				if ( ! is_array( $fields ) || ! array_is_list( $fields ) ) {
+					$errors[] = $this->error( 'adapter_field_contracts_invalid', 'Adapter Field Contracts must be a list.', $node['id'] );
+					continue;
+				}
+			}
 
 			$compiled = $adapter->compile(
 				$node,
@@ -93,6 +104,7 @@ class Compiler {
 				[
 					'entity_id' => $node['id'],
 					'name' => $node['name'],
+					'fields' => $fields,
 					'recommendation' => $recommendation,
 					'adapter' => [ 'id' => $adapter_id, 'version' => $adapter->get_version(), 'capabilities' => $adapter->get_capabilities() ],
 				]
@@ -172,6 +184,28 @@ class Compiler {
 		}
 		if ( 'filter_surface' === $node['type'] ) {
 			$payload = $this->collection_contracts->compile_filter( $node, $nodes, $connections, $compiled_entities );
+		}
+		if ( 'presentation' === $node['type'] ) {
+			$adapter_id = sanitize_key( $node['config']['adapter'] ?? 'elementor' );
+			$adapter = $this->registries->presentation_adapters()->get( $adapter_id );
+			if ( ! $adapter ) {
+				return new \WP_Error( 'eit_presentation_adapter_missing', __( 'The selected Presentation adapter is not registered.', 'elementor-implementation-toolkit' ) );
+			}
+			$health = $adapter->health_check();
+			if ( ! is_array( $health ) || empty( $health['ok'] ) ) {
+				return new \WP_Error( 'eit_presentation_adapter_unhealthy', __( 'The selected Presentation adapter is unavailable.', 'elementor-implementation-toolkit' ) );
+			}
+			$payload = $adapter->compile(
+				$node,
+				[
+					'blueprint_id' => $blueprint['id'],
+					'connections' => $this->node_connections( $node['id'], $connections ),
+					'nodes' => $nodes,
+				]
+			);
+			if ( is_wp_error( $payload ) ) {
+				return $payload;
+			}
 		}
 		if ( 'relation' === $node['type'] ) {
 			$payload['source_entity_id'] = $this->connected_node( $node['id'], 'relation_source', 'from', $connections );

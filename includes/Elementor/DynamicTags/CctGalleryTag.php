@@ -21,11 +21,11 @@ class CctGalleryTag extends Data_Tag {
 	}
 
 	public function get_title() {
-		return __( 'CCT Gallery', 'elementor-implementation-toolkit' );
+		return __( 'Legacy CCT Gallery', 'elementor-implementation-toolkit' );
 	}
 
 	public function get_group() {
-		return DynamicTagsIntegration::GROUP;
+		return DynamicTagsIntegration::LEGACY_GROUP;
 	}
 
 	public function get_categories() {

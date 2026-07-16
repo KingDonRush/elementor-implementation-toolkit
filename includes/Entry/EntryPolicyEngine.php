@@ -35,6 +35,12 @@ class EntryPolicyEngine {
 		if ( ! current_user_can( $capability ) ) {
 			return $this->error( 'eit_entry_capability_forbidden', 'Your account cannot perform this Entry operation.' );
 		}
+		if ( 'woocommerce' === ( $contract['entity']['adapter']['id'] ?? '' ) ) {
+			$product_capability = 'publish' === $operation ? 'publish_products' : 'edit_products';
+			if ( ! current_user_can( $product_capability ) ) {
+				return $this->error( 'eit_entry_adapter_capability_forbidden', 'Your account cannot modify WooCommerce products.' );
+			}
+		}
 		if ( ! $item_id ) {
 			return true;
 		}
@@ -43,7 +49,8 @@ class EntryPolicyEngine {
 		if ( ! $item ) {
 			return $this->error( 'eit_entry_item_forbidden', 'The requested item is outside this Entry Surface.' );
 		}
-		if ( 'cpt' === ( $contract['entity']['strategy'] ?? '' ) && ! current_user_can( 'edit_post', $item_id ) ) {
+		$is_post_object = 'cpt' === ( $contract['entity']['strategy'] ?? '' ) || 'woocommerce' === ( $contract['entity']['adapter']['id'] ?? '' );
+		if ( $is_post_object && ! current_user_can( 'edit_post', $item_id ) ) {
 			return $this->error( 'eit_entry_item_forbidden', 'Your account cannot edit this item.' );
 		}
 		if ( 'own' === ( $policy['ownership'] ?? 'own' ) && get_current_user_id() !== (int) $item['author_id'] && ! current_user_can( 'manage_options' ) ) {

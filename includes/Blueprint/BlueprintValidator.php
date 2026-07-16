@@ -5,6 +5,8 @@
 
 namespace EIT\Blueprint;
 
+use EIT\Registry\RegistryHub;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -26,13 +28,14 @@ class BlueprintValidator {
 	public function __construct(
 		NodeTypeRegistry $nodes = null,
 		FieldPrimitiveRegistry $primitives = null,
-		Canonicalizer $canonicalizer = null
+		Canonicalizer $canonicalizer = null,
+		RegistryHub $registries = null
 	) {
 		$this->nodes = $nodes ?: new NodeTypeRegistry();
 		$this->primitives = $primitives ?: new FieldPrimitiveRegistry();
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
-		$this->entry_contracts = new EntryContractValidator();
-		$this->collection_contracts = new CollectionContractValidator();
+		$this->entry_contracts = new EntryContractValidator( $registries );
+		$this->collection_contracts = new CollectionContractValidator( $registries );
 	}
 
 	public function validate( array $blueprint ) {

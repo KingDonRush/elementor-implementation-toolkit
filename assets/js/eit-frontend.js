@@ -274,7 +274,12 @@
       this.items = this.indexItems();
     }
     findTarget() {
-      if ("collection" === this.config.provider) return this.$root.find("[data-eit-collection-results]").get(0) || null;
+      if ("collection" === this.config.provider) {
+        if (this.config.collectionTarget) {
+          return document.querySelector(`[data-eit-collection-surface="${cssEscape(this.config.collectionTarget)}"] [data-eit-collection-results]`);
+        }
+        return this.$root.find("[data-eit-collection-results]").get(0) || null;
+      }
       const selector = this.config.targetSelector || "";
       const target = selector ? document.querySelector(selector) : null;
       if (target) return target;
@@ -1373,10 +1378,32 @@
     }
   };
 
+  // assets/src/frontend/connector-actions.js
+  function installConnectorActions() {
+    $(document).on("click.eitToolkitAction", "[data-eit-action-surface]", (event) => {
+      var _a, _b, _c;
+      const action = event.currentTarget;
+      const surfaceId = action.getAttribute("data-eit-action-surface") || "";
+      const intent = action.getAttribute("data-eit-action-intent") || "default";
+      const workspace = document.querySelector(`[data-eit-entry-workspace][data-surface-id="${cssEscape(surfaceId)}"]`);
+      const form = workspace == null ? void 0 : workspace.querySelector("[data-eit-entry-form]");
+      const submitter = workspace == null ? void 0 : workspace.querySelector(`[data-eit-intent="${cssEscape(intent)}"]`);
+      if (!form || !submitter) {
+        (_c = workspace == null ? void 0 : workspace.querySelector("[data-eit-form-message]")) == null ? void 0 : _c.replaceChildren(
+          document.createTextNode(((_b = (_a = window.eitConfig) == null ? void 0 : _a.i18n) == null ? void 0 : _b.entryActionUnavailable) || "This action is not available in the current item state.")
+        );
+        return;
+      }
+      if ("function" === typeof form.requestSubmit) form.requestSubmit(submitter);
+      else submitter.click();
+    });
+  }
+
   // assets/src/frontend/index.js
   installControls(Controller);
   installFacets(Controller);
   installView(Controller);
+  installConnectorActions();
   $(() => {
     $(".eit-filter-controller").each((index, element) => new Controller(element));
     document.querySelectorAll("[data-eit-entry-workspace]").forEach((element) => new EntryWorkspace(element));

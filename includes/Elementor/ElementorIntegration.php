@@ -8,6 +8,11 @@ namespace EIT\Elementor;
 use EIT\Elementor\DynamicTags\DynamicTagsIntegration;
 use EIT\Elementor\Loop\CctLoopIntegration;
 use EIT\Elementor\Widgets\FilterController;
+use EIT\Elementor\Widgets\ToolkitAction;
+use EIT\Elementor\Widgets\ToolkitCollectionSurface;
+use EIT\Elementor\Widgets\ToolkitEntrySurface;
+use EIT\Elementor\Widgets\ToolkitField;
+use EIT\Elementor\Widgets\ToolkitFilterSurface;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -43,6 +48,11 @@ class ElementorIntegration {
 	}
 
 	public function register_widgets( $widgets_manager ) {
+		$widgets_manager->register( new ToolkitField() );
+		$widgets_manager->register( new ToolkitCollectionSurface() );
+		$widgets_manager->register( new ToolkitFilterSurface() );
+		$widgets_manager->register( new ToolkitEntrySurface() );
+		$widgets_manager->register( new ToolkitAction() );
 		$widgets_manager->register( new FilterController() );
 	}
 }

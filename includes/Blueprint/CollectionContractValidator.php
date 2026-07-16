@@ -5,11 +5,20 @@
 
 namespace EIT\Blueprint;
 
+use EIT\Contracts\FieldContractSourceInterface;
+use EIT\Registry\RegistryHub;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
 class CollectionContractValidator {
+
+	private $registries;
+
+	public function __construct( RegistryHub $registries = null ) {
+		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
+	}
 
 	public function validate( array $nodes, array $connections ) {
 		$errors = [];
@@ -57,6 +66,9 @@ class CollectionContractValidator {
 
 	private function validate_filter( $node_id, array $node, array $nodes, array $connections, array &$errors ) {
 		$config = $node['config'] ?? [];
+		if ( isset( $config['apply_mode'] ) && ! in_array( $config['apply_mode'], [ 'automatic', 'submit' ], true ) ) {
+			$errors[] = $this->error( 'filter_surface_apply_mode_invalid', 'Filter Surface apply mode must be automatic or submit.', $node_id );
+		}
 		$collection_id = $this->connected_id( $node_id, 'filters', 'from', $connections );
 		$entity_id = $this->connected_id( $collection_id, 'collection_for', 'from', $connections );
 		$fields = $this->entity_fields( $entity_id, $nodes, $connections );
@@ -102,6 +114,10 @@ class CollectionContractValidator {
 	}
 
 	private function entity_fields( $entity_id, array $nodes, array $connections ) {
+		$adapter = $this->entity_adapter( $entity_id, $nodes, $connections );
+		if ( $adapter instanceof FieldContractSourceInterface ) {
+			return array_column( $adapter->get_field_contracts( $nodes[ $entity_id ] ?? [] ), null, 'id' );
+		}
 		$fields = [];
 		foreach ( $connections as $connection ) {
 			if ( 'entity_fields' !== ( $connection['type'] ?? '' ) || $entity_id !== ( $connection['from'] ?? '' ) ) {
@@ -112,6 +128,18 @@ class CollectionContractValidator {
 			}
 		}
 		return $fields;
+	}
+
+	private function entity_adapter( $entity_id, array $nodes, array $connections ) {
+		$adapter_id = sanitize_key( $nodes[ $entity_id ]['config']['adapter_id'] ?? '' );
+		foreach ( $connections as $connection ) {
+			if ( 'adapts' !== ( $connection['type'] ?? '' ) || $entity_id !== ( $connection['to'] ?? '' ) ) {
+				continue;
+			}
+			$adapter_id = sanitize_key( $nodes[ $connection['from'] ]['config']['adapter_id'] ?? '' );
+			break;
+		}
+		return $this->registries->storage_adapters()->get( $adapter_id );
 	}
 
 	private function connected_id( $node_id, $type, $side, array $connections ) {

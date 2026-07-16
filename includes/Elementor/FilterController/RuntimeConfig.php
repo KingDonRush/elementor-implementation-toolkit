@@ -26,6 +26,7 @@ class RuntimeConfig {
 			'provider'        => $provider,
 			'collectionId'    => sanitize_text_field( $settings['collection_id'] ?? '' ),
 			'collectionFacetIds' => array_values( array_map( 'strval', $settings['collection_facet_field_ids'] ?? [] ) ),
+			'collectionTarget' => sanitize_text_field( $settings['collection_target_id'] ?? '' ),
 			'cctType'         => sanitize_key( $settings['cct_type'] ?? '' ),
 			'cctTemplateId'   => absint( $settings['cct_template_id'] ?? 0 ),
 			'targetSelector'  => 'collection' === $provider ? '' : sanitize_text_field( $settings['target_selector'] ?? '' ),

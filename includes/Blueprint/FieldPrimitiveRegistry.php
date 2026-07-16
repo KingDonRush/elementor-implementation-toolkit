@@ -89,6 +89,7 @@ class FieldPrimitiveRegistry {
 			'email'           => $this->definition( 'scalar', [ 'email' ], [ 'text', 'url' ], true, true, true ),
 			'phone'           => $this->definition( 'scalar', [ 'phone' ], [ 'text', 'url' ], true, true, true ),
 			'url'             => $this->definition( 'scalar', [ 'url' ], [ 'url', 'text' ], true, true, true ),
+			'color'           => $this->definition( 'scalar', [ 'color' ], [ 'color', 'text' ], false, true, true ),
 			'address'         => $this->definition( 'object', [ 'address' ], [ 'text' ], true, true, false ),
 			'geopoint'        => $this->definition( 'object', [ 'geopoint' ], [ 'text' ], true, true, true ),
 			'taxonomy'        => $this->definition( 'list', [ 'taxonomy' ], [ 'text', 'url' ], true, true, true ),

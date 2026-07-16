@@ -40,6 +40,8 @@ class CollectionWidgetContract {
 				'sync_url' => ! empty( $surface['url_state'] ) ? 'yes' : '',
 				'show_active_chips' => ! empty( $surface['active_chips'] ) ? 'yes' : '',
 				'show_sort' => ! empty( $surface['sort_options'] ) ? 'yes' : '',
+				'auto_apply' => 'submit' === ( $surface['apply_mode'] ?? '' ) ? '' : 'yes',
+				'show_apply' => 'submit' === ( $surface['apply_mode'] ?? '' ) ? 'yes' : '',
 			],
 			'facet_field_ids' => array_values( array_map( 'strval', $surface['facet_field_ids'] ?? [] ) ),
 		];

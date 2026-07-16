@@ -23,10 +23,12 @@ class CollectionFacetPresenter {
 			$field_counts = $counts[ $field_id ] ?? [];
 			$facet_values = array_values( array_unique( array_merge( array_map( 'strval', array_keys( $options ) ), array_map( 'strval', array_keys( $field_counts ) ) ) ) );
 			foreach ( $facet_values as $value ) {
-				$count = (int) ( $field_counts[ $value ] ?? 0 );
+				$entry = $field_counts[ $value ] ?? 0;
+				$count = (int) ( is_array( $entry ) ? ( $entry['count'] ?? 0 ) : $entry );
+				$label = is_array( $entry ) ? ( $entry['label'] ?? $value ) : ( $options[ (string) $value ] ?? $this->fallback_label( $value, $fields[ $field_id ] ) );
 				$values[] = [
 					'value' => (string) $value,
-					'label' => sanitize_text_field( $options[ (string) $value ] ?? (string) $value ),
+					'label' => sanitize_text_field( $label ),
 					'count' => max( 0, $count ),
 					'available' => $count > 0,
 				];
@@ -34,5 +36,14 @@ class CollectionFacetPresenter {
 			$result[] = [ 'field_id' => $field_id, 'label' => $fields[ $field_id ]['name'], 'values' => $values ];
 		}
 		return $result;
+	}
+
+	private function fallback_label( $value, array $field ) {
+		if ( 'boolean' === ( $field['type'] ?? '' ) ) {
+			return in_array( (string) $value, [ '1', 'true' ], true )
+				? __( 'Yes', 'elementor-implementation-toolkit' )
+				: __( 'No', 'elementor-implementation-toolkit' );
+		}
+		return (string) $value;
 	}
 }

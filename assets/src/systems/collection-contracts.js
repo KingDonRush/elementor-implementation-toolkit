@@ -17,10 +17,24 @@ export function entityForCollection( document, collection ) {
 	return document.nodes.find( ( node ) => node.id === edge?.from ) || null;
 }
 
-export function queryFields( document, node, capability ) {
+export function adapterFieldsForEntity( document, entity, schema = {} ) {
+	if ( ! entity ) {
+		return [];
+	}
+	const adapterEdge = document.connections.find( ( connection ) => 'adapts' === connection.type && connection.to === entity.id );
+	const adapterNode = document.nodes.find( ( candidate ) => candidate.id === adapterEdge?.from );
+	const fields = schema.adapters?.[ adapterNode?.config?.adapter_id ]?.fields;
+	return Array.isArray( fields ) ? fields : [];
+}
+
+export function queryFields( document, node, capability, schema = {} ) {
 	const entity = entityForCollection( document, collectionForNode( document, node ) );
 	if ( ! entity ) {
 		return [];
+	}
+	const adapterFields = adapterFieldsForEntity( document, entity, schema );
+	if ( adapterFields.length ) {
+		return adapterFields.filter( ( field ) => Boolean( field.capabilities?.[ capability ] && field.indexing?.[ capability ] ) );
 	}
 	const groupIds = document.connections
 		.filter( ( connection ) => 'entity_fields' === connection.type && connection.from === entity.id )

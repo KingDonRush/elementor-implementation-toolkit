@@ -6,16 +6,22 @@ import {
   ToggleControl,
 } from "@wordpress/components";
 import { humanize } from "../contracts";
+import { adapterFieldsForEntity } from "../collection-contracts";
 import EntryActions from "./EntryActions";
 import EntryConditions from "./EntryConditions";
 import { EntrySteps, WorkflowDetails } from "./EntryWorkflowDetails";
 
-function entityFields(entry, document) {
+function entityFields(entry, document, schema) {
   const edge = document.connections.find(
     (connection) =>
       "entry_for" === connection.type && entry.id === connection.to,
   );
   if (!edge) return [];
+	const entity = document.nodes.find((node) => node.id === edge.from);
+	const adapterFields = adapterFieldsForEntity(document, entity, schema).filter(
+	  (field) => !field.validation?.read_only,
+	);
+	if (adapterFields.length) return adapterFields;
   const groups = document.connections
     .filter(
       (connection) =>
@@ -28,9 +34,9 @@ function entityFields(entry, document) {
   return groups.flatMap((group) => group.config.fields || []);
 }
 
-export default function EntryDecisions({ node, document, update }) {
+export default function EntryDecisions({ node, document, schema, update }) {
   const config = node.config || {};
-  const fields = entityFields(node, document);
+  const fields = entityFields(node, document, schema);
   const operations = config.operations || [];
   const updateConfig = (changes) =>
     update({ ...node, config: { ...config, ...changes } });

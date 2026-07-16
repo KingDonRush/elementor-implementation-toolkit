@@ -49,6 +49,7 @@ class CollectionContractPresenter {
 				'sort_options' => $sort,
 				'url_state' => ! empty( $surface['url_state'] ),
 				'active_chips' => ! empty( $surface['active_chips'] ),
+				'apply_mode' => $surface['apply_mode'] ?? 'automatic',
 			],
 			'page_size' => (int) $contract['page_size'],
 			'explain_available' => ! empty( $contract['explain'] ),

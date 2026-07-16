@@ -44,6 +44,10 @@ class FieldValueSanitizer {
 		if ( 'url' === $type ) {
 			return esc_url_raw( $value );
 		}
+		if ( 'color' === $type ) {
+			$color = sanitize_hex_color( (string) $value );
+			return $color ?: $this->error( 'color' );
+		}
 		if ( 'phone' === $type ) {
 			$value = preg_replace( '/[^0-9+() .-]/', '', (string) $value );
 			return substr( trim( $value ), 0, 40 );

@@ -8,6 +8,7 @@ namespace EIT\Entry;
 use EIT\CCT\Repository as CctRepository;
 use EIT\Infrastructure\NormalizedValueStore;
 use EIT\Infrastructure\Transaction;
+use EIT\Woo\WooValueGateway;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -18,11 +19,13 @@ class EntryStorageGateway {
 	private $cct;
 	private $normalized;
 	private $transaction;
+	private $woo;
 
-	public function __construct( CctRepository $cct = null, NormalizedValueStore $normalized = null, Transaction $transaction = null ) {
+	public function __construct( CctRepository $cct = null, NormalizedValueStore $normalized = null, Transaction $transaction = null, WooValueGateway $woo = null ) {
 		$this->cct = $cct ?: new CctRepository();
 		$this->normalized = $normalized ?: new NormalizedValueStore();
 		$this->transaction = $transaction ?: new Transaction();
+		$this->woo = $woo ?: new WooValueGateway();
 	}
 
 	public function item_context( array $contract, $item_id ) {
@@ -41,6 +44,17 @@ class EntryStorageGateway {
 			$item = $this->cct->get( $contract['entity']['definition']['slug'] ?? '', $item_id );
 			return $item ? [ 'id' => $item_id, 'author_id' => (int) ( $item['author_id'] ?? 0 ), 'status' => $item['status'] ] : null;
 		}
+		if ( $this->is_woo( $contract ) ) {
+			$product = $this->woo->get( $item_id );
+			if ( ! $product || ! is_callable( [ $product, 'get_status' ] ) ) {
+				return null;
+			}
+			return [
+				'id' => $item_id,
+				'author_id' => (int) get_post_field( 'post_author', $item_id ),
+				'status' => $this->from_post_status( $product->get_status() ),
+			];
+		}
 		return null;
 	}
 
@@ -51,6 +65,7 @@ class EntryStorageGateway {
 		}
 		$strategy = $contract['entity']['strategy'] ?? '';
 		$record = 'cct' === $strategy ? $this->cct->get( $contract['entity']['definition']['slug'], $item_id ) : null;
+		$product = $this->is_woo( $contract ) ? $this->woo->get( $item_id ) : null;
 		$values = [];
 		foreach ( $contract['fields'] ?? [] as $field ) {
 			$field_id = $field['id'];
@@ -62,7 +77,9 @@ class EntryStorageGateway {
 			} elseif ( 'taxonomy' === $field['type'] && 'cpt' === $strategy ) {
 				$values[ $field_id ] = wp_get_object_terms( $item_id, $field['taxonomy']['slug'] ?? $field['storage']['key'], [ 'fields' => 'ids' ] );
 			} else {
-				$stored = 'cpt' === $strategy ? get_post_meta( $item_id, $field['storage']['key'], true ) : ( $record[ $field['storage']['key'] ] ?? null );
+				$stored = $product
+					? $this->woo->read( $product, $field['storage']['key'] )
+					: ( 'cpt' === $strategy ? get_post_meta( $item_id, $field['storage']['key'], true ) : ( $record[ $field['storage']['key'] ] ?? null ) );
 				$values[ $field_id ] = $this->hydrate_value( $stored, $field );
 			}
 		}
@@ -72,9 +89,15 @@ class EntryStorageGateway {
 	public function save( array $contract, array $values, $item_id, $status, $actor_id, $content = null ) {
 		return $this->transaction->run(
 			function () use ( $contract, $values, $item_id, $status, $actor_id, $content ) {
-				$result = 'cpt' === ( $contract['entity']['strategy'] ?? '' )
-					? $this->save_cpt( $contract, $values, $item_id, $status, $actor_id, $content )
-					: $this->save_cct( $contract, $values, $item_id, $status, $actor_id );
+				if ( 'cpt' === ( $contract['entity']['strategy'] ?? '' ) ) {
+					$result = $this->save_cpt( $contract, $values, $item_id, $status, $actor_id, $content );
+				} elseif ( $this->is_woo( $contract ) ) {
+					$result = $this->save_woo( $contract, $values, $item_id, $status );
+				} elseif ( 'cct' === ( $contract['entity']['strategy'] ?? '' ) ) {
+					$result = $this->save_cct( $contract, $values, $item_id, $status, $actor_id );
+				} else {
+					$result = new \WP_Error( 'eit_entry_adapter_unsupported', __( 'This Entity adapter does not provide Entry persistence.', 'elementor-implementation-toolkit' ) );
+				}
 				if ( is_wp_error( $result ) ) {
 					return $result;
 				}
@@ -136,6 +159,17 @@ class EntryStorageGateway {
 		return $this->cct->save( $contract['entity']['definition']['slug'], $record, $item_id );
 	}
 
+	private function save_woo( array $contract, array $values, $item_id, $status ) {
+		$properties = [ 'status' => $this->to_woo_status( $status ) ];
+		foreach ( $contract['fields'] as $field ) {
+			if ( ! array_key_exists( $field['id'], $values ) || ! empty( $field['validation']['read_only'] ) ) {
+				continue;
+			}
+			$properties[ $field['storage']['key'] ] = $this->woo_value( $values[ $field['id'] ], $field );
+		}
+		return $item_id ? $this->woo->write( $item_id, $properties ) : $this->woo->create( $properties );
+	}
+
 	private function save_normalized( array $contract, array $values, $item_id ) {
 		foreach ( $contract['fields'] as $field ) {
 			if ( ! array_key_exists( $field['id'], $values ) ) {
@@ -182,7 +216,7 @@ class EntryStorageGateway {
 				if ( ! $attachment_id ) {
 					continue;
 				}
-				if ( 'cpt' === ( $contract['entity']['strategy'] ?? '' ) ) {
+				if ( 'cpt' === ( $contract['entity']['strategy'] ?? '' ) || $this->is_woo( $contract ) ) {
 					wp_update_post( [ 'ID' => $attachment_id, 'post_parent' => $item_id ] );
 				} else {
 					update_post_meta( $attachment_id, '_eit_entry_cct_owner', $contract['entity_id'] . ':' . $item_id );
@@ -216,11 +250,35 @@ class EntryStorageGateway {
 		return $value;
 	}
 
+	private function woo_value( $value, array $field ) {
+		if ( 'money' === ( $field['type'] ?? '' ) ) {
+			return is_array( $value ) ? ( $value['amount'] ?? '' ) : $value;
+		}
+		if ( in_array( $field['type'] ?? '', [ 'image', 'file' ], true ) ) {
+			return absint( is_array( $value ) ? ( $value['id'] ?? 0 ) : $value );
+		}
+		if ( 'gallery' === ( $field['type'] ?? '' ) ) {
+			return array_values( array_filter( array_map( fn( $item ) => absint( is_array( $item ) ? ( $item['id'] ?? 0 ) : $item ), (array) $value ) ) );
+		}
+		if ( 'taxonomy' === ( $field['type'] ?? '' ) ) {
+			return array_values( array_filter( array_map( 'absint', (array) $value ) ) );
+		}
+		return $value;
+	}
+
+	private function is_woo( array $contract ) {
+		return 'woocommerce' === ( $contract['entity']['adapter']['id'] ?? '' );
+	}
+
 	private function to_post_status( $status ) {
 		return [ 'draft' => 'draft', 'review' => 'pending', 'publish' => 'publish', 'archived' => 'eit_archived' ][ $status ] ?? 'draft';
 	}
 
+	private function to_woo_status( $status ) {
+		return [ 'draft' => 'draft', 'review' => 'pending', 'publish' => 'publish', 'archived' => 'private' ][ $status ] ?? 'draft';
+	}
+
 	private function from_post_status( $status ) {
-		return [ 'draft' => 'draft', 'pending' => 'review', 'publish' => 'publish', 'eit_archived' => 'archived' ][ $status ] ?? 'draft';
+		return [ 'draft' => 'draft', 'pending' => 'review', 'publish' => 'publish', 'private' => 'archived', 'eit_archived' => 'archived' ][ $status ] ?? 'draft';
 	}
 }

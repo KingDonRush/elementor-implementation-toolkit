@@ -1,6 +1,6 @@
 <?php
 /**
- * Optional Elementor Pro/Pro Elements CCT loop adapter.
+ * Public Elementor manager compatibility canary for Collection presentations.
  */
 
 namespace EIT\Elementor\Loop;
@@ -11,26 +11,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class CctLoopIntegration {
 
+	private $health = [ 'ok' => false, 'checked' => false ];
+
 	public function init_hooks() {
-		add_action( 'elementor/init', [ $this, 'register_skin_hooks' ], 100 );
+		add_action( 'elementor/init', [ $this, 'inspect_public_managers' ], 100 );
 	}
 
-	public function register_skin_hooks() {
-		if (
-			! class_exists( '\Elementor\Skin_Base' )
-			|| ! class_exists( '\ElementorPro\Modules\LoopBuilder\Skins\Skin_Loop_Base' )
-		) {
-			return;
-		}
+	public function inspect_public_managers() {
+		$plugin = class_exists( '\Elementor\Plugin' ) ? \Elementor\Plugin::$instance : null;
+		$documents = is_object( $plugin ) ? $plugin->documents : null;
+		$widgets = is_object( $plugin ) ? $plugin->widgets_manager : null;
+		$this->health = [
+			'ok' => is_object( $documents ) && method_exists( $documents, 'get' ) && is_object( $widgets ),
+			'checked' => true,
+			'elementor_version' => defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : null,
+			'capabilities' => [ 'public_documents_manager', 'public_widgets_manager' ],
+		];
+		do_action( 'eit_elementor_public_bridge_canary', $this->health );
+	}
 
-		foreach ( [ 'loop-grid', 'loop-carousel' ] as $widget ) {
-			add_action(
-				'elementor/widget/' . $widget . '/skins_init',
-				function ( $loop_widget ) {
-					$loop_widget->add_skin( new SkinLoopCct( $loop_widget ) );
-				},
-				20
-			);
-		}
+	public function health_check() {
+		return $this->health;
 	}
 }

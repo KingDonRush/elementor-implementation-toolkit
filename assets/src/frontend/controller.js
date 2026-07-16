@@ -88,7 +88,12 @@ export class Controller {
   }
 
   findTarget() {
-    if ('collection' === this.config.provider) return this.$root.find('[data-eit-collection-results]').get(0) || null;
+    if ('collection' === this.config.provider) {
+      if (this.config.collectionTarget) {
+        return document.querySelector(`[data-eit-collection-surface="${cssEscape(this.config.collectionTarget)}"] [data-eit-collection-results]`);
+      }
+      return this.$root.find('[data-eit-collection-results]').get(0) || null;
+    }
     const selector = this.config.targetSelector || '';
     const target = selector ? document.querySelector(selector) : null;
     if (target) return target;
