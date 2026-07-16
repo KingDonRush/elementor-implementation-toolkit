@@ -24,6 +24,9 @@ class Tables {
 	const MULTIVALUES = 'multivalue_values';
 	const ENTRY_SUBMISSIONS = 'entry_submissions';
 	const ACTION_JOBS = 'entry_action_jobs';
+	const MIGRATIONS = 'migrations';
+	const RUN_EVENTS = 'run_events';
+	const QA_SCENARIOS = 'qa_scenarios';
 
 	public static function name( $table ) {
 		global $wpdb;
@@ -49,6 +52,9 @@ class Tables {
 			self::MULTIVALUES,
 			self::ENTRY_SUBMISSIONS,
 			self::ACTION_JOBS,
+			self::MIGRATIONS,
+			self::RUN_EVENTS,
+			self::QA_SCENARIOS,
 		];
 	}
 }

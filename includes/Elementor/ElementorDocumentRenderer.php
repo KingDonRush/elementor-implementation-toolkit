@@ -15,7 +15,20 @@ class ElementorDocumentRenderer {
 
 	public function render( $template_id ) {
 		$document = $this->document( $template_id );
-		if ( ! $document || ! method_exists( $document, 'print_content' ) ) {
+		if ( ! $document ) {
+			return '';
+		}
+		$plugin = class_exists( '\Elementor\Plugin' ) ? \Elementor\Plugin::$instance : null;
+		$frontend = is_object( $plugin ) ? $plugin->frontend : null;
+		if ( is_object( $frontend ) && method_exists( $frontend, 'get_builder_content_for_display' ) ) {
+			try {
+				return (string) $frontend->get_builder_content_for_display( absint( $template_id ), true );
+			} catch ( \Throwable $error ) {
+				do_action( 'eit_elementor_document_render_error', absint( $template_id ), $error );
+				return '';
+			}
+		}
+		if ( ! method_exists( $document, 'print_content' ) ) {
 			return '';
 		}
 		ob_start();

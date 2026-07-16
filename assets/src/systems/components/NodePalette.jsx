@@ -1,12 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/components';
 import { useDispatch, useSelect } from '@wordpress/data';
-import { autoLayout, createNode, laneLabels } from '../contracts';
+import { autoLayout, createNode, laneLabels, nodeTypeLabels } from '../contracts';
 import { STORE_NAME } from '../store';
-
-const typeLabels = {
-	entity: __( 'Entity', 'elementor-implementation-toolkit' ), field_group: __( 'Field Group', 'elementor-implementation-toolkit' ), relation: __( 'Relation', 'elementor-implementation-toolkit' ), entry_surface: __( 'Entry Surface', 'elementor-implementation-toolkit' ), collection: __( 'Collection', 'elementor-implementation-toolkit' ), filter_surface: __( 'Filter Surface', 'elementor-implementation-toolkit' ), presentation: __( 'Presentation', 'elementor-implementation-toolkit' ), route: __( 'Route', 'elementor-implementation-toolkit' ), policy: __( 'Policy', 'elementor-implementation-toolkit' ), adapter: __( 'Adapter', 'elementor-implementation-toolkit' ),
-};
 
 export default function NodePalette() {
 	const { document, schema } = useSelect( ( select ) => select( STORE_NAME ).getState(), [] );
@@ -27,7 +23,7 @@ export default function NodePalette() {
 			{ Object.entries( laneLabels ).map( ( [ lane, label ] ) => (
 				<details key={ lane }>
 					<summary>{ label }</summary>
-					<div>{ Object.entries( schema.node_types ).filter( ( entry ) => entry[ 1 ] === lane ).map( ( [ type ] ) => <Button key={ type } variant="tertiary" onClick={ () => addNode( type ) }>{ typeLabels[ type ] }</Button> ) }</div>
+					<div>{ Object.entries( schema.node_types ).filter( ( entry ) => entry[ 1 ] === lane ).map( ( [ type ] ) => <Button key={ type } variant="tertiary" onClick={ () => addNode( type ) }>{ nodeTypeLabels[ type ] }</Button> ) }</div>
 				</details>
 			) ) }
 			<Button variant="secondary" onClick={ () => updateDocument( autoLayout( document ) ) }>{ __( 'Auto-arrange map', 'elementor-implementation-toolkit' ) }</Button>

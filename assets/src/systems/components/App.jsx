@@ -182,7 +182,7 @@ export default function App() {
 		<a className="screen-reader-text" href="#eit-system-main">{ __( 'Skip to system workspace', 'elementor-implementation-toolkit' ) }</a>
 		<div className="eit-system-live" aria-live="polite" aria-atomic="true">{ notice ? <Notice status={ notice.status } onRemove={ () => dispatch.setNotice( null ) }>{ notice.message }</Notice> : null }</div>
 		{ current ? <WorkspaceErrorBoundary onRecover={ requestClose }><Workspace onBack={ requestClose } onSave={ () => persist() } onValidate={ validate } onImpact={ reviewImpact } /></WorkspaceErrorBoundary> : <SystemList systems={ systems } busy={ busy } onCreate={ create } onOpen={ open } /> }
-		<ImpactDialog prepared={ prepared } version={ document?.version || 1 } busy={ busy } onClose={ () => dispatch.setPrepared( null ) } onPublish={ publish } />
+		<ImpactDialog prepared={ prepared } document={ document } version={ document?.version || 1 } busy={ busy } onClose={ () => dispatch.setPrepared( null ) } onPublish={ publish } />
 		<DiscardDialog open={ discarding } onCancel={ () => setDiscarding( false ) } onDiscard={ closeSystem } />
 	</>;
 }

@@ -12,11 +12,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class RunStore {
+	private $redactor;
+
+	public function __construct( PayloadRedactor $redactor = null ) {
+		$this->redactor = $redactor ?: new PayloadRedactor();
+	}
 
 	public function start( $blueprint_id, $operation, $change_set_id = null, array $context = [] ) {
 		global $wpdb;
 
-		$encoded = JsonCodec::encode( $this->redact( $context ) );
+		$encoded = JsonCodec::encode( $this->redactor->redact( $context ) );
 		if ( is_wp_error( $encoded ) ) {
 			return $encoded;
 		}
@@ -68,21 +73,24 @@ class RunStore {
 
 		$table = Tables::name( Tables::RUNS );
 		$limit = min( 100, max( 1, absint( $limit ) ) );
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$table}` ORDER BY started_at DESC LIMIT %d", $limit ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		foreach ( $rows ?: [] as &$row ) {
-			$row['context'] = JsonCodec::decode( $row['context'], [] );
+		$events = Tables::name( Tables::RUN_EVENTS );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT r.*, (SELECT COUNT(*) FROM `{$events}` e WHERE e.run_id = r.id) event_count FROM `{$table}` r ORDER BY r.started_at DESC LIMIT %d", $limit ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( ! $rows ) {
+			return [];
 		}
-		return $rows ?: [];
+		foreach ( $rows as &$row ) {
+			$row['context'] = JsonCodec::decode( $row['context'], [] );
+			$row['event_count'] = (int) $row['event_count'];
+		}
+		unset( $row );
+		return $rows;
 	}
 
-	private function redact( array $context ) {
-		foreach ( $context as $key => $value ) {
-			if ( preg_match( '/secret|token|password|authorization|cookie/i', (string) $key ) ) {
-				$context[ $key ] = '[redacted]';
-			} elseif ( is_array( $value ) ) {
-				$context[ $key ] = $this->redact( $value );
-			}
+	public function with_events( $id ) {
+		$run = $this->get( $id );
+		if ( $run ) {
+			$run['events'] = ( new RunEventStore( $this->redactor ) )->for_run( $id );
 		}
-		return $context;
+		return $run;
 	}
 }

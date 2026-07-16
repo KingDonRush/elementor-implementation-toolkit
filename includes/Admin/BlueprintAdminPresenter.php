@@ -15,6 +15,9 @@ use EIT\Infrastructure\Tables;
 use EIT\Infrastructure\VersionStore;
 use EIT\Contracts\FieldContractSourceInterface;
 use EIT\Elementor\Contracts\ElementorTemplateCatalog;
+use EIT\Blueprint\MigrationService;
+use EIT\Diagnostics\HandoffNotesGenerator;
+use EIT\Diagnostics\ScenarioRunner;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -95,9 +98,22 @@ class BlueprintAdminPresenter {
 		return $this->runs->recent( $limit );
 	}
 
+	public function migration_inventory() {
+		return ( new MigrationService() )->inventory();
+	}
+
+	public function scenarios() {
+		return ( new ScenarioRunner() )->all();
+	}
+
+	public function handoff_notes() {
+		return ( new HandoffNotesGenerator() )->generate();
+	}
+
 	public function diagnostics() {
 		$schema = SchemaManager::verify();
 		$registries = BlueprintModule::registries();
+		$recent_runs = $this->runs->recent( 100 );
 		return [
 			'infrastructure' => [
 				'ok' => ! is_wp_error( $schema ),
@@ -113,6 +129,14 @@ class BlueprintAdminPresenter {
 			'elementor' => [
 				'available' => did_action( 'elementor/loaded' ) > 0,
 				'version' => defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : null,
+			],
+			'woocommerce' => [
+				'available' => defined( 'WC_VERSION' ) && class_exists( '\WooCommerce' ),
+				'version' => defined( 'WC_VERSION' ) ? WC_VERSION : null,
+			],
+			'flight_recorder' => [
+				'runs' => count( $recent_runs ),
+				'events' => array_sum( array_column( $recent_runs, 'event_count' ) ),
 			],
 		];
 	}

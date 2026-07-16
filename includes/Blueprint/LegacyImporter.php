@@ -17,15 +17,17 @@ class LegacyImporter {
 
 	private $factory;
 	private $canonicalizer;
+	private $elementor;
 
-	public function __construct( FieldContractFactory $factory = null, Canonicalizer $canonicalizer = null ) {
+	public function __construct( FieldContractFactory $factory = null, Canonicalizer $canonicalizer = null, ElementorDocumentImporter $elementor = null ) {
 		$this->factory = $factory ?: new FieldContractFactory( new FieldPrimitiveRegistry() );
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
+		$this->elementor = $elementor ?: new ElementorDocumentImporter( $this->canonicalizer );
 	}
 
 	public function inspect_all() {
 		$before = $this->legacy_snapshot();
-		$result = [ 'cpt' => [], 'cct' => [], 'filter_preset' => [] ];
+		$result = [ 'cpt' => [], 'cct' => [], 'filter_preset' => [], 'elementor_document' => [] ];
 		foreach ( $before['cpt'] as $slug => $definition ) {
 			$result['cpt'][ $slug ] = $this->import_entity( 'cpt', $slug, $definition );
 		}
@@ -35,6 +37,7 @@ class LegacyImporter {
 		foreach ( $before['filter_preset'] as $id => $preset ) {
 			$result['filter_preset'][ $id ] = $this->import_preset( $id, $preset );
 		}
+		$result['elementor_document'] = $this->elementor->inspect_all();
 		$after = $this->legacy_snapshot();
 
 		return [
@@ -43,6 +46,34 @@ class LegacyImporter {
 			'source_checksum' => $this->snapshot_checksum( $before ),
 			'blueprints' => $result,
 		];
+	}
+
+	public function candidate( $source_type, $source_key ) {
+		$source_type = sanitize_key( $source_type );
+		if ( 'elementor_document' === $source_type ) {
+			$blueprint = $this->elementor->import( absint( $source_key ) );
+			$post = get_post( absint( $source_key ) );
+			$raw = $post ? [ 'id' => $post->ID, 'type' => $post->post_type, 'status' => $post->post_status, 'modified' => $post->post_modified_gmt, 'data' => get_post_meta( $post->ID, '_elementor_data', true ) ] : null;
+			return $blueprint ? [ 'blueprint' => $blueprint, 'source_checksum' => $this->value_checksum( $raw ) ] : null;
+		}
+
+		$options = [
+			'cpt' => CptDefinitions::OPTION,
+			'cct' => CctDefinitions::OPTION,
+			'filter_preset' => FilterPresets::OPTION,
+		];
+		if ( ! isset( $options[ $source_type ] ) ) {
+			return null;
+		}
+		$records = $this->option_array( $options[ $source_type ] );
+		$key = sanitize_key( $source_key );
+		if ( ! isset( $records[ $key ] ) || ! is_array( $records[ $key ] ) ) {
+			return null;
+		}
+		$blueprint = 'filter_preset' === $source_type
+			? $this->import_preset( $key, $records[ $key ] )
+			: $this->import_entity( $source_type, $key, $records[ $key ] );
+		return [ 'blueprint' => $blueprint, 'source_checksum' => $this->value_checksum( $records[ $key ] ) ];
 	}
 
 	public function import_entity( $strategy, $slug, array $definition ) {
@@ -163,7 +194,7 @@ class LegacyImporter {
 
 	private function legacy_field( $seed, $key, $label, $type, array $legacy ) {
 		$id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:' . $seed . ':' . $key );
-		return $this->factory->make(
+		$contract = $this->factory->make(
 			$id,
 			$label,
 			$type,
@@ -171,9 +202,21 @@ class LegacyImporter {
 				'validation' => [ 'required' => ! empty( $legacy['required'] ) ],
 				'exposure' => [ 'public' => ! empty( $legacy['show_in_rest'] ) || ! empty( $legacy['public'] ) ],
 				'storage' => [ 'key' => $key, 'aliases' => [ $key ] ],
-				'indexing' => [ 'filter' => ! empty( $legacy['filterable'] ), 'sort' => ! empty( $legacy['sortable'] ) ],
 			]
 		);
+		$requested = [ 'filter' => ! empty( $legacy['filterable'] ), 'sort' => ! empty( $legacy['sortable'] ) ];
+		$downgrades = [];
+		foreach ( $requested as $capability => $enabled ) {
+			$supported = ! empty( $contract['capabilities'][ $capability ] );
+			$contract['indexing'][ $capability ] = $enabled && $supported;
+			if ( $enabled && ! $supported ) {
+				$downgrades[] = $capability;
+			}
+		}
+		if ( $downgrades ) {
+			$contract['migration'] = [ 'capability_downgrades' => $downgrades, 'reason' => 'Legacy intent is incompatible with the selected semantic primitive.' ];
+		}
+		return $contract;
 	}
 
 	private function primitive( $legacy_type ) {
@@ -200,6 +243,7 @@ class LegacyImporter {
 			'cpt' => $this->option_array( CptDefinitions::OPTION ),
 			'cct' => $this->option_array( CctDefinitions::OPTION ),
 			'filter_preset' => $this->option_array( FilterPresets::OPTION ),
+			'elementor_document' => $this->elementor->snapshot(),
 		];
 	}
 
@@ -209,6 +253,10 @@ class LegacyImporter {
 	}
 
 	private function snapshot_checksum( array $snapshot ) {
-		return hash( 'sha256', wp_json_encode( $snapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
+		return $this->value_checksum( $snapshot );
+	}
+
+	private function value_checksum( $value ) {
+		return hash( 'sha256', wp_json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
 	}
 }

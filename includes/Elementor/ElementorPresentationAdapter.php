@@ -42,8 +42,12 @@ class ElementorPresentationAdapter implements PresentationAdapterInterface {
 
 	public function compile( array $presentation, array $context = [] ) {
 		$template_id = absint( $presentation['config']['template_id'] ?? 0 );
+		$document_id = absint( $presentation['config']['document_id'] ?? 0 );
 		if ( $template_id && ! $this->templates->is_public( $template_id ) ) {
 			return new \WP_Error( 'eit_elementor_template_unavailable', __( 'The selected Elementor template must exist and be published.', 'elementor-implementation-toolkit' ) );
+		}
+		if ( $document_id && ! $this->templates->is_builder_document( $document_id ) ) {
+			return new \WP_Error( 'eit_elementor_document_unavailable', __( 'The imported Elementor document must still exist and be published.', 'elementor-implementation-toolkit' ) );
 		}
 		$sources = [];
 		$connector = 'field';
@@ -72,6 +76,7 @@ class ElementorPresentationAdapter implements PresentationAdapterInterface {
 			'connector' => $connector,
 			'sources' => $sources,
 			'template_id' => $template_id,
+			'document_id' => $document_id,
 		];
 	}
 

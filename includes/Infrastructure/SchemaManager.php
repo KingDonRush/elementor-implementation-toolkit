@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SchemaManager {
 
-	const VERSION = '2';
+	const VERSION = '3';
 	const VERSION_OPTION = 'eit_blueprint_schema_version';
 
 	public static function maybe_upgrade() {
@@ -254,6 +254,50 @@ class SchemaManager {
 				UNIQUE KEY submission_action (submission_id,action_id,event),
 				KEY retry_queue (status,available_at)
 			) {$collate};",
+			"CREATE TABLE {$table( Tables::MIGRATIONS )} (
+				id char(36) NOT NULL,
+				source_type varchar(32) NOT NULL,
+				source_key varchar(191) NOT NULL,
+				blueprint_id char(36) NOT NULL,
+				source_checksum char(64) NOT NULL,
+				draft_checksum char(64) NOT NULL,
+				status varchar(24) NOT NULL,
+				comparison longtext NOT NULL,
+				created_by bigint(20) unsigned NOT NULL DEFAULT 0,
+				created_at datetime NOT NULL,
+				updated_at datetime NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY source_identity (source_type,source_key),
+				KEY blueprint_status (blueprint_id,status)
+			) {$collate};",
+			"CREATE TABLE {$table( Tables::RUN_EVENTS )} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				run_id char(36) NOT NULL,
+				sequence int(10) unsigned NOT NULL,
+				event_type varchar(64) NOT NULL,
+				payload longtext NOT NULL,
+				duration_ms decimal(12,3) DEFAULT NULL,
+				recorded_at datetime NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY run_sequence (run_id,sequence),
+				KEY event_type (event_type)
+			) {$collate};",
+			"CREATE TABLE {$table( Tables::QA_SCENARIOS )} (
+				id char(36) NOT NULL,
+				blueprint_id char(36) DEFAULT NULL,
+				name varchar(191) NOT NULL,
+				kind varchar(32) NOT NULL,
+				request longtext NOT NULL,
+				expected longtext NOT NULL,
+				last_result longtext DEFAULT NULL,
+				status varchar(24) NOT NULL,
+				created_by bigint(20) unsigned NOT NULL DEFAULT 0,
+				created_at datetime NOT NULL,
+				updated_at datetime NOT NULL,
+				PRIMARY KEY  (id),
+				KEY blueprint_kind (blueprint_id,kind),
+				KEY status (status)
+			) {$collate};",
 		];
 	}
 
@@ -272,6 +316,9 @@ class SchemaManager {
 			Tables::MULTIVALUES => [ 'id', 'field_id', 'owner_id', 'row_id', 'value' ],
 			Tables::ENTRY_SUBMISSIONS => [ 'id', 'surface_id', 'actor_key', 'idempotency_hash', 'payload_checksum', 'status', 'response' ],
 			Tables::ACTION_JOBS => [ 'id', 'submission_id', 'action_id', 'action_type', 'status', 'attempts', 'context', 'available_at' ],
+			Tables::MIGRATIONS => [ 'id', 'source_type', 'source_key', 'blueprint_id', 'source_checksum', 'draft_checksum', 'status', 'comparison' ],
+			Tables::RUN_EVENTS => [ 'id', 'run_id', 'sequence', 'event_type', 'payload', 'duration_ms' ],
+			Tables::QA_SCENARIOS => [ 'id', 'blueprint_id', 'name', 'kind', 'request', 'expected', 'last_result', 'status' ],
 		];
 	}
 

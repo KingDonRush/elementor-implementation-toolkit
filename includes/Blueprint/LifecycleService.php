@@ -13,6 +13,7 @@ use EIT\Infrastructure\LockStore;
 use EIT\Infrastructure\ReconciliationStore;
 use EIT\Infrastructure\RollbackStore;
 use EIT\Infrastructure\RunStore;
+use EIT\Infrastructure\RunEventStore;
 use EIT\Infrastructure\RuntimeCache;
 use EIT\Infrastructure\Transaction;
 use EIT\Infrastructure\VersionStore;
@@ -27,6 +28,7 @@ class LifecycleService {
 	private $canonicalizer;
 	private $compiler;
 	private $impact_planner;
+	private $impact_map;
 	private $preparer;
 	private $blueprints;
 	private $versions;
@@ -35,6 +37,7 @@ class LifecycleService {
 	private $change_sets;
 	private $locks;
 	private $runs;
+	private $run_events;
 	private $reconciliations;
 	private $rollbacks;
 	private $cache;
@@ -45,6 +48,7 @@ class LifecycleService {
 		$this->canonicalizer = $dependencies['canonicalizer'] ?? new Canonicalizer();
 		$this->compiler = $dependencies['compiler'] ?? new Compiler();
 		$this->impact_planner = $dependencies['impact_planner'] ?? new ImpactPlanner();
+		$this->impact_map = $dependencies['impact_map'] ?? new ImpactMapBuilder();
 		$this->preparer = $dependencies['preparer'] ?? new RuntimeArtifactPreparer();
 		$this->blueprints = $dependencies['blueprints'] ?? new BlueprintStore();
 		$this->versions = $dependencies['versions'] ?? new VersionStore();
@@ -53,6 +57,7 @@ class LifecycleService {
 		$this->change_sets = $dependencies['change_sets'] ?? new ChangeSetStore();
 		$this->locks = $dependencies['locks'] ?? new LockStore();
 		$this->runs = $dependencies['runs'] ?? new RunStore();
+		$this->run_events = $dependencies['run_events'] ?? new RunEventStore();
 		$this->reconciliations = $dependencies['reconciliations'] ?? new ReconciliationStore();
 		$this->rollbacks = $dependencies['rollbacks'] ?? new RollbackStore();
 		$this->cache = $dependencies['cache'] ?? new RuntimeCache();
@@ -87,6 +92,7 @@ class LifecycleService {
 		$active_artifacts = $active_version_id ? $this->artifacts->for_version( $active_version_id ) : [];
 		$active_bindings = $active_version_id ? $this->bindings->for_version( $active_version_id ) : [];
 		$impact = $this->impact_planner->plan( $active_artifacts, $active_bindings, $compiled->artifacts(), $compiled->bindings() );
+		$impact['map'] = $this->impact_map->build( $blueprint['draft_document'], $impact );
 		$token = bin2hex( random_bytes( 32 ) );
 		$record = $this->change_sets->create(
 			[
@@ -142,8 +148,26 @@ class LifecycleService {
 			$this->locks->release( $resource, $lock );
 			return $run;
 		}
+		$recorded = $this->run_events->append(
+			$run['id'],
+			'compiled',
+			[
+				'compiler_checksum' => $change_set['compiled_artifacts']['compiler_checksum'],
+				'artifact_count' => count( $change_set['compiled_artifacts']['artifacts'] ),
+				'binding_count' => count( $change_set['compiled_artifacts']['bindings'] ),
+				'impact' => $change_set['impact']['summary'] ?? [],
+			]
+		);
+		if ( is_wp_error( $recorded ) ) {
+			$this->change_sets->transition( $change_set_id, 'applying', 'failed' );
+			$this->runs->finish( $run['id'], 'failed', $recorded );
+			$this->locks->release( $resource, $lock );
+			return $recorded;
+		}
 
+		$prepare_started = microtime( true );
 		$prepared = $this->preparer->prepare( $change_set['compiled_artifacts']['artifacts'], [ 'change_set_id' => $change_set_id ] );
+		$this->run_events->append( $run['id'], 'runtime_prepared', [ 'ok' => ! is_wp_error( $prepared ) ], ( microtime( true ) - $prepare_started ) * 1000 );
 		if ( is_wp_error( $prepared ) ) {
 			$this->change_sets->transition( $change_set_id, 'applying', 'failed' );
 			$this->runs->finish( $run['id'], 'failed', $prepared );
@@ -175,10 +199,12 @@ class LifecycleService {
 		);
 
 		if ( is_wp_error( $result ) ) {
+			$this->run_events->append( $run['id'], 'transaction_failed', [ 'error' => [ 'code' => $result->get_error_code(), 'message' => $result->get_error_message() ] ] );
 			$this->change_sets->transition( $change_set_id, 'applying', 'failed' );
 			$this->runs->finish( $run['id'], 'failed', $result );
 		} else {
 			$this->cache->set( $change_set['blueprint_id'], $result['id'], $change_set['compiled_artifacts']['artifacts'] );
+			$this->run_events->append( $run['id'], 'version_activated', [ 'version_id' => $result['id'], 'version' => $result['version'], 'checksum' => $result['checksum'] ] );
 			$this->runs->finish( $run['id'], 'succeeded' );
 			RuntimeDefinitionProvider::invalidate();
 		}
@@ -192,6 +218,10 @@ class LifecycleService {
 			return new \WP_Error( 'eit_change_set_not_applied', __( 'Only an applied change set can be reconciled.', 'elementor-implementation-toolkit' ) );
 		}
 		$blueprint = $this->blueprints->get( $change_set['blueprint_id'] );
+		$run = $this->runs->start( $change_set['blueprint_id'], 'reconcile', $change_set_id, [ 'active_version_id' => $blueprint['active_version_id'] ?? null ] );
+		if ( is_wp_error( $run ) ) {
+			return $run;
+		}
 		$stored = $this->artifacts->for_version( $blueprint['active_version_id'] );
 		$expected = array_column( $change_set['compiled_artifacts']['artifacts'], 'checksum', 'id' );
 		$actual = array_column( $stored, 'checksum', 'id' );
@@ -199,10 +229,15 @@ class LifecycleService {
 		ksort( $actual );
 		$status = $expected === $actual ? 'verified' : 'mismatch';
 		$proof = $this->reconciliations->record( $change_set['blueprint_id'], $change_set_id, $status, [ 'expected' => count( $expected ), 'actual' => count( $actual ) ], [ 'expected' => hash( 'sha256', wp_json_encode( $expected ) ), 'actual' => hash( 'sha256', wp_json_encode( $actual ) ) ] );
+		$this->run_events->append( $run['id'], 'artifacts_compared', [ 'status' => $status, 'expected_count' => count( $expected ), 'actual_count' => count( $actual ), 'expected_checksum' => hash( 'sha256', wp_json_encode( $expected ) ), 'actual_checksum' => hash( 'sha256', wp_json_encode( $actual ) ) ] );
 		if ( is_wp_error( $proof ) || 'verified' !== $status ) {
-			return is_wp_error( $proof ) ? $proof : new \WP_Error( 'eit_reconciliation_mismatch', __( 'Published artifacts do not match the prepared change set.', 'elementor-implementation-toolkit' ) );
+			$error = is_wp_error( $proof ) ? $proof : new \WP_Error( 'eit_reconciliation_mismatch', __( 'Published artifacts do not match the prepared change set.', 'elementor-implementation-toolkit' ) );
+			$this->runs->finish( $run['id'], 'failed', $error );
+			return $error;
 		}
-		return $this->change_sets->transition( $change_set_id, 'applied', 'reconciled' );
+		$result = $this->change_sets->transition( $change_set_id, 'applied', 'reconciled' );
+		$this->runs->finish( $run['id'], is_wp_error( $result ) ? 'failed' : 'succeeded', is_wp_error( $result ) ? $result : null );
+		return $result;
 	}
 
 	public function rollback( $blueprint_id, $target_version_id, $reason, $user_id = 0 ) {
@@ -216,13 +251,19 @@ class LifecycleService {
 		if ( is_wp_error( $lock ) ) {
 			return $lock;
 		}
+		$from_version_id = $blueprint['active_version_id'];
+		$run = $this->runs->start( $blueprint_id, 'rollback', null, [ 'from_version_id' => $from_version_id, 'to_version_id' => $target_version_id, 'reason_checksum' => hash( 'sha256', (string) $reason ) ] );
+		if ( is_wp_error( $run ) ) {
+			$this->locks->release( $resource, $lock );
+			return $run;
+		}
 		$target_artifacts = $this->artifacts->for_version( $target_version_id );
 		$prepared = $this->preparer->prepare( $target_artifacts, [ 'operation' => 'rollback' ] );
 		if ( is_wp_error( $prepared ) ) {
+			$this->runs->finish( $run['id'], 'failed', $prepared );
 			$this->locks->release( $resource, $lock );
 			return $prepared;
 		}
-		$from_version_id = $blueprint['active_version_id'];
 		$result = $this->transaction->run(
 			function () use ( $blueprint_id, $from_version_id, $target_version_id, $reason, $user_id ) {
 				$activated = $this->blueprints->set_active_version( $blueprint_id, $target_version_id );
@@ -234,7 +275,11 @@ class LifecycleService {
 		);
 		if ( ! is_wp_error( $result ) ) {
 			$this->cache->set( $blueprint_id, $target_version_id, $target_artifacts );
+			$this->run_events->append( $run['id'], 'version_reactivated', [ 'from_version_id' => $from_version_id, 'to_version_id' => $target_version_id, 'artifact_count' => count( $target_artifacts ) ] );
+			$this->runs->finish( $run['id'], 'succeeded' );
 			RuntimeDefinitionProvider::invalidate();
+		} else {
+			$this->runs->finish( $run['id'], 'failed', $result );
 		}
 		$this->locks->release( $resource, $lock );
 		return $result;

@@ -63,6 +63,33 @@ class Assets {
 			true
 		);
 
+		wp_localize_script(
+			'eit-admin',
+			'eitAdminConfig',
+			[
+				'restRoot' => esc_url_raw( wp_make_link_relative( rest_url( 'eit/v1' ) ) ),
+				'nonce' => wp_create_nonce( 'wp_rest' ),
+				'i18n' => [
+					'migrationChoose' => __( 'Choose at least one legacy source.', 'elementor-implementation-toolkit' ),
+					'migrationPreparing' => __( 'Preparing checksum-bound migration plan…', 'elementor-implementation-toolkit' ),
+					'migrationPrepared' => __( '%d draft candidates are ready for explicit confirmation.', 'elementor-implementation-toolkit' ),
+					'migrationApplying' => __( 'Creating drafts and running shadow comparisons…', 'elementor-implementation-toolkit' ),
+					'migrationComplete' => __( 'Shadow import recorded. Refreshing diagnostics…', 'elementor-implementation-toolkit' ),
+					'migrationPartial' => __( '%d source imports failed. Review source drift and prepare again.', 'elementor-implementation-toolkit' ),
+					'migrationFailed' => __( 'The migration operation could not be completed.', 'elementor-implementation-toolkit' ),
+					'handoffCopied' => __( 'Markdown copied.', 'elementor-implementation-toolkit' ),
+				],
+			]
+		);
+
+		wp_register_script(
+			'eit-diagnostics',
+			EIT_URL . 'assets/js/eit-diagnostics.js',
+			[ 'eit-admin' ],
+			EIT_VERSION,
+			true
+		);
+
 		wp_register_style(
 			'eit-admin',
 			EIT_URL . 'assets/css/eit-admin.css',
@@ -144,6 +171,7 @@ class Assets {
 		$is_toolkit_page = false !== strpos( (string) $hook_suffix, 'eit-' ) || false !== strpos( (string) $hook_suffix, 'implementation-toolkit' );
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		$is_systems_screen = $screen && 'toplevel_page_' . AdminPages::DASHBOARD_SLUG === $screen->id;
+		$is_diagnostics_screen = $screen && 'implementation-toolkit_page_' . AdminPages::DIAGNOSTICS_SLUG === $screen->id;
 		$is_managed_cpt_screen = $screen && ! empty( $screen->post_type ) && array_key_exists( $screen->post_type, CptManager::all() );
 		$is_cct_screen = false !== strpos( (string) $hook_suffix, CctItemAdmin::PAGE_PREFIX );
 
@@ -161,6 +189,9 @@ class Assets {
 		wp_enqueue_style( 'eit-admin' );
 		if ( $is_systems_screen ) {
 			$this->enqueue_systems_assets();
+		}
+		if ( $is_diagnostics_screen ) {
+			wp_enqueue_script( 'eit-diagnostics' );
 		}
 	}
 

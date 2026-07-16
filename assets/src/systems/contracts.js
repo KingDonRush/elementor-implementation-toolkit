@@ -15,6 +15,19 @@ export const nodeCopy = {
 	adapter: [ __( 'Declares an external system that remains authoritative.', 'elementor-implementation-toolkit' ), __( 'Adapter contract', 'elementor-implementation-toolkit' ) ],
 };
 
+export const nodeTypeLabels = {
+	entity: __( 'Entity', 'elementor-implementation-toolkit' ),
+	field_group: __( 'Field Group', 'elementor-implementation-toolkit' ),
+	relation: __( 'Relation', 'elementor-implementation-toolkit' ),
+	entry_surface: __( 'Entry Surface', 'elementor-implementation-toolkit' ),
+	collection: __( 'Collection', 'elementor-implementation-toolkit' ),
+	filter_surface: __( 'Filter Surface', 'elementor-implementation-toolkit' ),
+	presentation: __( 'Presentation', 'elementor-implementation-toolkit' ),
+	route: __( 'Route', 'elementor-implementation-toolkit' ),
+	policy: __( 'Policy', 'elementor-implementation-toolkit' ),
+	adapter: __( 'Adapter', 'elementor-implementation-toolkit' ),
+};
+
 export const laneLabels = {
 	data: __( 'Data', 'elementor-implementation-toolkit' ),
 	experience: __( 'Experience', 'elementor-implementation-toolkit' ),

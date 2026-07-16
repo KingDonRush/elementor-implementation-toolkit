@@ -51,4 +51,12 @@ class ElementorTemplateCatalog {
 			&& in_array( $type, self::TYPES, true )
 			&& 'filter_controller' !== get_post_meta( $template_id, '_eit_template_role', true );
 	}
+
+	public function is_builder_document( $document_id ) {
+		$document_id = absint( $document_id );
+		return $document_id
+			&& 'revision' !== get_post_type( $document_id )
+			&& 'publish' === get_post_status( $document_id )
+			&& 'builder' === get_post_meta( $document_id, '_elementor_edit_mode', true );
+	}
 }

@@ -214,7 +214,7 @@
 .eit-row-sub {
 	display: block;
 	margin-top: 3px;
-	color: var(--eit-muted);
+	color: #50575e;
 	font-size: 12px;
 }
 
@@ -297,4 +297,86 @@
 	margin: 0;
 	padding: 12px 14px;
 	border-top: 1px solid var(--eit-border-soft);
+}
+
+.eit-migration-pilot {
+	margin: 0 0 14px;
+	color: var(--eit-muted);
+}
+
+.eit-migration-actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 36px;
+	margin-top: 14px;
+}
+
+.eit-migration-actions [role="status"] {
+	color: var(--eit-muted);
+}
+
+.eit-migration-confirm {
+	max-width: 760px;
+	margin-top: 14px;
+	padding: 16px;
+	border-left: 4px solid var(--eit-blue);
+	background: var(--eit-bg-soft);
+}
+
+.eit-migration-confirm[hidden] {
+	display: none;
+}
+
+.eit-migration-confirm h3 {
+	margin: 0 0 8px;
+}
+
+.eit-migration-confirm p {
+	margin: 0 0 12px;
+}
+
+.eit-migration-confirm .button + .button {
+	margin-left: 8px;
+}
+
+.eit-handoff-notes {
+	min-height: 320px;
+	resize: vertical;
+	white-space: pre;
+}
+
+.eit-registry-card {
+	align-content: start;
+}
+
+.eit-registry-details summary {
+	cursor: pointer;
+	color: var(--eit-blue);
+	font-weight: 600;
+}
+
+.eit-registry-details summary:hover {
+	color: var(--eit-blue-dark);
+}
+
+.eit-registry-details[open] summary {
+	margin-bottom: 6px;
+}
+
+.eit-registry-list {
+	display: grid;
+}
+
+.eit-registry-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 9px 0;
+	border-top: 1px solid #f0f0f1;
+}
+
+.eit-registry-row > div {
+	min-width: 0;
 }
