@@ -185,6 +185,25 @@ class BlueprintValidator {
 				$errors[] = $this->error( $path . '.indexing.' . $capability, 'unsupported_capability', 'Primitive cannot provide the requested query capability.', $node_id );
 			}
 		}
+		$this->validate_numeric_constraints( $field, $path, $node_id, $errors );
+	}
+
+	private function validate_numeric_constraints( array $field, $path, $node_id, array &$errors ) {
+		if ( ! in_array( $field['type'] ?? '', [ 'integer', 'decimal', 'money', 'percentage', 'calculated' ], true ) ) {
+			return;
+		}
+		$validation = $field['validation'] ?? [];
+		foreach ( [ 'min', 'max', 'step' ] as $key ) {
+			if ( array_key_exists( $key, $validation ) && ! is_numeric( $validation[ $key ] ) ) {
+				$errors[] = $this->error( $path . '.validation.' . $key, 'numeric_constraint_invalid', 'Numeric query limits must be numbers.', $node_id );
+			}
+		}
+		if ( is_numeric( $validation['min'] ?? null ) && is_numeric( $validation['max'] ?? null ) && (float) $validation['min'] > (float) $validation['max'] ) {
+			$errors[] = $this->error( $path . '.validation', 'numeric_range_invalid', 'Numeric minimum cannot be greater than maximum.', $node_id );
+		}
+		if ( is_numeric( $validation['step'] ?? null ) && (float) $validation['step'] <= 0 ) {
+			$errors[] = $this->error( $path . '.validation.step', 'numeric_step_invalid', 'Numeric step must be greater than zero.', $node_id );
+		}
 	}
 
 	private function validate_connections( $connections, array $nodes, array &$errors ) {

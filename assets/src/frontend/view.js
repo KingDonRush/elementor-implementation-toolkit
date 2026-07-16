@@ -4,7 +4,7 @@ import { cssEscape, formatActiveValue, normalizeWhitespace, paginationWindow } f
 export function installView(Controller) {
   Object.assign(Controller.prototype, {
     applyResult(result) {
-      if ('string' === typeof result.html && 'cct' === this.config.provider) {
+      if ('string' === typeof result.html && ['cct', 'collection'].includes(this.config.provider)) {
         this.target.innerHTML = result.html;
         if (window.elementorFrontend?.elementsHandler) window.elementorFrontend.elementsHandler.runReadyTrigger($(this.target));
         this.refreshTarget();
@@ -27,8 +27,15 @@ export function installView(Controller) {
 
     renderMeta(result, filters = this.collectState().filters) {
       const count = Number(result.total || 0);
-      this.$root.find('[data-eit-result-count]').text((this.config.resultText || '{count} results').replace('{count}', count));
+      this.$root.find('[data-eit-result-count]').text(this.resultMessage(count));
       this.renderActiveChips(filters);
+    },
+
+    resultMessage(count) {
+      const template = 1 === Number(count)
+        ? (this.config.resultTextSingular || this.config.resultText || '{count} result')
+        : (this.config.resultText || '{count} results');
+      return template.replace('{count}', Number(count) || 0);
     },
 
     renderActiveChips(filters) {

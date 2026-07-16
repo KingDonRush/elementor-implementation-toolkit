@@ -51,6 +51,15 @@ class CollectionContractTest extends TestCase {
 		self::assertContains( 'collection_sort_direction_invalid', $codes );
 	}
 
+	public function test_invalid_numeric_filter_limits_are_rejected(): void {
+		$blueprint = $this->blueprint();
+		$blueprint['nodes'][1]['config']['fields'][0]['validation'] = [ 'required' => false, 'min' => 10, 'max' => 0, 'step' => 0 ];
+		$codes = array_column( ( new BlueprintValidator() )->validate( $blueprint )->errors(), 'code' );
+
+		self::assertContains( 'numeric_range_invalid', $codes );
+		self::assertContains( 'numeric_step_invalid', $codes );
+	}
+
 	private function blueprint(): array {
 		$factory = new FieldContractFactory( new FieldPrimitiveRegistry() );
 		$entity_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'collection:entity' );

@@ -1,26 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-
-async function login(page) {
-  await page.goto("/wp-login.php");
-  await page.locator("#user_login").fill(process.env.EIT_E2E_USER);
-  await page.locator("#user_pass").fill(process.env.EIT_E2E_PASSWORD);
-  await Promise.all([
-    page.waitForURL(/\/wp-admin\//),
-    page.locator("#wp-submit").click(),
-  ]);
-}
-
-async function expectNoAxeViolations(page, selector) {
-  const results = await new AxeBuilder({ page }).include(selector).analyze();
-  expect(results.violations).toEqual([]);
-}
-
-async function dismissWordPressPointer(page) {
-  await page
-    .locator(".wp-pointer")
-    .evaluateAll((pointers) => pointers.forEach((pointer) => pointer.remove()));
-}
+import { dismissWordPressPointer, expectNoAxeViolations, login } from "./helpers.js";
 
 test.describe.serial("Toolkit trust baseline", () => {
   test.afterEach(async ({ page }) => {
@@ -207,7 +186,7 @@ test.describe.serial("Toolkit trust baseline", () => {
     await expect(page.locator('[data-eit-client-id="alpha"]')).toBeHidden();
     await expect(page.locator('[data-eit-client-id="beta"]')).toBeVisible();
     await expect(controller.locator("[data-eit-result-count]")).toContainText(
-      "1 results",
+	  "1 result",
     );
     await expectNoAxeViolations(page, ".eit-filter-controller");
   });

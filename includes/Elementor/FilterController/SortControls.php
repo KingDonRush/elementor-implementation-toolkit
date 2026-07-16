@@ -19,7 +19,10 @@ class SortControls {
 	public static function register( Widget_Base $widget ) {
 		$widget->start_controls_section(
 			'section_sort',
-			[ 'label' => esc_html__( 'Sort', 'elementor-implementation-toolkit' ) ]
+			[
+				'label' => esc_html__( 'Sort', 'elementor-implementation-toolkit' ),
+				'condition' => [ 'data_provider!' => 'collection' ],
+			]
 		);
 		$widget->add_control(
 			'show_sort',

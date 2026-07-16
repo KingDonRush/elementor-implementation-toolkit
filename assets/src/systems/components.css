@@ -215,6 +215,32 @@
 	margin-top: 12px;
 }
 
+.eit-decision-stack {
+	display: grid;
+	gap: 4px;
+}
+
+.eit-decision-group {
+	min-width: 0;
+	margin: 12px 0 4px;
+	padding: 10px 12px 4px;
+	border: 1px solid var(--eit-border-soft);
+}
+
+.eit-decision-group legend {
+	padding: 0 4px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.eit-decision-group > p {
+	margin-bottom: 8px;
+}
+
+.eit-decision-group .components-base-control {
+	margin-top: 4px;
+}
+
 .eit-inspector-error {
 	margin-top: 5px !important;
 	color: var(--eit-red) !important;

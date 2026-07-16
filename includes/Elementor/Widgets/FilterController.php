@@ -8,6 +8,7 @@ namespace EIT\Elementor\Widgets;
 use Elementor\Widget_Base;
 use EIT\Elementor\ElementorIntegration;
 use EIT\Elementor\FilterController\ContentControls;
+use EIT\Elementor\FilterController\CollectionWidgetBridge;
 use EIT\Elementor\FilterController\FilterOptions;
 use EIT\Elementor\FilterController\Renderers\ActionButtonsRenderer;
 use EIT\Elementor\FilterController\Renderers\FilterRenderer;
@@ -64,9 +65,21 @@ class FilterController extends Widget_Base {
 
 	protected function render() {
 		$settings = FilterSettings::resolve_preset_settings( $this->get_settings_for_display() );
-		$filters  = FilterSettings::normalize_filters( $settings['filters'] ?? [] );
-		$sort_options_raw = SortOptions::resolve_lines( $settings['sort_options_items'] ?? null, $settings['sort_options'] ?? '' );
-		$sort_options = FilterOptions::parse( $sort_options_raw );
+		if ( 'collection' === ( $settings['data_provider'] ?? '' ) ) {
+			$collection = CollectionWidgetBridge::resolve( $settings['collection_id'] ?? '' );
+			if ( is_wp_error( $collection ) ) {
+				$this->render_collection_error( $collection );
+				return;
+			}
+			$settings = array_replace( $settings, $collection['settings'] );
+			$settings['collection_facet_field_ids'] = $collection['facet_field_ids'];
+			$filters = $collection['filters'];
+			$sort_options = $collection['sort_options'];
+		} else {
+			$filters = FilterSettings::normalize_filters( $settings['filters'] ?? [] );
+			$sort_options_raw = SortOptions::resolve_lines( $settings['sort_options_items'] ?? null, $settings['sort_options'] ?? '' );
+			$sort_options = FilterOptions::parse( $sort_options_raw );
+		}
 		$config = RuntimeConfig::from_settings( $this->get_id(), $settings );
 
 		$this->add_render_attribute(
@@ -93,7 +106,27 @@ class FilterController extends Widget_Base {
 				<?php ActionButtonsRenderer::render( $settings ); ?>
 			</form>
 
+			<?php if ( 'collection' === $config['provider'] ) : ?>
+				<section
+					class="eit-collection-surface"
+					data-eit-collection-results
+					aria-label="<?php echo esc_attr__( 'Collection results', 'elementor-implementation-toolkit' ); ?>"
+					tabindex="-1"
+				></section>
+			<?php endif; ?>
+
 			<?php MetaRenderer::render( $config ); ?>
+		</div>
+		<?php
+	}
+
+	private function render_collection_error( \WP_Error $error ) {
+		?>
+		<div class="eit-filter-controller">
+			<div class="eit-filter-controller__notice is-warning" role="alert">
+				<strong><?php esc_html_e( 'Collection connection needs attention.', 'elementor-implementation-toolkit' ); ?></strong>
+				<span><?php echo esc_html( $error->get_error_message() ); ?></span>
+			</div>
 		</div>
 		<?php
 	}

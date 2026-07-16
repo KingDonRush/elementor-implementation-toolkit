@@ -1,4 +1,5 @@
 import { $, config, i18n } from './runtime.js';
+import { collectionEndpoint, collectionPayload, normalizeCollectionResponse } from './collection-request.js';
 import {
   collectData, cssEscape, detectItems, detectListings, inferPostId, inferTitle,
   inferUrl, normalizeWhitespace, safeJson,
@@ -87,6 +88,7 @@ export class Controller {
   }
 
   findTarget() {
+    if ('collection' === this.config.provider) return this.$root.find('[data-eit-collection-results]').get(0) || null;
     const selector = this.config.targetSelector || '';
     const target = selector ? document.querySelector(selector) : null;
     if (target) return target;
@@ -95,6 +97,7 @@ export class Controller {
   }
 
   indexItems() {
+    if ('collection' === this.config.provider) return [];
     if (!this.target) return [];
     const selector = this.config.itemSelector || '';
     const elements = selector ? this.target.querySelectorAll(selector) : detectItems(this.target);
@@ -134,7 +137,7 @@ export class Controller {
       this.renderError(i18n.targetMissing || 'The connected listing could not be found.', shouldFocusError);
       return;
     }
-    if ('cct' !== this.config.provider && !this.items.length) {
+    if ('dom' === this.config.provider && !this.items.length) {
       const empty = { total: 0, page: 1, pages: 1, ids: [] };
       this.clearError();
       this.applyResult(empty);
@@ -145,7 +148,7 @@ export class Controller {
     }
 
     const state = this.collectState();
-    const payload = {
+    const legacyPayload = {
       provider: this.config.provider || 'dom',
       cctType: this.config.cctType || '',
       templateId: this.config.cctTemplateId || 0,
@@ -155,10 +158,13 @@ export class Controller {
       page: this.page,
       perPage: this.config.perPage || 24,
     };
+    const isCollection = 'collection' === this.config.provider;
+    const payload = isCollection ? collectionPayload(state, this.config, this.page) : legacyPayload;
+    const requestUrl = isCollection ? collectionEndpoint(config, this.config.collectionId || '') : config.restUrl;
     this.clearError();
     this.setLoading(true);
     this.request = $.ajax({
-      url: config.restUrl,
+      url: requestUrl,
       method: 'POST',
       contentType: 'application/json',
       data: JSON.stringify(payload),
@@ -166,11 +172,12 @@ export class Controller {
     });
     this.request.done((response) => {
       if (sequence !== this.requestSequence) return;
-      this.lastResult = response || {};
+      this.lastResult = isCollection ? normalizeCollectionResponse(response) : (response || {});
       this.applyResult(this.lastResult);
+      if (isCollection) this.renderFacets(this.lastResult.facets || []);
       this.renderMeta(this.lastResult, state.filters);
       this.renderPagination(this.lastResult);
-      this.announce((this.config.resultText || '{count} results').replace('{count}', this.lastResult.total || 0));
+      this.announce(this.resultMessage(this.lastResult.total || 0));
       if (shouldSyncUrl && this.config.syncUrl) this.writeUrlState(state);
       if (shouldFocusResults) this.focusResults();
       $(document).trigger('eit:listing-updated', [this.target, this.lastResult]);

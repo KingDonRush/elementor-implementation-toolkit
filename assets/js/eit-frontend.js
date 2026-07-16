@@ -25,6 +25,53 @@
   var config = window.eitConfig || {};
   var i18n = config.i18n || {};
 
+  // assets/src/frontend/collection-request.js
+  function collectionEndpoint(runtime, collectionId) {
+    const base = runtime.collectionRestUrl || `${String(runtime.entryRestUrl || "/wp-json/eit/v1").replace(/\/$/, "")}/collections`;
+    return `${String(base).replace(/\/$/, "")}/${encodeURIComponent(collectionId)}/query`;
+  }
+  function collectionPayload(state, runtime, page) {
+    const filters = (state.filters || []).map((filter) => {
+      const operator = filter.compare || defaultOperator(filter);
+      let value = filter.value;
+      if (["in", "not_in"].includes(operator) && !Array.isArray(value)) {
+        value = [value];
+      }
+      return { field_id: filter.key, operator, value };
+    }).filter((filter) => Boolean(filter.field_id));
+    const payload = {
+      page: Math.max(1, Number(page) || 1),
+      per_page: Math.min(48, Math.max(1, Number(runtime.perPage) || 24)),
+      filters,
+      facets: Array.from(new Set(runtime.collectionFacetIds || []))
+    };
+    const sort = collectionSort(state.sort);
+    if (sort) payload.sort = sort;
+    return payload;
+  }
+  function normalizeCollectionResponse(response = {}) {
+    const pagination = response.pagination || {};
+    return __spreadProps(__spreadValues({}, response), {
+      total: Number(pagination.total || 0),
+      page: Number(pagination.page || 1),
+      pages: Number(pagination.pages || 1),
+      perPage: Number(pagination.per_page || 0)
+    });
+  }
+  function collectionSort(value) {
+    if (!value || "default" === value) return null;
+    const separator = String(value).lastIndexOf(":");
+    if (separator < 1) return null;
+    const fieldId = String(value).slice(0, separator);
+    const direction = "desc" === String(value).slice(separator + 1) ? "desc" : "asc";
+    return { field_id: fieldId, direction };
+  }
+  function defaultOperator(filter) {
+    if (["range", "date"].includes(filter.type)) return "between";
+    if (["checkbox", "chips", "swatch"].includes(filter.type)) return "in";
+    return "equals";
+  }
+
   // assets/src/frontend/utils.js
   function safeJson(value, fallback) {
     if (!value) return fallback;
@@ -227,6 +274,7 @@
       this.items = this.indexItems();
     }
     findTarget() {
+      if ("collection" === this.config.provider) return this.$root.find("[data-eit-collection-results]").get(0) || null;
       const selector = this.config.targetSelector || "";
       const target = selector ? document.querySelector(selector) : null;
       if (target) return target;
@@ -234,6 +282,7 @@
       return detected.length ? detected[0].element : null;
     }
     indexItems() {
+      if ("collection" === this.config.provider) return [];
       if (!this.target) return [];
       const selector = this.config.itemSelector || "";
       const elements = selector ? this.target.querySelectorAll(selector) : detectItems(this.target);
@@ -270,7 +319,7 @@
         this.renderError(i18n.targetMissing || "The connected listing could not be found.", shouldFocusError);
         return;
       }
-      if ("cct" !== this.config.provider && !this.items.length) {
+      if ("dom" === this.config.provider && !this.items.length) {
         const empty = { total: 0, page: 1, pages: 1, ids: [] };
         this.clearError();
         this.applyResult(empty);
@@ -280,7 +329,7 @@
         return;
       }
       const state = this.collectState();
-      const payload = {
+      const legacyPayload = {
         provider: this.config.provider || "dom",
         cctType: this.config.cctType || "",
         templateId: this.config.cctTemplateId || 0,
@@ -290,10 +339,13 @@
         page: this.page,
         perPage: this.config.perPage || 24
       };
+      const isCollection = "collection" === this.config.provider;
+      const payload = isCollection ? collectionPayload(state, this.config, this.page) : legacyPayload;
+      const requestUrl = isCollection ? collectionEndpoint(config, this.config.collectionId || "") : config.restUrl;
       this.clearError();
       this.setLoading(true);
       this.request = $.ajax({
-        url: config.restUrl,
+        url: requestUrl,
         method: "POST",
         contentType: "application/json",
         data: JSON.stringify(payload),
@@ -303,11 +355,12 @@
       });
       this.request.done((response) => {
         if (sequence !== this.requestSequence) return;
-        this.lastResult = response || {};
+        this.lastResult = isCollection ? normalizeCollectionResponse(response) : response || {};
         this.applyResult(this.lastResult);
+        if (isCollection) this.renderFacets(this.lastResult.facets || []);
         this.renderMeta(this.lastResult, state.filters);
         this.renderPagination(this.lastResult);
-        this.announce((this.config.resultText || "{count} results").replace("{count}", this.lastResult.total || 0));
+        this.announce(this.resultMessage(this.lastResult.total || 0));
         if (shouldSyncUrl && this.config.syncUrl) this.writeUrlState(state);
         if (shouldFocusResults) this.focusResults();
         $(document).trigger("eit:listing-updated", [this.target, this.lastResult]);
@@ -373,7 +426,10 @@
           const $range = $(element);
           const min = $range.find("[data-eit-range-min]").val();
           const max = $range.find("[data-eit-range-max]").val();
-          if (String(min) === String($range.find("[data-eit-range-min]").attr("min")) && String(max) === String($range.find("[data-eit-range-max]").attr("max"))) return;
+          if ("" === String(min) && "" === String(max)) return;
+          const minimum = $range.find("[data-eit-range-min]").attr("min");
+          const maximum = $range.find("[data-eit-range-max]").attr("max");
+          if (void 0 !== minimum && void 0 !== maximum && String(min) === String(minimum) && String(max) === String(maximum)) return;
           filters.push(addFilterMeta({ type: "range", key: $range.attr("data-eit-key") || "", value: { min, max } }, $range));
         });
         this.$root.find(".eit-date-range[data-eit-control]").each((index, element) => {
@@ -433,7 +489,9 @@
         this.searchTimer = null;
       },
       resetRange($range) {
-        this.setRangeValue($range, { min: $range.find("[data-eit-range-min]").attr("min"), max: $range.find("[data-eit-range-max]").attr("max") });
+        const minimum = $range.find("[data-eit-range-min]").attr("min");
+        const maximum = $range.find("[data-eit-range-max]").attr("max");
+        this.setRangeValue($range, { min: void 0 === minimum ? "" : minimum, max: void 0 === maximum ? "" : maximum });
       },
       setRangeValue($range, value = {}) {
         const pairs = [
@@ -441,9 +499,10 @@
           ["max", "[data-eit-range-max]", "[data-eit-range-max-slider]"]
         ];
         pairs.forEach(([key, numberSelector, sliderSelector]) => {
-          if (null !== value[key] && void 0 !== value[key] && "" !== String(value[key])) {
-            $range.find(numberSelector).val(value[key]);
-            $range.find(sliderSelector).val(value[key]);
+          var _a, _b;
+          if (Object.prototype.hasOwnProperty.call(value, key)) {
+            $range.find(numberSelector).val((_a = value[key]) != null ? _a : "");
+            $range.find(sliderSelector).val((_b = value[key]) != null ? _b : "");
           }
         });
         this.syncRangeInputs($range.find("[data-eit-range-min]").get(0));
@@ -551,12 +610,74 @@
     return "sort" === type ? "sort" : "search";
   }
 
+  // assets/src/frontend/facets.js
+  function installFacets(Controller2) {
+    Object.assign(Controller2.prototype, {
+      renderFacets(facets = []) {
+        facets.forEach((facet) => {
+          const fieldId = String(facet.field_id || "");
+          const filter = this.filters.find((candidate) => candidate.key === fieldId);
+          const $group = this.$root.find(`[data-eit-filter-group="${cssEscape((filter == null ? void 0 : filter.id) || "")}"]`);
+          if (!filter || !$group.length) return;
+          if ("select" === filter.type) this.renderSelectFacet($group, facet.values || []);
+          else this.renderChoiceFacet($group, filter, facet.values || []);
+        });
+        this.updateOptionStates();
+      },
+      renderSelectFacet($group, values) {
+        const $select = $group.find("select[data-eit-control]");
+        values.forEach((item) => {
+          let $option = $select.find(`option[value="${cssEscape(String(item.value))}"]`);
+          if (!$option.length) {
+            $option = $("<option/>").val(item.value).appendTo($select);
+          }
+          const selected = $option.prop("selected");
+          $option.text(`${item.label} (${Number(item.count) || 0})`).prop("disabled", !item.available && !selected);
+        });
+        $select.closest("[data-eit-select-field]").removeClass("eit-select-field--empty-options");
+      },
+      renderChoiceFacet($group, filter, values) {
+        const $options = $group.find("[data-eit-options]");
+        const $scope = $options.length ? $options : $group;
+        values.forEach((item) => {
+          let $input = $scope.find(`[data-eit-control][value="${cssEscape(String(item.value))}"]`);
+          if (!$input.length && "toggle" !== filter.type) {
+            $input = this.appendFacetChoice($options, filter, item);
+          }
+          if (!$input.length) return;
+          const selected = $input.prop("checked");
+          $input.prop("disabled", !item.available && !selected);
+          const $option = $input.closest(".eit-option");
+          let $count = $option.find(".eit-option-count");
+          if (!$count.length) $count = $('<span class="eit-option-count"/>').appendTo($option);
+          $count.text(Number(item.count) || 0).attr("aria-label", `${Number(item.count) || 0} ${i18n.items || "items"}`);
+        });
+        $scope.find("[data-eit-options-empty]").remove();
+      },
+      appendFacetChoice($options, filter, item) {
+        const $option = $("<label/>", { class: `eit-option eit-option--${filter.type} eit-option--has-count` });
+        const $input = $("<input/>", {
+          type: "checkbox",
+          name: `eit-${this.instance}-${filter.id}[]`,
+          value: item.value,
+          "data-eit-control": "",
+          "data-eit-type": filter.type,
+          "data-eit-key": filter.key
+        }).appendTo($option);
+        if ("checkbox" === filter.type) $('<span class="eit-checkbox-indicator" aria-hidden="true"/>').appendTo($option);
+        $('<span class="eit-option__label"/>').text(item.label).appendTo($option);
+        $option.appendTo($options);
+        return $input;
+      }
+    });
+  }
+
   // assets/src/frontend/view.js
   function installView(Controller2) {
     Object.assign(Controller2.prototype, {
       applyResult(result) {
         var _a;
-        if ("string" === typeof result.html && "cct" === this.config.provider) {
+        if ("string" === typeof result.html && ["cct", "collection"].includes(this.config.provider)) {
           this.target.innerHTML = result.html;
           if ((_a = window.elementorFrontend) == null ? void 0 : _a.elementsHandler) window.elementorFrontend.elementsHandler.runReadyTrigger($(this.target));
           this.refreshTarget();
@@ -582,8 +703,12 @@
       },
       renderMeta(result, filters = this.collectState().filters) {
         const count = Number(result.total || 0);
-        this.$root.find("[data-eit-result-count]").text((this.config.resultText || "{count} results").replace("{count}", count));
+        this.$root.find("[data-eit-result-count]").text(this.resultMessage(count));
         this.renderActiveChips(filters);
+      },
+      resultMessage(count) {
+        const template = 1 === Number(count) ? this.config.resultTextSingular || this.config.resultText || "{count} result" : this.config.resultText || "{count} results";
+        return template.replace("{count}", Number(count) || 0);
       },
       renderActiveChips(filters) {
         const $container = this.$root.find("[data-eit-active-filters]").empty();
@@ -1250,6 +1375,7 @@
 
   // assets/src/frontend/index.js
   installControls(Controller);
+  installFacets(Controller);
   installView(Controller);
   $(() => {
     $(".eit-filter-controller").each((index, element) => new Controller(element));

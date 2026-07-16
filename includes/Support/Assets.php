@@ -76,6 +76,7 @@ class Assets {
 			[
 				'restUrl' => esc_url_raw( rest_url( 'eit/v1/filter' ) ),
 				'entryRestUrl' => esc_url_raw( rest_url( 'eit/v1' ) ),
+				'collectionRestUrl' => esc_url_raw( rest_url( 'eit/v1/collections' ) ),
 				'nonce'   => wp_create_nonce( 'wp_rest' ),
 				'i18n'    => [
 					'loading'    => __( 'Filtering...', 'elementor-implementation-toolkit' ),
@@ -90,6 +91,7 @@ class Assets {
 					'to'         => __( 'to', 'elementor-implementation-toolkit' ),
 					'clear'      => __( 'Clear', 'elementor-implementation-toolkit' ),
 					'all'        => __( 'All', 'elementor-implementation-toolkit' ),
+					'items'      => __( 'items', 'elementor-implementation-toolkit' ),
 					'entrySaving' => __( 'Saving…', 'elementor-implementation-toolkit' ),
 					'entrySaved' => __( 'Your changes were saved.', 'elementor-implementation-toolkit' ),
 					'entrySaveChanges' => __( 'Save changes', 'elementor-implementation-toolkit' ),

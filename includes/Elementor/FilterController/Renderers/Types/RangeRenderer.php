@@ -14,7 +14,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 class RangeRenderer {
 
 	public static function render( array $filter, $key, array $settings ) {
-		$show_range_inputs      = ( $settings['range_show_inputs'] ?? 'yes' ) === 'yes';
+		$label                  = sanitize_text_field( $filter['label'] ?? __( 'Range', 'elementor-implementation-toolkit' ) );
+		$range_bounded          = ! array_key_exists( 'rangeBounded', $filter ) || ! empty( $filter['rangeBounded'] );
+		$show_range_inputs      = ! $range_bounded || ( $settings['range_show_inputs'] ?? 'yes' ) === 'yes';
 		$show_range_values      = ( $settings['range_show_values'] ?? '' ) === 'yes';
 		$show_range_ticks       = ( $settings['range_show_ticks'] ?? '' ) === 'yes';
 		$range_orientation      = self::range_setting( $settings, 'range_orientation', [ 'horizontal', 'vertical' ], 'horizontal' );
@@ -51,33 +53,42 @@ class RangeRenderer {
 		if ( '' !== $range_handle_icon_html ) {
 			$range_classes[] = 'eit-range--handle-icon';
 		}
+		if ( ! $range_bounded ) {
+			$range_classes[] = 'eit-range--unbounded';
+		}
 
-		$range_midpoint = ( $filter['rangeMin'] + $filter['rangeMax'] ) / 2;
+		$range_midpoint = $range_bounded ? ( $filter['rangeMin'] + $filter['rangeMax'] ) / 2 : 0;
 		?>
 		<div class="<?php echo esc_attr( implode( ' ', $range_classes ) ); ?>" data-eit-control data-eit-type="range" data-eit-key="<?php echo esc_attr( $key ); ?>">
-			<div class="eit-range__labels" aria-hidden="true">
-				<span data-eit-range-min-label><?php echo esc_html( self::format_value( $filter['rangeMin'] ) ); ?></span>
-				<span data-eit-range-max-label><?php echo esc_html( self::format_value( $filter['rangeMax'] ) ); ?></span>
-			</div>
+			<?php if ( $range_bounded ) : ?>
+				<div class="eit-range__labels" aria-hidden="true">
+					<span data-eit-range-min-label><?php echo esc_html( self::format_value( $filter['rangeMin'] ) ); ?></span>
+					<span data-eit-range-max-label><?php echo esc_html( self::format_value( $filter['rangeMax'] ) ); ?></span>
+				</div>
+			<?php endif; ?>
 			<div class="eit-range__values">
-				<input class="eit-input eit-range-number" type="number" value="<?php echo esc_attr( $filter['rangeMin'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" data-eit-range-min />
-				<input class="eit-input eit-range-number" type="number" value="<?php echo esc_attr( $filter['rangeMax'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" data-eit-range-max />
+				<input class="eit-input eit-range-number" type="number" value="<?php echo $range_bounded ? esc_attr( $filter['rangeMin'] ) : ''; ?>" <?php if ( $range_bounded ) : ?>min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>"<?php endif; ?> step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" placeholder="<?php echo esc_attr__( 'No minimum', 'elementor-implementation-toolkit' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Minimum %s', 'elementor-implementation-toolkit' ), $label ) ); ?>" data-eit-range-min />
+				<input class="eit-input eit-range-number" type="number" value="<?php echo $range_bounded ? esc_attr( $filter['rangeMax'] ) : ''; ?>" <?php if ( $range_bounded ) : ?>min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>"<?php endif; ?> step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" placeholder="<?php echo esc_attr__( 'No maximum', 'elementor-implementation-toolkit' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Maximum %s', 'elementor-implementation-toolkit' ), $label ) ); ?>" data-eit-range-max />
 			</div>
-			<div class="eit-range__sliders">
-				<div class="eit-range__slider">
-					<input class="eit-range-input" type="range" value="<?php echo esc_attr( $filter['rangeMin'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" data-eit-range-min-slider />
-					<?php self::render_handle_icon( $range_handle_icon_html, 'min' ); ?>
+			<?php if ( $range_bounded ) : ?>
+				<div class="eit-range__sliders">
+					<div class="eit-range__slider">
+						<input class="eit-range-input" type="range" value="<?php echo esc_attr( $filter['rangeMin'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Minimum %s slider', 'elementor-implementation-toolkit' ), $label ) ); ?>" data-eit-range-min-slider />
+						<?php self::render_handle_icon( $range_handle_icon_html, 'min' ); ?>
+					</div>
+					<div class="eit-range__slider">
+						<input class="eit-range-input" type="range" value="<?php echo esc_attr( $filter['rangeMax'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Maximum %s slider', 'elementor-implementation-toolkit' ), $label ) ); ?>" data-eit-range-max-slider />
+						<?php self::render_handle_icon( $range_handle_icon_html, 'max' ); ?>
+					</div>
 				</div>
-				<div class="eit-range__slider">
-					<input class="eit-range-input" type="range" value="<?php echo esc_attr( $filter['rangeMax'] ); ?>" min="<?php echo esc_attr( $filter['rangeMin'] ); ?>" max="<?php echo esc_attr( $filter['rangeMax'] ); ?>" step="<?php echo esc_attr( $filter['rangeStep'] ); ?>" data-eit-range-max-slider />
-					<?php self::render_handle_icon( $range_handle_icon_html, 'max' ); ?>
-				</div>
-			</div>
+			<?php endif; ?>
+			<?php if ( $range_bounded ) : ?>
 				<div class="eit-range__ticks" aria-hidden="true">
 					<span><?php echo esc_html( self::format_value( $filter['rangeMin'] ) ); ?></span>
 					<span><?php echo esc_html( self::format_value( $range_midpoint ) ); ?></span>
 					<span><?php echo esc_html( self::format_value( $filter['rangeMax'] ) ); ?></span>
 				</div>
+			<?php endif; ?>
 			</div>
 		<?php
 	}

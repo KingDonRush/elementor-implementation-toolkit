@@ -1,5 +1,18 @@
 # Elementor Implementation Toolkit
 
+V0.8.0 makes Collection the single published query contract. Field capabilities
+compile into bounded filters, sort, facets and projection; CPT, indexed CCT,
+WooCommerce and limited legacy DOM providers execute behind the same Field-ID
+request grammar. Responses include semantic HTML, pagination, readable applied
+state, unavailable facet options with counts, optional Explain Why evidence and
+a request ID without exposing providers, storage keys or selectors.
+
+The executable Systems inspector now derives Collection and Filter Surface
+decisions from connected fields. The existing Elementor Filter Controller can
+consume a published Collection as a compatibility bridge: it hides local filter
+repeaters, presets, raw keys and CSS selectors, then keeps Elementor responsible
+for presentation. Its DOM and direct-CCT modes remain available during 1.x.
+
 V0.7.0 adds governed Entry Surfaces to the canonical `eit.dev/v1 Blueprint`.
 Implementers define fields, workflow, steps, conditions, actions and guarded
 guest intake by public names in the Systems inspector; the compiler produces a
@@ -34,9 +47,10 @@ and exposed through CCT Dynamic Tags. Elementor Loop Grid/Carousel rendering is
 available only when the local Elementor Pro / Loop Builder runtime exposes the
 required Loop APIs.
 
-The widget is intentionally parasitic: it does not render its own grid. It detects
-an existing listing on the page, lets the implementer select that target in the
-Elementor editor, and filters the existing cards through AJAX.
+The legacy DOM mode remains intentionally parasitic: it detects an existing
+listing and filters its cards through bounded AJAX. Published Collection mode
+renders the server-approved semantic projection in an internal result surface
+and requires no manual listing selector.
 
 ## Current Scope
 
@@ -96,6 +110,24 @@ Elementor editor, and filters the existing cards through AJAX.
   bridge; Elementor placement and styling arrive through the connector widget
   in V0.9.
 
+### Compiled Collections and Filter Surfaces
+
+- one immutable Collection contract for CPT, indexed CCT, WooCommerce and
+  bounded legacy DOM providers;
+- browser requests accept only published Field IDs, allowed operators, sort,
+  facets, search and pagination within a computed request-cost budget;
+- public/authenticated access and field projection are enforced on the server;
+- normalized relations participate in exact filters and facet counts without
+  per-item enrichment queries;
+- unavailable facet values remain visible with zero counts, while active chips,
+  sort, URL state and windowed pagination remain readable;
+- content and Blueprint mutations invalidate versioned query caches;
+- Explain Why records provider, applied comparison, result and fallback for each
+  returned item without revealing storage keys;
+- shortcode `[eit_collection id="COLLECTION-UUID"]` provides semantic fallback
+  HTML, and the legacy Filter Controller can opt into the same contract without
+  raw mapping controls.
+
 The existing CPT/CCT and Filter Controller screens remain compatibility
 surfaces during the 1.x migration window. Active compiled Entity artifacts are
 projected into the existing registrars without writing back into legacy options.
@@ -109,6 +141,7 @@ projected into the existing registrars without writing back into legacy options.
 - Optional Toolkit CCT skin for Elementor Pro Loop Grid and Loop Carousel
 - CCT Dynamic Tags for text, URL, image, and gallery values
 - Server-side CCT filtering and pagination through the Filter Controller
+- Published Collection filtering through the Field-ID REST contract
 - Provider/runtime configuration summary for the current filtering surface
 - Editor listing detection with hover highlight
 - Manual CSS selector fallback

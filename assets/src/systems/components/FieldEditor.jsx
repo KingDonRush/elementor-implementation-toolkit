@@ -17,6 +17,69 @@ const CHILD_TYPES = [
   "datetime",
 ];
 
+const NUMERIC_TYPES = ["integer", "decimal", "money", "percentage", "calculated"];
+
+function QueryBehavior({ field, onChange }) {
+  const updateIndex = (key, value) =>
+    onChange({ ...field, indexing: { ...field.indexing, [key]: value } });
+  const updateNumber = (key, value) => {
+    const validation = { ...field.validation };
+    if ("" === String(value).trim()) delete validation[key];
+    else validation[key] = Number(value);
+    onChange({ ...field, validation });
+  };
+  return (
+    <details>
+      <summary>{__("Query behavior", "elementor-implementation-toolkit")}</summary>
+      <ToggleControl
+        label={__("Searchable", "elementor-implementation-toolkit")}
+        help={__("Adds this Field to the Collection text-search index.", "elementor-implementation-toolkit")}
+        checked={Boolean(field.indexing.search)}
+        disabled={!field.capabilities.search}
+        onChange={(search) => updateIndex("search", search)}
+      />
+      <ToggleControl
+        label={__("Filterable", "elementor-implementation-toolkit")}
+        help={__("Allows Filter Surfaces to offer operators derived from this type.", "elementor-implementation-toolkit")}
+        checked={Boolean(field.indexing.filter)}
+        disabled={!field.capabilities.filter}
+        onChange={(filter) => updateIndex("filter", filter)}
+      />
+      <ToggleControl
+        label={__("Sortable", "elementor-implementation-toolkit")}
+        help={__("Creates the required query index before sort becomes available.", "elementor-implementation-toolkit")}
+        checked={Boolean(field.indexing.sort)}
+        disabled={!field.capabilities.sort}
+        onChange={(sort) => updateIndex("sort", sort)}
+      />
+      {NUMERIC_TYPES.includes(field.type) && field.indexing.filter ? (
+        <div className="eit-compact-editor">
+          <TextControl
+            type="number"
+            label={__("Minimum", "elementor-implementation-toolkit")}
+            help={__("Set both limits for a slider; leave either blank for open-ended number inputs.", "elementor-implementation-toolkit")}
+            value={field.validation.min ?? ""}
+            onChange={(value) => updateNumber("min", value)}
+          />
+          <TextControl
+            type="number"
+            label={__("Maximum", "elementor-implementation-toolkit")}
+            value={field.validation.max ?? ""}
+            onChange={(value) => updateNumber("max", value)}
+          />
+          <TextControl
+            type="number"
+            min="0.000001"
+            label={__("Step", "elementor-implementation-toolkit")}
+            value={field.validation.step ?? 1}
+            onChange={(value) => updateNumber("step", value)}
+          />
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
 function ChoiceOptions({ field, onChange }) {
   const options = field.validation.options || [];
   const update = (next) =>
@@ -251,21 +314,20 @@ export default function FieldEditor({ field, fields, onChange, schema }) {
           }
         />
         <ToggleControl
-          label={__("Filterable", "elementor-implementation-toolkit")}
-          checked={Boolean(field.indexing.filter)}
-          disabled={!field.capabilities.filter}
-          onChange={(filter) =>
-            onChange({ ...field, indexing: { ...field.indexing, filter } })
+          label={__("Public output", "elementor-implementation-toolkit")}
+          help={__(
+            "Allows this Field to appear in a public Collection projection; access rules still apply.",
+            "elementor-implementation-toolkit",
+          )}
+          checked={Boolean(field.exposure.public)}
+          onChange={(value) =>
+            onChange({
+              ...field,
+              exposure: { ...field.exposure, public: value },
+            })
           }
         />
-        <ToggleControl
-          label={__("Sortable", "elementor-implementation-toolkit")}
-          checked={Boolean(field.indexing.sort)}
-          disabled={!field.capabilities.sort}
-          onChange={(sort) =>
-            onChange({ ...field, indexing: { ...field.indexing, sort } })
-          }
-        />
+        <QueryBehavior field={field} onChange={onChange} />
         {["single_choice", "multiple_choice"].includes(field.type) ? (
           <ChoiceOptions field={field} onChange={onChange} />
         ) : null}

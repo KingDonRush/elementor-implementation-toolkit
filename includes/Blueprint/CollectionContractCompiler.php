@@ -182,7 +182,7 @@ class CollectionContractCompiler {
 
 	private function facet_fields( array $config, array $field_ids, array $fields ) {
 		$configured = is_array( $config['facet_fields'] ?? null ) ? $config['facet_fields'] : [];
-		if ( $configured ) {
+		if ( array_key_exists( 'facet_fields', $config ) ) {
 			return array_slice( array_values( array_intersect( $configured, $field_ids ) ), 0, 10 );
 		}
 		$result = [];

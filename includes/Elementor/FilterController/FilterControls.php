@@ -18,7 +18,10 @@ class FilterControls {
 	public static function register( Widget_Base $widget ) {
 		$widget->start_controls_section(
 			'section_filters',
-			[ 'label' => esc_html__( 'Filters', 'elementor-implementation-toolkit' ) ]
+			[
+				'label' => esc_html__( 'Filters', 'elementor-implementation-toolkit' ),
+				'condition' => [ 'data_provider!' => 'collection' ],
+			]
 		);
 
 		$repeater = new Repeater();

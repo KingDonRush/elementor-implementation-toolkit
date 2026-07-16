@@ -4,6 +4,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 let $;
 let Controller;
 let installControls;
+let installFacets;
 let installView;
 
 beforeAll(async () => {
@@ -11,16 +12,20 @@ beforeAll(async () => {
   window.jQuery = $;
   window.eitConfig = {
     restUrl: '/wp-json/eit/v1/filter',
+	collectionRestUrl: '/wp-json/eit/v1/collections',
     i18n: { error: 'Current results remain visible.' },
   };
   ({ Controller } = await import('../../assets/src/frontend/controller.js'));
   ({ installControls } = await import('../../assets/src/frontend/controls.js'));
+	({ installFacets } = await import('../../assets/src/frontend/facets.js'));
   ({ installView } = await import('../../assets/src/frontend/view.js'));
   installControls(Controller);
+	installFacets(Controller);
   installView(Controller);
 });
 
 beforeEach(() => {
+	vi.restoreAllMocks();
   document.body.innerHTML = `
     <div class="eit-filter-controller"
       data-eit-config='{"targetSelector":"#listing","autoApply":false,"perPage":24,"resultText":"{count} results"}'
@@ -89,4 +94,49 @@ describe('frontend request state machine', () => {
     expect(document.querySelector('[data-eit-client-id="b"]').hidden).toBe(true);
     expect(controller.lastResult.total).toBe(1);
   });
+
+	it('queries a published Collection and applies compiled facet availability', () => {
+		document.body.innerHTML = `
+			<div class="eit-filter-controller"
+				data-eit-config='{"provider":"collection","collectionId":"collection-id","collectionFacetIds":["status-id"],"autoApply":false,"perPage":24,"resultText":"{count} results"}'
+				data-eit-filters='[{"id":"status-id","label":"Status","type":"checkbox","key":"status-id","compare":"in"},{"id":"quantity-id","label":"Quantity","type":"range","key":"quantity-id","compare":"between","rangeBounded":false}]'>
+				<form class="eit-filter-controller__form">
+					<div data-eit-filter-group="status-id" data-eit-filter-label="Status" data-eit-compare="in">
+						<div data-eit-options><label class="eit-option"><input type="checkbox" checked value="open" data-eit-control data-eit-type="checkbox" data-eit-key="status-id"><span class="eit-option__label">Open</span></label></div>
+					</div>
+					<div data-eit-filter-group="quantity-id" data-eit-filter-label="Quantity" data-eit-compare="between">
+						<div class="eit-range" data-eit-control data-eit-type="range" data-eit-key="quantity-id"><input value="" data-eit-range-min><input value="" data-eit-range-max></div>
+					</div>
+				</form>
+				<section data-eit-collection-results></section>
+				<div data-eit-result-count></div><div data-eit-active-filters></div><div data-eit-empty hidden></div>
+				<div data-eit-error hidden tabindex="-1"></div><div data-eit-status></div><div data-eit-pagination></div>
+			</div>`;
+		const requests = [];
+		vi.spyOn($, 'ajax').mockImplementation((options) => {
+			const request = deferredRequest();
+			request.options = options;
+			requests.push(request);
+			return request;
+		});
+
+		new Controller(document.querySelector('.eit-filter-controller'));
+		expect(requests[0].options.url).toBe('/wp-json/eit/v1/collections/collection-id/query');
+		expect(JSON.parse(requests[0].options.data)).toMatchObject({
+			filters: [{ field_id: 'status-id', operator: 'in', value: ['open'] }],
+			facets: ['status-id'],
+		});
+
+		requests[0].resolveWith({
+			html: '<div data-eit-collection-items><article>Open item</article></div>',
+			pagination: { total: 1, page: 1, pages: 1, per_page: 24 },
+			facets: [{ field_id: 'status-id', values: [
+				{ value: 'open', label: 'Open', count: 1, available: true },
+				{ value: 'closed', label: 'Closed', count: 0, available: false },
+			] }],
+		});
+		expect(document.querySelector('[data-eit-collection-results]').textContent).toContain('Open item');
+		expect(document.querySelector('[value="closed"]').disabled).toBe(true);
+		expect(document.querySelector('[data-eit-result-count]').textContent).toBe('1 results');
+	});
 });

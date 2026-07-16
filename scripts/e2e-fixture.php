@@ -38,13 +38,13 @@ function eit_e2e_create_entry_blueprint( $token, $user_id ) {
 	$uuid = function ( $key ) use ( $token ) {
 		return \EIT\Blueprint\Uuid::v5( \EIT\Blueprint\Uuid::LEGACY_NAMESPACE, 'e2e:' . $token . ':' . $key );
 	};
-	$ids = [ 'blueprint' => $uuid( 'blueprint' ), 'entity' => $uuid( 'entity' ), 'group' => $uuid( 'group' ), 'entry' => $uuid( 'entry' ), 'policy' => $uuid( 'policy' ), 'title' => $uuid( 'title' ), 'tier' => $uuid( 'tier' ), 'quantity' => $uuid( 'quantity' ), 'note' => $uuid( 'note' ), 'repeater' => $uuid( 'repeater' ), 'child' => $uuid( 'child' ), 'total' => $uuid( 'total' ), 'first_step' => $uuid( 'first-step' ), 'second_step' => $uuid( 'second-step' ) ];
+	$ids = [ 'blueprint' => $uuid( 'blueprint' ), 'entity' => $uuid( 'entity' ), 'group' => $uuid( 'group' ), 'entry' => $uuid( 'entry' ), 'collection' => $uuid( 'collection' ), 'filters' => $uuid( 'filters' ), 'policy' => $uuid( 'policy' ), 'title' => $uuid( 'title' ), 'tier' => $uuid( 'tier' ), 'quantity' => $uuid( 'quantity' ), 'note' => $uuid( 'note' ), 'repeater' => $uuid( 'repeater' ), 'child' => $uuid( 'child' ), 'total' => $uuid( 'total' ), 'first_step' => $uuid( 'first-step' ), 'second_step' => $uuid( 'second-step' ) ];
 	$slug = substr( 'eit_e2e_entry_' . $token, 0, 32 );
 	$factory = new \EIT\Blueprint\FieldContractFactory( new \EIT\Blueprint\FieldPrimitiveRegistry() );
 	$fields = [
 		$factory->make( $ids['title'], 'Listing title', 'short_text', [ 'validation' => [ 'required' => true ] ] ),
-		$factory->make( $ids['tier'], 'Service tier', 'single_choice', [ 'validation' => [ 'required' => true, 'options' => [ [ 'value' => 'basic', 'label' => 'Basic' ], [ 'value' => 'premium', 'label' => 'Premium' ] ] ] ] ),
-		$factory->make( $ids['quantity'], 'Quantity', 'integer', [ 'validation' => [ 'required' => true, 'min' => 0 ] ] ),
+		$factory->make( $ids['tier'], 'Service tier', 'single_choice', [ 'validation' => [ 'required' => true, 'options' => [ [ 'value' => 'basic', 'label' => 'Basic' ], [ 'value' => 'premium', 'label' => 'Premium' ] ] ], 'indexing' => [ 'filter' => true ] ] ),
+		$factory->make( $ids['quantity'], 'Quantity', 'integer', [ 'validation' => [ 'required' => true, 'min' => 0 ], 'indexing' => [ 'filter' => true, 'sort' => true ] ] ),
 		$factory->make( $ids['note'], 'Premium instructions', 'long_text' ),
 		$factory->make( $ids['repeater'], 'Delivery rows', 'repeatable_group', [ 'validation' => [ 'children' => [ [ 'id' => $ids['child'], 'name' => 'Row label', 'type' => 'short_text' ] ] ] ] ),
 		$factory->make( $ids['total'], 'Calculated total', 'calculated', [ 'validation' => [ 'expression' => '{' . $ids['quantity'] . '} * 2' ] ] ),
@@ -62,9 +62,11 @@ function eit_e2e_create_entry_blueprint( $token, $user_id ) {
 				'conditions' => [ [ 'id' => $uuid( 'condition-show' ), 'source_field_id' => $ids['tier'], 'operator' => 'equals', 'value' => 'premium', 'effect' => 'show', 'target_field_id' => $ids['note'] ], [ 'id' => $uuid( 'condition-require' ), 'source_field_id' => $ids['tier'], 'operator' => 'equals', 'value' => 'premium', 'effect' => 'require', 'target_field_id' => $ids['note'] ] ],
 				'actions' => [], 'autosave' => [ 'enabled' => false ], 'guest' => [ 'enabled' => false ],
 			] ],
+			[ 'id' => $ids['collection'], 'type' => 'collection', 'lane' => 'experience', 'name' => 'Published listings', 'config' => [ 'page_size' => 24, 'access' => 'authenticated', 'default_sort' => [ 'field_id' => $ids['quantity'], 'direction' => 'asc' ] ] ],
+			[ 'id' => $ids['filters'], 'type' => 'filter_surface', 'lane' => 'experience', 'name' => 'Listing filters', 'config' => [ 'fields' => [ $ids['tier'], $ids['quantity'] ], 'facet_fields' => [ $ids['tier'] ], 'url_state' => true, 'active_chips' => true ] ],
 			[ 'id' => $ids['policy'], 'type' => 'policy', 'lane' => 'governance', 'name' => 'Owned authoring', 'config' => [ 'capability' => 'edit_posts', 'ownership' => 'own', 'object_scope' => 'entity' ] ],
 		],
-		'connections' => [ [ 'id' => $uuid( 'edge-fields' ), 'type' => 'entity_fields', 'from' => $ids['entity'], 'to' => $ids['group'] ], [ 'id' => $uuid( 'edge-entry' ), 'type' => 'entry_for', 'from' => $ids['entity'], 'to' => $ids['entry'] ], [ 'id' => $uuid( 'edge-policy' ), 'type' => 'governs_entry', 'from' => $ids['policy'], 'to' => $ids['entry'] ] ],
+		'connections' => [ [ 'id' => $uuid( 'edge-fields' ), 'type' => 'entity_fields', 'from' => $ids['entity'], 'to' => $ids['group'] ], [ 'id' => $uuid( 'edge-entry' ), 'type' => 'entry_for', 'from' => $ids['entity'], 'to' => $ids['entry'] ], [ 'id' => $uuid( 'edge-collection' ), 'type' => 'collection_for', 'from' => $ids['entity'], 'to' => $ids['collection'] ], [ 'id' => $uuid( 'edge-filters' ), 'type' => 'filters', 'from' => $ids['collection'], 'to' => $ids['filters'] ], [ 'id' => $uuid( 'edge-policy' ), 'type' => 'governs_entry', 'from' => $ids['policy'], 'to' => $ids['entry'] ] ],
 	];
 	wp_set_current_user( $user_id );
 	$lifecycle = \EIT\Blueprint\BlueprintModule::lifecycle();
@@ -77,7 +79,18 @@ function eit_e2e_create_entry_blueprint( $token, $user_id ) {
 		return $prepared;
 	}
 	$published = $lifecycle->apply( $prepared['id'], $prepared['confirmation_token'], $user_id );
-	return is_wp_error( $published ) ? $published : [ 'blueprint_id' => $ids['blueprint'], 'surface_id' => $ids['entry'], 'slug' => $slug ];
+	if ( is_wp_error( $published ) ) {
+		return $published;
+	}
+	$repository = new \EIT\CCT\Repository();
+	foreach ( [ [ 'Basic listing', 'basic', 0 ], [ 'Premium listing', 'premium', 10 ] ] as $record ) {
+		$saved_record = $repository->save( $slug, [ 'title' => $record[0], 'status' => 'publish', $fields[0]['storage']['key'] => $record[0], $fields[1]['storage']['key'] => $record[1], $fields[2]['storage']['key'] => $record[2] ] );
+		if ( is_wp_error( $saved_record ) ) {
+			eit_e2e_cleanup_entry_blueprint( $ids['blueprint'], $slug );
+			return $saved_record;
+		}
+	}
+	return [ 'blueprint_id' => $ids['blueprint'], 'surface_id' => $ids['entry'], 'collection_id' => $ids['collection'], 'slug' => $slug ];
 }
 
 if ( 'cleanup' === $mode ) {
@@ -207,6 +220,36 @@ update_post_meta( $entry_page_id, $fixture_key, $token );
 update_post_meta( $entry_page_id, '_eit_e2e_blueprint_id', $entry_fixture['blueprint_id'] );
 update_post_meta( $entry_page_id, '_eit_e2e_entry_slug', $entry_fixture['slug'] );
 
+$collection_page_id = wp_insert_post(
+	[
+		'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'EIT Collection fixture ' . $token,
+		'post_content' => '', 'post_author' => $user_id,
+	],
+	true
+);
+if ( is_wp_error( $collection_page_id ) ) {
+	WP_CLI::error( $collection_page_id->get_error_message() );
+}
+$collection_elementor_data = [
+	[
+		'id' => 'e2ecollectionwrap', 'elType' => 'container', 'settings' => [ 'container_type' => 'flex', 'flex_direction' => 'column' ],
+		'elements' => [
+			[
+				'id' => 'e2ecollection', 'elType' => 'widget', 'widgetType' => 'eit-filter-controller',
+				'settings' => [
+					'data_provider' => 'collection', 'collection_id' => $entry_fixture['collection_id'], 'show_result_count' => 'yes',
+					'result_count_text' => '{count} results', 'pagination_type' => 'numbers', 'empty_text' => 'No matching listings.',
+				],
+				'elements' => [],
+			],
+		],
+	],
+];
+update_post_meta( $collection_page_id, $fixture_key, $token );
+update_post_meta( $collection_page_id, '_elementor_edit_mode', 'builder' );
+update_post_meta( $collection_page_id, '_elementor_template_type', 'wp-page' );
+update_post_meta( $collection_page_id, '_elementor_data', wp_slash( wp_json_encode( $collection_elementor_data ) ) );
+
 if ( class_exists( '\Elementor\Plugin' ) && \Elementor\Plugin::$instance->files_manager ) {
 	\Elementor\Plugin::$instance->files_manager->clear_cache();
 }
@@ -217,6 +260,7 @@ WP_CLI::line(
 			'frontendPath' => wp_parse_url( get_permalink( $page_id ), PHP_URL_PATH ),
 			'editorPath'   => '/wp-admin/post.php?post=' . $page_id . '&action=elementor',
 			'entryPath'    => wp_parse_url( get_permalink( $entry_page_id ), PHP_URL_PATH ),
+			'collectionPath' => wp_parse_url( get_permalink( $collection_page_id ), PHP_URL_PATH ),
 		]
 	)
 );

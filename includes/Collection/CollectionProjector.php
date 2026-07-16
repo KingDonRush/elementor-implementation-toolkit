@@ -50,6 +50,7 @@ class CollectionProjector {
 				'name' => $field['name'],
 				'type' => $field['type'],
 				'shape' => $field['shape'],
+				'validation' => array_intersect_key( $field['validation'] ?? [], array_flip( [ 'min', 'max', 'step' ] ) ),
 				'elementor' => array_values( $field['elementor'] ?? [] ),
 			];
 		}

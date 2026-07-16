@@ -4,8 +4,9 @@ import {
 	ReactFlow,
 	ReactFlowProvider,
 	applyNodeChanges,
+	useReactFlow,
 } from '@xyflow/react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { __ } from '@wordpress/i18n';
 import { useDispatch, useSelect } from '@wordpress/data';
 import { STORE_NAME } from '../store';
@@ -20,8 +21,14 @@ function Flow() {
 		return state;
 	}, [] );
 	const { selectNode, setNotice, updateDocument } = useDispatch( STORE_NAME );
+	const { fitView } = useReactFlow();
 	const nodes = useMemo( () => mapNodes( document, validation, selectedNodeId ), [ document, validation, selectedNodeId ] );
 	const edges = useMemo( () => mapEdges( document ), [ document ] );
+
+	useEffect( () => {
+		const frame = window.requestAnimationFrame( () => fitView( { padding: 0.18 } ) );
+		return () => window.cancelAnimationFrame( frame );
+	}, [ document.nodes.length, fitView ] );
 
 	const onNodesChange = useCallback( ( changes ) => {
 		const positioned = applyNodeChanges( changes, nodes );

@@ -12,6 +12,8 @@ import { fieldContract, humanize, nodeCopy, nodeErrors } from "../contracts";
 import { STORE_NAME } from "../store";
 import FieldEditor from "./FieldEditor";
 import EntryDecisions from "./EntryDecisions";
+import CollectionDecisions from "./CollectionDecisions";
+import FilterSurfaceDecisions from "./FilterSurfaceDecisions";
 
 function EssentialDecisions({ node, update, schema, document }) {
   const config = node.config || {};
@@ -127,24 +129,10 @@ function EssentialDecisions({ node, update, schema, document }) {
     return <EntryDecisions node={node} document={document} update={update} />;
   }
   if ("collection" === node.type) {
-    return (
-      <TextControl
-        type="number"
-        min="1"
-        max="48"
-        label={__("Items per page", "elementor-implementation-toolkit")}
-        value={config.page_size || 24}
-        onChange={(value) =>
-          update({
-            ...node,
-            config: {
-              ...config,
-              page_size: Math.min(48, Math.max(1, Number(value) || 24)),
-            },
-          })
-        }
-      />
-    );
+    return <CollectionDecisions node={node} document={document} update={update} />;
+  }
+  if ("filter_surface" === node.type) {
+    return <FilterSurfaceDecisions node={node} document={document} update={update} />;
   }
   if ("presentation" === node.type) {
     return (
@@ -273,7 +261,9 @@ export default function Inspector() {
   const access =
     "policy" === selectedNode.type
       ? `${selectedNode.config.capability || "edit_posts"} · ${selectedNode.config.ownership || "any"}`
-      : selectedNode.config.public
+      : "collection" === selectedNode.type && "public" === selectedNode.config.access
+        ? __("Public projection; only explicitly public Fields can leave the server.", "elementor-implementation-toolkit")
+        : selectedNode.config.public
         ? __(
             "Public projection; mutations still require Policy.",
             "elementor-implementation-toolkit",

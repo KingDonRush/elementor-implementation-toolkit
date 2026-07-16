@@ -15,6 +15,7 @@ use EIT\Blueprint\Uuid;
 use EIT\CCT\Repository;
 use EIT\CCT\SchemaManager as CctSchema;
 use EIT\Collection\CollectionCache;
+use EIT\Elementor\FilterController\CollectionWidgetBridge;
 use EIT\Infrastructure\SchemaManager;
 use EIT\Infrastructure\Tables;
 use EIT\Infrastructure\NormalizedValueStore;
@@ -141,6 +142,11 @@ try {
 	$projection = $contract_response->get_data();
 	$assert( 4 === count( $projection['fields'] ), 'Private Field must not enter the public contract.' );
 	$assert( false === strpos( wp_json_encode( $projection ), $fields[1]['storage']['key'] ), 'Browser contract leaked a storage key.' );
+	$bridge = CollectionWidgetBridge::resolve( $ids['collection'] );
+	$assert( ! is_wp_error( $bridge ), 'Published Collection must resolve in the Elementor compatibility bridge.' );
+	$assert( isset( CollectionWidgetBridge::options()[ $ids['collection'] ] ), 'Published Collection must appear in the Elementor selector.' );
+	$assert( $ids['price'] === $bridge['filters'][0]['key'] && 'between' === $bridge['filters'][0]['compare'], 'Elementor bridge did not preserve the compiled Field-ID operator.' );
+	$assert( empty( $bridge['settings']['target_selector'] ) && [ $ids['tier'], $ids['agent'] ] === $bridge['facet_field_ids'], 'Elementor bridge reintroduced a selector or lost facets.' );
 
 	$query_request = new WP_REST_Request( 'POST', '/eit/v1/collections/' . $ids['collection'] . '/query' );
 	$query_request->set_header( 'content-type', 'application/json' );

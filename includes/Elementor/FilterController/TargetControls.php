@@ -31,9 +31,32 @@ class TargetControls {
 				'type'    => Controls_Manager::SELECT,
 				'default' => 'dom',
 				'options' => [
+					'collection' => esc_html__( 'Published Collection', 'elementor-implementation-toolkit' ),
 					'dom' => esc_html__( 'Existing DOM listing', 'elementor-implementation-toolkit' ),
 					'cct' => esc_html__( 'Toolkit CCT query', 'elementor-implementation-toolkit' ),
 				],
+			]
+		);
+
+		$widget->add_control(
+			'collection_id',
+			[
+				'label' => esc_html__( 'Collection', 'elementor-implementation-toolkit' ),
+				'type' => Controls_Manager::SELECT,
+				'options' => CollectionWidgetBridge::options(),
+				'description' => esc_html__( 'Filters, operators, facets, ordering, page size and URL state come from the published System contract.', 'elementor-implementation-toolkit' ),
+				'frontend_available' => true,
+				'condition' => [ 'data_provider' => 'collection' ],
+			]
+		);
+
+		$widget->add_control(
+			'collection_contract_note',
+			[
+				'type' => Controls_Manager::RAW_HTML,
+				'raw' => esc_html__( 'This compatibility widget controls presentation only. Edit filter behavior in Systems; no field keys or CSS selectors are required here.', 'elementor-implementation-toolkit' ),
+				'content_classes' => 'elementor-control-field-description',
+				'condition' => [ 'data_provider' => 'collection' ],
 			]
 		);
 
@@ -68,6 +91,7 @@ class TargetControls {
 					'widget' => esc_html__( 'Local widget controls', 'elementor-implementation-toolkit' ),
 					'preset' => esc_html__( 'Link shared preset', 'elementor-implementation-toolkit' ),
 				],
+				'condition' => [ 'data_provider!' => 'collection' ],
 			]
 		);
 
@@ -79,7 +103,7 @@ class TargetControls {
 				'default'     => '',
 				'options'     => FilterPresets::options(),
 				'description' => esc_html__( 'Linked presets load shared filter behavior. Use import when this widget needs an editable local copy.', 'elementor-implementation-toolkit' ),
-				'condition'   => [ 'configuration_source' => 'preset' ],
+				'condition'   => [ 'data_provider!' => 'collection', 'configuration_source' => 'preset' ],
 			]
 		);
 
@@ -92,7 +116,7 @@ class TargetControls {
 			[
 				'type'      => Controls_Manager::RAW_HTML,
 				'raw'       => $import_html,
-				'condition' => [ 'configuration_source' => 'preset' ],
+				'condition' => [ 'data_provider!' => 'collection', 'configuration_source' => 'preset' ],
 			]
 		);
 
@@ -103,7 +127,7 @@ class TargetControls {
 				'type'        => Controls_Manager::TEXT,
 				'placeholder' => esc_html__( 'Listing filters', 'elementor-implementation-toolkit' ),
 				'description' => esc_html__( 'Build filters below, then save this widget setup as a reusable preset.', 'elementor-implementation-toolkit' ),
-				'condition'   => [ 'configuration_source' => 'widget' ],
+				'condition'   => [ 'data_provider!' => 'collection', 'configuration_source' => 'widget' ],
 			]
 		);
 
@@ -117,7 +141,7 @@ class TargetControls {
 					'link'   => esc_html__( 'Save and link this widget', 'elementor-implementation-toolkit' ),
 					'detach' => esc_html__( 'Save only', 'elementor-implementation-toolkit' ),
 				],
-				'condition' => [ 'configuration_source' => 'widget' ],
+				'condition' => [ 'data_provider!' => 'collection', 'configuration_source' => 'widget' ],
 			]
 		);
 
@@ -130,7 +154,7 @@ class TargetControls {
 			[
 				'type'      => Controls_Manager::RAW_HTML,
 				'raw'       => $save_html,
-				'condition' => [ 'configuration_source' => 'widget' ],
+				'condition' => [ 'data_provider!' => 'collection', 'configuration_source' => 'widget' ],
 			]
 		);
 
@@ -142,6 +166,7 @@ class TargetControls {
 				'placeholder'        => '.elementor-element-abc123, .my-listing',
 				'description'        => esc_html__( 'Use detection or enter a CSS selector. CCT mode needs a target container for replacement HTML.', 'elementor-implementation-toolkit' ),
 				'frontend_available' => true,
+				'condition'          => [ 'data_provider!' => 'collection' ],
 			]
 		);
 
@@ -153,6 +178,7 @@ class TargetControls {
 				'placeholder'        => '.jet-listing-grid__item, article, .product',
 				'description'        => esc_html__( 'Optional. Leave empty to let the frontend detect repeated items inside the target.', 'elementor-implementation-toolkit' ),
 				'frontend_available' => true,
+				'condition'          => [ 'data_provider!' => 'collection' ],
 			]
 		);
 
@@ -166,6 +192,7 @@ class TargetControls {
 				'return_value'       => 'yes',
 				'default'            => 'yes',
 				'frontend_available' => true,
+				'condition'          => [ 'data_provider!' => 'collection' ],
 			]
 		);
 
@@ -180,7 +207,7 @@ class TargetControls {
 				'default'            => 250,
 				'description'        => esc_html__( 'Waits before auto-applying while someone types in Search. Other filters still apply immediately.', 'elementor-implementation-toolkit' ),
 				'frontend_available' => true,
-				'condition'          => [ 'auto_apply' => 'yes' ],
+				'condition'          => [ 'data_provider!' => 'collection', 'auto_apply' => 'yes' ],
 			]
 		);
 
@@ -194,6 +221,7 @@ class TargetControls {
 				'return_value'       => 'yes',
 				'default'            => 'yes',
 				'frontend_available' => true,
+				'condition'          => [ 'data_provider!' => 'collection' ],
 			]
 		);
 
@@ -207,6 +235,7 @@ class TargetControls {
 				'step'               => 1,
 				'default'            => 24,
 				'frontend_available' => true,
+				'condition'          => [ 'data_provider!' => 'collection' ],
 			]
 		);
 

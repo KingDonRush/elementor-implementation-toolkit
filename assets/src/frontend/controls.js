@@ -52,8 +52,11 @@ export function installControls(Controller) {
         const $range = $(element);
         const min = $range.find('[data-eit-range-min]').val();
         const max = $range.find('[data-eit-range-max]').val();
-        if (String(min) === String($range.find('[data-eit-range-min]').attr('min'))
-          && String(max) === String($range.find('[data-eit-range-max]').attr('max'))) return;
+        if ('' === String(min) && '' === String(max)) return;
+        const minimum = $range.find('[data-eit-range-min]').attr('min');
+        const maximum = $range.find('[data-eit-range-max]').attr('max');
+        if (undefined !== minimum && undefined !== maximum
+          && String(min) === String(minimum) && String(max) === String(maximum)) return;
         filters.push(addFilterMeta({ type: 'range', key: $range.attr('data-eit-key') || '', value: { min, max } }, $range));
       });
       this.$root.find('.eit-date-range[data-eit-control]').each((index, element) => {
@@ -116,7 +119,9 @@ export function installControls(Controller) {
     },
 
     resetRange($range) {
-      this.setRangeValue($range, { min: $range.find('[data-eit-range-min]').attr('min'), max: $range.find('[data-eit-range-max]').attr('max') });
+      const minimum = $range.find('[data-eit-range-min]').attr('min');
+      const maximum = $range.find('[data-eit-range-max]').attr('max');
+      this.setRangeValue($range, { min: undefined === minimum ? '' : minimum, max: undefined === maximum ? '' : maximum });
     },
 
     setRangeValue($range, value = {}) {
@@ -125,9 +130,9 @@ export function installControls(Controller) {
         ['max', '[data-eit-range-max]', '[data-eit-range-max-slider]'],
       ];
       pairs.forEach(([key, numberSelector, sliderSelector]) => {
-        if (null !== value[key] && undefined !== value[key] && '' !== String(value[key])) {
-          $range.find(numberSelector).val(value[key]);
-          $range.find(sliderSelector).val(value[key]);
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+          $range.find(numberSelector).val(value[key] ?? '');
+          $range.find(sliderSelector).val(value[key] ?? '');
         }
       });
       this.syncRangeInputs($range.find('[data-eit-range-min]').get(0));
