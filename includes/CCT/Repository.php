@@ -66,15 +66,22 @@ class Repository {
 		$id = absint( $id );
 		if ( $id ) {
 			$updated = $wpdb->update( $table, $data, [ 'id' => $id ] );
-			return false === $updated ? new \WP_Error( 'eit_cct_update_failed', $wpdb->last_error ) : $id;
+			if ( false === $updated ) {
+				return new \WP_Error( 'eit_cct_update_failed', $wpdb->last_error );
+			}
+			$this->changed( $definition, $type, $id );
+			return $id;
 		}
 
 		$data['created_at'] = $now;
 		$inserted = $wpdb->insert( $table, $data );
 
-		return false === $inserted
-			? new \WP_Error( 'eit_cct_insert_failed', $wpdb->last_error )
-			: absint( $wpdb->insert_id );
+		if ( false === $inserted ) {
+			return new \WP_Error( 'eit_cct_insert_failed', $wpdb->last_error );
+		}
+		$id = absint( $wpdb->insert_id );
+		$this->changed( $definition, $type, $id );
+		return $id;
 	}
 
 	public function delete( $type, $id ) {
@@ -84,7 +91,11 @@ class Repository {
 			return false;
 		}
 
-		return false !== $wpdb->delete( SchemaManager::table_name( $type ), [ 'id' => absint( $id ) ], [ '%d' ] );
+		$deleted = $wpdb->delete( SchemaManager::table_name( $type ), [ 'id' => absint( $id ) ], [ '%d' ] );
+		if ( false !== $deleted && $deleted > 0 ) {
+			$this->changed( DefinitionManager::get( $type ), $type, $id );
+		}
+		return false !== $deleted;
 	}
 
 	public function query( $type, array $args = [] ) {
@@ -111,7 +122,7 @@ class Repository {
 		}
 
 		$this->append_id_filters( $where, $params, $args );
-		$this->append_search( $where, $params, $args['search'] ?? '', $fields );
+		$this->append_search( $where, $params, $args['search'] ?? '', $fields, $args['search_fields'] ?? [] );
 		$this->append_field_filters( $where, $params, $args['filters'] ?? [], $fields );
 
 		$order_key = sanitize_key( $args['orderby'] ?? 'menu_order' );
@@ -150,10 +161,68 @@ class Repository {
 		return $this->query( $type, $args );
 	}
 
+	public function facet_counts( $type, array $args, array $field_keys ) {
+		global $wpdb;
+
+		$definition = DefinitionManager::get( $type );
+		if ( ! $definition ) {
+			return [];
+		}
+		$table = SchemaManager::table_name( $type );
+		$fields = DefinitionManager::fields( $type );
+		$result = [];
+		foreach ( array_slice( array_unique( array_map( 'sanitize_key', $field_keys ) ), 0, 10 ) as $key ) {
+			$field = $fields[ $key ] ?? null;
+			if ( ! $field || empty( $field['filterable'] ) || ! FieldTypes::is_indexable( $field['type'] ?? '' ) ) {
+				continue;
+			}
+			$where = [ 'status = %s' ];
+			$params = [ 'publish' ];
+			$this->append_id_filters( $where, $params, $args );
+			$this->append_search( $where, $params, $args['search'] ?? '', $fields, $args['search_fields'] ?? [] );
+			$this->append_field_filters( $where, $params, $args['filters'] ?? [], $fields, $key );
+			$column = SchemaManager::column_name( $key );
+			$where[] = "`{$column}` IS NOT NULL";
+			$sql = "SELECT `{$column}` facet_value, COUNT(*) facet_count FROM `{$table}` WHERE " . implode( ' AND ', $where ) . " GROUP BY `{$column}` ORDER BY facet_count DESC, facet_value ASC LIMIT 100";
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL is assembled from internal table/column identifiers and generated placeholder clauses.
+			$rows = $wpdb->get_results( $wpdb->prepare( $sql, $params ), ARRAY_A );
+			$result[ $key ] = [];
+			foreach ( $rows ?: [] as $row ) {
+				$result[ $key ][ (string) $row['facet_value'] ] = (int) $row['facet_count'];
+			}
+		}
+		return $result;
+	}
+
+	public function matching_ids( $type, array $args, $limit = 10000 ) {
+		global $wpdb;
+
+		$definition = DefinitionManager::get( $type );
+		if ( ! $definition ) {
+			return [];
+		}
+		$table = SchemaManager::table_name( $type );
+		$fields = DefinitionManager::fields( $type );
+		$where = [ 'status = %s' ];
+		$params = [ 'publish' ];
+		$this->append_id_filters( $where, $params, $args );
+		$this->append_search( $where, $params, $args['search'] ?? '', $fields, $args['search_fields'] ?? [] );
+		$this->append_field_filters( $where, $params, $args['filters'] ?? [], $fields );
+		$limit = max( 1, min( 10000, absint( $limit ) ) );
+		$params[] = $limit;
+		$sql = "SELECT id FROM `{$table}` WHERE " . implode( ' AND ', $where ) . ' ORDER BY id ASC LIMIT %d';
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL is assembled from internal identifiers and generated placeholder clauses.
+		return array_map( 'strval', $wpdb->get_col( $wpdb->prepare( $sql, $params ) ) ?: [] );
+	}
+
 	private function append_id_filters( array &$where, array &$params, array $args ) {
 		foreach ( [ 'include' => 'IN', 'exclude' => 'NOT IN' ] as $key => $operator ) {
-			$ids = array_values( array_filter( array_map( 'absint', (array) ( $args[ $key ] ?? [] ) ) ) );
+			$raw_ids = (array) ( $args[ $key ] ?? [] );
+			$ids = array_values( array_filter( array_map( 'absint', $raw_ids ) ) );
 			if ( empty( $ids ) ) {
+				if ( 'include' === $key && $raw_ids ) {
+					$where[] = '1=0';
+				}
 				continue;
 			}
 			$where[] = 'id ' . $operator . ' (' . implode( ', ', array_fill( 0, count( $ids ), '%d' ) ) . ')';
@@ -161,7 +230,7 @@ class Repository {
 		}
 	}
 
-	private function append_search( array &$where, array &$params, $search, array $fields ) {
+	private function append_search( array &$where, array &$params, $search, array $fields, array $allowed_keys = [] ) {
 		$search = sanitize_text_field( $search );
 		if ( '' === $search ) {
 			return;
@@ -170,7 +239,8 @@ class Repository {
 		global $wpdb;
 		$search_columns = [ 'title' ];
 		foreach ( $fields as $key => $field ) {
-			if ( ! empty( $field['filterable'] ) && in_array( $field['type'], [ 'text', 'textarea', 'email', 'url', 'select' ], true ) ) {
+			$allowed = ! $allowed_keys || in_array( $key, $allowed_keys, true );
+			if ( $allowed && ( ! empty( $field['filterable'] ) || in_array( $key, $allowed_keys, true ) ) && in_array( $field['type'], [ 'text', 'textarea', 'email', 'url', 'select' ], true ) ) {
 				$search_columns[] = SchemaManager::column_name( $key );
 			}
 		}
@@ -183,7 +253,7 @@ class Repository {
 		$where[] = '(' . implode( ' OR ', $parts ) . ')';
 	}
 
-	private function append_field_filters( array &$where, array &$params, array $filters, array $fields ) {
+	private function append_field_filters( array &$where, array &$params, array $filters, array $fields, $excluded_key = '' ) {
 		global $wpdb;
 
 		foreach ( array_slice( $filters, 0, 20 ) as $filter ) {
@@ -192,46 +262,56 @@ class Repository {
 			}
 
 			$key = sanitize_key( $filter['key'] ?? '' );
-			if ( empty( $fields[ $key ]['filterable'] ) ) {
+			if ( $key === $excluded_key || empty( $fields[ $key ]['filterable'] ) ) {
 				continue;
 			}
 
 			$field = $fields[ $key ];
 			$column = SchemaManager::column_name( $key );
 			$value = $filter['value'] ?? '';
-			$compare = strtoupper( sanitize_key( $filter['compare'] ?? '=' ) );
+			$compare = sanitize_key( $filter['compare'] ?? 'equals' );
 
 			if ( in_array( $field['type'], [ 'multiselect', 'gallery' ], true ) ) {
 				$values = is_array( $value ) ? $value : [ $value ];
 				$likes = [];
 				foreach ( $values as $needle ) {
-					$likes[] = "`{$column}` LIKE %s";
+					$likes[] = "`{$column}` " . ( 'not_in' === $compare ? 'NOT LIKE' : 'LIKE' ) . ' %s';
 					$params[] = '%"' . $wpdb->esc_like( sanitize_text_field( $needle ) ) . '"%';
 				}
 				if ( $likes ) {
-					$where[] = '(' . implode( ' OR ', $likes ) . ')';
+					$where[] = '(' . implode( 'not_in' === $compare ? ' AND ' : ' OR ', $likes ) . ')';
 				}
 				continue;
 			}
 
-			if ( is_array( $value ) ) {
+			if ( in_array( $compare, [ 'in', 'not_in' ], true ) && is_array( $value ) ) {
 				$values = array_values( array_filter( array_map( 'sanitize_text_field', $value ), 'strlen' ) );
 				if ( $values ) {
-					$where[] = "`{$column}` IN (" . implode( ', ', array_fill( 0, count( $values ), '%s' ) ) . ')';
+					$where[] = "`{$column}` " . ( 'not_in' === $compare ? 'NOT IN' : 'IN' ) . ' (' . implode( ', ', array_fill( 0, count( $values ), '%s' ) ) . ')';
 					$params = array_merge( $params, $values );
 				}
 				continue;
 			}
-
-			if ( in_array( $compare, [ 'GT', 'GTE', 'LT', 'LTE' ], true ) ) {
-				$operators = [ 'GT' => '>', 'GTE' => '>=', 'LT' => '<', 'LTE' => '<=' ];
+			if ( 'between' === $compare && is_array( $value ) ) {
+				$minimum = $value['min'] ?? $value['from'] ?? '';
+				$maximum = $value['max'] ?? $value['to'] ?? '';
+				if ( '' !== (string) $minimum ) {
+					$where[] = "`{$column}` >= %s";
+					$params[] = FieldTypes::sanitize( $minimum, $field );
+				}
+				if ( '' !== (string) $maximum ) {
+					$where[] = "`{$column}` <= %s";
+					$params[] = FieldTypes::sanitize( $maximum, $field );
+				}
+			} elseif ( in_array( $compare, [ 'gt', 'gte', 'lt', 'lte' ], true ) ) {
+				$operators = [ 'gt' => '>', 'gte' => '>=', 'lt' => '<', 'lte' => '<=' ];
 				$where[] = "`{$column}` {$operators[ $compare ]} %s";
-				$params[] = sanitize_text_field( $value );
-			} elseif ( 'LIKE' === $compare ) {
+				$params[] = FieldTypes::sanitize( $value, $field );
+			} elseif ( 'like' === $compare ) {
 				$where[] = "`{$column}` LIKE %s";
 				$params[] = '%' . $wpdb->esc_like( sanitize_text_field( $value ) ) . '%';
 			} else {
-				$where[] = "`{$column}` = %s";
+				$where[] = "`{$column}` " . ( 'not_equals' === $compare ? '!=' : '=' ) . ' %s';
 				$params[] = FieldTypes::sanitize( $value, $field );
 			}
 		}
@@ -243,7 +323,7 @@ class Repository {
 			return $key;
 		}
 
-		return isset( $fields[ $key ] ) && ! empty( $fields[ $key ]['filterable'] ) && FieldTypes::is_indexable( $fields[ $key ]['type'] ?? '' )
+		return isset( $fields[ $key ] ) && ( ! empty( $fields[ $key ]['sortable'] ) || ! empty( $fields[ $key ]['filterable'] ) ) && FieldTypes::is_indexable( $fields[ $key ]['type'] ?? '' )
 			? SchemaManager::column_name( $key )
 			: 'menu_order';
 	}
@@ -302,5 +382,9 @@ class Repository {
 		}
 
 		return null === $value || '' === trim( (string) $value );
+	}
+
+	private function changed( array $definition, $type, $id ) {
+		do_action( 'eit_collection_entity_changed', (string) ( $definition['entity_id'] ?? '' ), (string) $type, absint( $id ) );
 	}
 }

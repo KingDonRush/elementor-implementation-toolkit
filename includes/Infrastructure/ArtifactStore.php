@@ -80,6 +80,23 @@ class ArtifactStore {
 			: [];
 	}
 
+	public function active_by_node( $node_id, $kind ) {
+		global $wpdb;
+
+		$artifacts = Tables::name( Tables::ARTIFACTS );
+		$blueprints = Tables::name( Tables::BLUEPRINTS );
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Both table names resolve from the internal table registry.
+				"SELECT a.* FROM `{$artifacts}` a INNER JOIN `{$blueprints}` b ON b.active_version_id = a.version_id WHERE a.node_id = %s AND a.kind = %s LIMIT 1",
+				(string) $node_id,
+				sanitize_key( $kind )
+			),
+			ARRAY_A
+		);
+		return $row ? $this->hydrate( $row ) : null;
+	}
+
 	private function hydrate( array $row ) {
 		$row['version_id'] = (int) $row['version_id'];
 		$row['payload'] = JsonCodec::decode( $row['payload'], [] );

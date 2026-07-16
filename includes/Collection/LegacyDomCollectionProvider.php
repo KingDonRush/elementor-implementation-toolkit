@@ -28,6 +28,9 @@ class LegacyDomCollectionProvider extends BaseCollectionProvider {
 		$payload = $normalizer->normalize( [ 'items' => $request['legacy_snapshot'] ?? [] ] );
 		$matcher = new LegacyDomMatcher();
 		$filters = $this->legacy_filters( $request['filters'] ?? [], $fields );
+		if ( '' !== ( $request['search'] ?? '' ) ) {
+			$filters[] = [ 'key' => '', 'type' => 'search', 'value' => $request['search'], 'compare' => '', 'source' => 'visible_text', 'dataType' => 'string' ];
+		}
 		$matched = $matcher->filter( $payload['items'], $filters );
 		$matched = $matcher->sort( $matched, $this->legacy_sort( $request['sort'] ?? [], $fields ) );
 		$page = max( 1, absint( $request['page'] ?? 1 ) );

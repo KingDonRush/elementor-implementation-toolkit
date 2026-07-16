@@ -36,6 +36,8 @@
       "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T wpcli eval-file wp-content/plugins/elementor-implementation-toolkit/scripts/verify-blueprint-kernel.php",
       "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T wpcli eval-file wp-content/plugins/elementor-implementation-toolkit/scripts/verify-blueprint-admin.php",
       "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T wpcli eval-file wp-content/plugins/elementor-implementation-toolkit/scripts/verify-entry-surfaces.php",
+      "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T wpcli eval-file wp-content/plugins/elementor-implementation-toolkit/scripts/verify-collections.php",
+      "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T wpcli eval-file wp-content/plugins/elementor-implementation-toolkit/scripts/verify-collection-performance.php",
       "docker compose -f ../../../wordpress/docker-compose.yml -f ../../../operations/wordpress/docker-compose.products.yml run --rm -T wpcli eval-file wp-content/plugins/elementor-implementation-toolkit/scripts/verify-filter-controller-robustness.php"
     ]
   }

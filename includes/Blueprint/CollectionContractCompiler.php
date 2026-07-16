@@ -5,6 +5,7 @@
 
 namespace EIT\Blueprint;
 
+use EIT\Collection\CollectionFieldSemantics;
 use EIT\Registry\RegistryHub;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -14,9 +15,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 class CollectionContractCompiler {
 
 	private $registries;
+	private $semantics;
 
 	public function __construct( RegistryHub $registries = null ) {
 		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
+		$this->semantics = new CollectionFieldSemantics();
 	}
 
 	public function compile_collection( array $collection, array $nodes, array $connections, array $entities ) {
@@ -35,6 +38,8 @@ class CollectionContractCompiler {
 		}
 		$filter_id = $this->connected_id( $collection['id'], 'filters', 'to', $connections, 'from' );
 		$filter_config = $nodes[ $filter_id ]['config'] ?? [];
+		$policy_id = $this->connected_id( $collection['id'], 'governs_collection', 'from', $connections );
+		$policy_config = $nodes[ $policy_id ]['config'] ?? [];
 		$filter_ids = $this->selected_capability_fields( $fields, $filter_config['fields'] ?? [], 'filter' );
 		$sort_ids = $this->selected_capability_fields( $fields, $config['sort_field_ids'] ?? [], 'sort' );
 		$projection_ids = $this->projection_fields( $fields, $config['projection_field_ids'] ?? [] );
@@ -62,6 +67,10 @@ class CollectionContractCompiler {
 			'default_sort' => $this->default_sort( $config, $sort_ids ),
 			'page_size' => min( 48, max( 1, absint( $config['page_size'] ?? 24 ) ) ),
 			'access' => $this->access( $config, $entity ),
+			'policy' => [
+				'id' => $policy_id,
+				'capability' => sanitize_key( $policy_config['read_capability'] ?? $policy_config['capability'] ?? 'read' ),
+			],
 			'cache' => [
 				'enabled' => ! isset( $config['cache']['enabled'] ) || ! empty( $config['cache']['enabled'] ),
 				'ttl_seconds' => min( 3600, max( 30, absint( $config['cache']['ttl_seconds'] ?? 300 ) ) ),
@@ -88,8 +97,8 @@ class CollectionContractCompiler {
 			$controls[] = [
 				'field_id' => $field_id,
 				'label' => $field['name'],
-				'control' => $this->control_type( $field ),
-				'operators' => $this->operators( $field ),
+				'control' => $this->semantics->control( $field ),
+				'operators' => $this->semantics->operators( $field ),
 				'options' => $this->options( $field ),
 				'facet' => in_array( $field_id, $facet_ids, true ),
 			];
@@ -183,34 +192,6 @@ class CollectionContractCompiler {
 			}
 		}
 		return array_slice( $result, 0, 10 );
-	}
-
-	private function control_type( array $field ) {
-		$type = $field['type'] ?? '';
-		if ( in_array( $type, [ 'integer', 'decimal', 'money', 'percentage', 'calculated' ], true ) ) {
-			return 'range';
-		}
-		if ( in_array( $type, [ 'date', 'datetime', 'time', 'schedule', 'availability' ], true ) ) {
-			return 'date';
-		}
-		if ( 'boolean' === $type ) {
-			return 'toggle';
-		}
-		if ( in_array( $type, [ 'single_choice', 'multiple_choice', 'taxonomy', 'relation' ], true ) ) {
-			return 'options';
-		}
-		return 'search';
-	}
-
-	private function operators( array $field ) {
-		$type = $field['type'] ?? '';
-		if ( in_array( $type, [ 'integer', 'decimal', 'money', 'percentage', 'calculated', 'date', 'datetime', 'time' ], true ) ) {
-			return [ 'equals', 'gte', 'lte', 'between' ];
-		}
-		if ( in_array( $type, [ 'multiple_choice', 'taxonomy', 'relation' ], true ) ) {
-			return [ 'in', 'not_in' ];
-		}
-		return [ 'equals', 'not_equals' ];
 	}
 
 	private function options( array $field ) {
