@@ -7,6 +7,7 @@ namespace EIT\Blueprint;
 
 use EIT\Contracts\FieldContractSourceInterface;
 use EIT\Entry\SafeExpression;
+use EIT\Registry\ExtensionContract;
 use EIT\Registry\RegistryHub;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -130,11 +131,31 @@ class EntryContractValidator {
 		foreach ( $actions as $action ) {
 			$events = is_array( $action ) ? ( $action['events'] ?? [] ) : [];
 			$action_id = is_array( $action ) ? ( $action['id'] ?? '' ) : '';
-			if ( ! is_array( $action ) || ! Uuid::is_valid( $action_id ) || isset( $seen[ $action_id ] ) || ! in_array( $action['type'] ?? '', EntryContractCompiler::ACTION_TYPES, true ) || ! is_array( $events ) || ! $events || array_diff( $events, EntryContractCompiler::ACTION_EVENTS ) ) {
+			$type = is_array( $action ) ? strtolower( trim( (string) ( $action['type'] ?? '' ) ) ) : '';
+			if ( ! is_array( $action ) || ! Uuid::is_valid( $action_id ) || isset( $seen[ $action_id ] ) || $type !== ( $action['type'] ?? '' ) || ! is_array( $events ) || ! array_is_list( $events ) || ! $events || array_diff( $events, EntryContractCompiler::ACTION_EVENTS ) || count( $events ) !== count( array_unique( $events ) ) ) {
 				$errors[] = $this->error( 'entry_action_invalid', 'Entry Surface action needs a stable ID, supported type and trigger event.', $node_id );
 				continue;
 			}
 			$seen[ $action_id ] = true;
+			$extension = $this->registries->form_actions()->get( $type );
+			if ( ! $extension ) {
+				$errors[] = $this->error( 'entry_action_missing', 'Entry Surface action type is not registered.', $node_id );
+				continue;
+			}
+			$extension_contract = ExtensionContract::snapshot( $extension );
+			if ( is_wp_error( $extension_contract ) && 'eit_extension_unavailable' === $extension_contract->get_error_code() ) {
+				$errors[] = $this->error( 'entry_action_unhealthy', 'Entry Surface action failed its health check.', $node_id );
+				continue;
+			}
+			if ( is_wp_error( $extension_contract ) || ! hash_equals( $type, (string) ( $extension_contract['id'] ?? '' ) ) ) {
+				$errors[] = $this->error( 'entry_action_capabilities_invalid', 'Entry Surface action capabilities are invalid.', $node_id );
+				continue;
+			}
+			$capabilities = $extension_contract['capabilities'];
+			if ( ! in_array( 'durable_job', $capabilities, true ) ) {
+				$errors[] = $this->error( 'entry_action_durability_required', 'Entry Surface actions must declare durable job execution.', $node_id );
+				continue;
+			}
 			$config = is_array( $action['config'] ?? null ) ? $action['config'] : [];
 			if ( preg_grep( '/secret|token|password|authorization|cookie|headers/i', array_keys( $config ) ) ) {
 				$errors[] = $this->error( 'entry_action_secret_input_forbidden', 'Entry actions cannot store secret or raw authorization inputs.', $node_id );

@@ -12,7 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 class CollectionAccessPolicy {
 
 	public function authorize( array $contract ) {
-		if ( 'public' === ( $contract['access'] ?? 'authenticated' ) ) {
+		$policy = $contract['policy'] ?? [];
+		$restricted = 'own' === ( $policy['ownership'] ?? 'any' ) || 'assigned' === ( $policy['object_scope'] ?? 'entity' );
+		if ( 'public' === ( $contract['access'] ?? 'authenticated' ) && ! $restricted ) {
 			return true;
 		}
 		if ( ! is_user_logged_in() ) {

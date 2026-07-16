@@ -175,9 +175,6 @@ class MigrationService {
 		if ( ! $existing ) {
 			return null;
 		}
-		if ( ! empty( $existing['active_version_id'] ) ) {
-			return new \WP_Error( 'eit_migration_blueprint_active', __( 'An active imported Blueprint must change through its normal impact plan.', 'elementor-implementation-toolkit' ) );
-		}
 		$previous = $this->migrations->get_by_source( $source_type, $source_key );
 		if ( ! $previous || ! hash_equals( (string) $previous['draft_checksum'], (string) $existing['draft_checksum'] ) ) {
 			return new \WP_Error( 'eit_migration_draft_conflict', __( 'The imported draft has local changes and will not be overwritten.', 'elementor-implementation-toolkit' ) );
@@ -220,7 +217,7 @@ class MigrationService {
 			return array_sum( array_map( 'intval', array_intersect_key( (array) $counts, array_flip( [ 'publish', 'draft', 'pending', 'private', 'future', 'trash', 'eit_archived' ] ) ) ) );
 		}
 		if ( 'cct' === $source_type ) {
-			$result = ( new CctRepository() )->query( sanitize_key( $source_key ), [ 'status' => [ 'publish', 'draft', 'pending', 'private', 'eit_archived' ], 'per_page' => 1 ] );
+			$result = ( new CctRepository() )->query( sanitize_key( $source_key ), [ 'status' => [ 'publish', 'draft', 'review', 'archived' ], 'per_page' => 1 ] );
 			return (int) ( $result['total'] ?? 0 );
 		}
 		return 'elementor_document' === $source_type ? ( get_post( absint( $source_key ) ) ? 1 : 0 ) : 1;

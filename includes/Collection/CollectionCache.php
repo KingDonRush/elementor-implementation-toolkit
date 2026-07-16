@@ -58,7 +58,9 @@ class CollectionCache {
 	}
 
 	private function key( array $contract, array $request ) {
-		$scope = 'public' === ( $contract['access'] ?? '' ) ? 'public' : 'user:' . get_current_user_id();
+		$policy = $contract['policy'] ?? [];
+		$restricted = 'own' === ( $policy['ownership'] ?? 'any' ) || 'assigned' === ( $policy['object_scope'] ?? 'entity' );
+		$scope = 'public' === ( $contract['access'] ?? '' ) && ! $restricted ? 'public' : 'user:' . get_current_user_id();
 		$identity = [
 			'collection' => $contract['collection_id'],
 			'version' => $contract['version_id'],

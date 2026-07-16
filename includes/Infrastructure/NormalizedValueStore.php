@@ -19,15 +19,21 @@ class NormalizedValueStore {
 		$this->transaction = $transaction ?: new Transaction();
 	}
 
-	public function replace_relation_targets( $blueprint_id, $relation_id, $source_id, array $targets ) {
+	public function replace_relation_targets( $blueprint_id, $relation_id, $source_id, array $targets, $target_unique = false ) {
 		global $wpdb;
 
 		if ( ! Uuid::is_valid( $blueprint_id ) || ! Uuid::is_valid( $relation_id ) || '' === trim( (string) $source_id ) ) {
 			return new \WP_Error( 'eit_relation_identity_invalid', __( 'Relation identities are invalid.', 'elementor-implementation-toolkit' ) );
 		}
 		$result = $this->transaction->run(
-			function () use ( $wpdb, $blueprint_id, $relation_id, $source_id, $targets ) {
+			function () use ( $wpdb, $blueprint_id, $relation_id, $source_id, $targets, $target_unique ) {
 				$table = Tables::name( Tables::RELATIONS );
+				if ( $target_unique ) {
+					$available = $this->lock_unique_targets( $table, $blueprint_id, $relation_id, $source_id, $targets );
+					if ( is_wp_error( $available ) ) {
+						return $available;
+					}
+				}
 				$deleted = $wpdb->delete( $table, [ 'blueprint_id' => $blueprint_id, 'relation_id' => $relation_id, 'source_id' => (string) $source_id ] );
 				if ( false === $deleted ) {
 					return new \WP_Error( 'eit_relation_delete_failed', __( 'Existing relation values could not be replaced.', 'elementor-implementation-toolkit' ) );
@@ -65,6 +71,32 @@ class NormalizedValueStore {
 			do_action( 'eit_collection_normalized_values_changed', $blueprint_id, $relation_id );
 		}
 		return $result;
+	}
+
+	private function lock_unique_targets( $table, $blueprint_id, $relation_id, $source_id, array $targets ) {
+		global $wpdb;
+
+		$target_ids = array_map(
+			fn( $target ) => trim( (string) ( is_array( $target ) ? ( $target['id'] ?? '' ) : $target ) ),
+			$targets
+		);
+		$target_ids = array_values( array_unique( array_filter( $target_ids, 'strlen' ) ) );
+		sort( $target_ids, SORT_STRING );
+		foreach ( $target_ids as $target_id ) {
+			$owners = $wpdb->get_col(
+				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Internal table and equality range locked for cardinality enforcement.
+					"SELECT source_id FROM `{$table}` WHERE blueprint_id = %s AND relation_id = %s AND target_id = %s FOR UPDATE",
+					$blueprint_id,
+					$relation_id,
+					$target_id
+				)
+			);
+			if ( array_filter( $owners ?: [], fn( $owner ) => (string) $owner !== (string) $source_id ) ) {
+				return new \WP_Error( 'eit_relation_cardinality_conflict', __( 'A relation target already belongs to another source item.', 'elementor-implementation-toolkit' ) );
+			}
+		}
+		return true;
 	}
 
 	public function relation_targets( $blueprint_id, $relation_id, $source_id ) {

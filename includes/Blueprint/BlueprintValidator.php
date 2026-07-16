@@ -24,18 +24,24 @@ class BlueprintValidator {
 	private $canonicalizer;
 	private $entry_contracts;
 	private $collection_contracts;
+	private $route_contracts;
+	private $relation_contracts;
 
 	public function __construct(
 		NodeTypeRegistry $nodes = null,
 		FieldPrimitiveRegistry $primitives = null,
 		Canonicalizer $canonicalizer = null,
-		RegistryHub $registries = null
+		RegistryHub $registries = null,
+		RouteContractValidator $route_contracts = null,
+		RelationContractValidator $relation_contracts = null
 	) {
 		$this->nodes = $nodes ?: new NodeTypeRegistry();
 		$this->primitives = $primitives ?: new FieldPrimitiveRegistry();
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
 		$this->entry_contracts = new EntryContractValidator( $registries );
 		$this->collection_contracts = new CollectionContractValidator( $registries );
+		$this->route_contracts = $route_contracts ?: new RouteContractValidator();
+		$this->relation_contracts = $relation_contracts ?: new RelationContractValidator();
 	}
 
 	public function validate( array $blueprint ) {
@@ -46,6 +52,8 @@ class BlueprintValidator {
 		$this->validate_orphans( $node_index, $connections, $errors );
 		$this->validate_cardinality( $node_index, $connections, $errors );
 		$this->validate_storage_bindings( $node_index, $connections, $errors );
+		$errors = array_merge( $errors, $this->route_contracts->validate( $node_index, $connections ) );
+		$errors = array_merge( $errors, $this->relation_contracts->validate( $node_index, $connections ) );
 		$errors = array_merge( $errors, $this->entry_contracts->validate( $node_index, $connections ) );
 		$errors = array_merge( $errors, $this->collection_contracts->validate( $node_index, $connections ) );
 		$this->validate_cycles( $node_index, $connections, $errors );
@@ -114,7 +122,6 @@ class BlueprintValidator {
 			if ( 'adapter' === $type && empty( trim( (string) ( $node['config']['adapter_id'] ?? '' ) ) ) ) {
 				$errors[] = $this->error( $path . '.config.adapter_id', 'adapter_id_required', 'Adapter node must select a registered adapter.', $id );
 			}
-
 			$index[ $id ] = $node;
 			if ( 'field_group' === $type ) {
 				$this->validate_fields( $node, $path, $field_ids, $errors );
@@ -163,6 +170,10 @@ class BlueprintValidator {
 		if ( ! is_array( $health ) || empty( $health['ok'] ) ) {
 			$errors[] = $this->error( $path . '.type', 'field_primitive_unhealthy', 'Field primitive failed its health check.', $node_id );
 			return;
+		}
+		$compiled_primitive = is_array( $field['primitive'] ?? null ) ? $field['primitive'] : [];
+		if ( $compiled_primitive && ( $type !== ( $compiled_primitive['id'] ?? '' ) || (string) $primitive->get_version() !== ( $compiled_primitive['version'] ?? '' ) ) ) {
+			$errors[] = $this->error( $path . '.primitive', 'field_primitive_version_mismatch', 'Field primitive metadata differs from the registered implementation.', $node_id );
 		}
 		if ( empty( trim( (string) ( $field['name'] ?? '' ) ) ) ) {
 			$errors[] = $this->error( $path . '.name', 'required', 'Field public name is required.', $node_id );
@@ -279,6 +290,9 @@ class BlueprintValidator {
 			}
 			if ( 'relation' === $node['type'] && ( 1 !== ( $counts[ $id ]['relation_source'] ?? 0 ) || 1 !== ( $counts[ $id ]['relation_target'] ?? 0 ) ) ) {
 				$errors[] = $this->error( 'connections', 'relation_endpoints', 'Relation must declare exactly one source and one target Entity.', $id );
+			}
+			if ( 'relation' === $node['type'] && 1 !== ( $counts[ $id ]['relation_options'] ?? 0 ) ) {
+				$errors[] = $this->error( 'connections', 'relation_options_required', 'Relation must use exactly one target Collection as its authorized option source.', $id );
 			}
 			if ( isset( $owners[ $node['type'] ] ) && 1 !== ( $counts[ $id ][ $owners[ $node['type'] ][0] ] ?? 0 ) ) {
 				$errors[] = $this->error( 'connections', 'single_owner_required', $owners[ $node['type'] ][1], $id );

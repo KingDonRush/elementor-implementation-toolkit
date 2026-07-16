@@ -15,7 +15,7 @@ export default function EntryActions({ config, updateConfig }) {
           <SelectControl
             label={__("Action", "elementor-implementation-toolkit")}
             value={action.type}
-            options={["redirect", "email", "notification", "webhook"].map(
+            options={["redirect", "email", "webhook"].map(
               (value) => ({ label: humanize(value), value }),
             )}
             onChange={(type) =>
@@ -98,7 +98,7 @@ export default function EntryActions({ config, updateConfig }) {
             ...actions,
             {
               id: uuid(),
-              type: "notification",
+              type: "email",
               events: ["created"],
               config: {},
             },

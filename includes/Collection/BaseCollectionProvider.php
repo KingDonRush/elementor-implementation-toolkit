@@ -27,6 +27,16 @@ abstract class BaseCollectionProvider implements CollectionProviderInterface {
 		return $fields;
 	}
 
+	protected function apply_policy_scope( array $contract, array $request, array $context ) {
+		return ( new CollectionPolicyScope() )->apply( $contract, $request, $context );
+	}
+
+	protected function intersect_ids( array $first, array $second ) {
+		$first = array_values( array_unique( array_map( 'strval', $first ) ) );
+		$second = array_values( array_unique( array_map( 'strval', $second ) ) );
+		return $first ? array_values( array_intersect( $first, $second ) ) : $second;
+	}
+
 	protected function item( $id, $title, $url, array $record, array $fields ) {
 		$values = [];
 		foreach ( $fields as $field_id => $field ) {

@@ -29,11 +29,24 @@ class ShadowComparator {
 		global $wpdb;
 
 		$started = microtime( true );
+		$compiled = ( new Compiler() )->compile( $blueprint );
+		if ( ! $compiled->is_valid() ) {
+			return [
+				'status' => 'mismatch',
+				'verification_scope' => 'compiled_projection',
+				'runtime_switched' => false,
+				'checks' => [ 'compiler' => [ 'legacy' => true, 'shadow' => false, 'match' => false ] ],
+				'duration_ms' => round( ( microtime( true ) - $started ) * 1000, 3 ),
+				'query_plan' => [ 'legacy_queries' => 0, 'shadow_queries' => 0, 'budget' => 0 ],
+				'errors' => $compiled->errors(),
+			];
+		}
+		$projection = $compiled->artifacts();
 		$queries_before = (int) $wpdb->num_queries;
 		$legacy = $this->snapshot_source( $source_type, $source_key, null );
 		$legacy_queries = (int) $wpdb->num_queries - $queries_before;
 		$shadow_before = (int) $wpdb->num_queries;
-		$shadow = $this->snapshot_source( $source_type, $source_key, $blueprint );
+		$shadow = $this->snapshot_source( $source_type, $source_key, $blueprint, $projection );
 		$shadow_queries = (int) $wpdb->num_queries - $shadow_before;
 		$checks = $this->checks( $legacy, $shadow );
 		$query_budget = max( 10, $legacy_queries + 2 );
@@ -47,18 +60,20 @@ class ShadowComparator {
 
 		return [
 			'status' => $verified ? 'verified' : 'mismatch',
+			'verification_scope' => 'compiled_projection',
+			'runtime_switched' => false,
 			'checks' => $checks,
 			'duration_ms' => round( ( microtime( true ) - $started ) * 1000, 3 ),
 			'query_plan' => [ 'legacy_queries' => $legacy_queries, 'shadow_queries' => $shadow_queries, 'budget' => $query_budget ],
 		];
 	}
 
-	private function snapshot_source( $source_type, $source_key, array $blueprint = null ) {
+	private function snapshot_source( $source_type, $source_key, array $blueprint = null, array $projection = [] ) {
 		switch ( sanitize_key( $source_type ) ) {
 			case 'cpt':
-				return $this->cpt_snapshot( sanitize_key( $source_key ), $blueprint );
+				return $this->cpt_snapshot( sanitize_key( $source_key ), $blueprint, $projection );
 			case 'cct':
-				return $this->cct_snapshot( sanitize_key( $source_key ), $blueprint );
+				return $this->cct_snapshot( sanitize_key( $source_key ), $blueprint, $projection );
 			case 'filter_preset':
 				return $this->preset_snapshot( sanitize_key( $source_key ), $blueprint );
 			case 'elementor_document':
@@ -68,12 +83,12 @@ class ShadowComparator {
 		}
 	}
 
-	private function cpt_snapshot( $slug, array $blueprint = null ) {
+	private function cpt_snapshot( $slug, array $blueprint = null, array $projection = [] ) {
 		$definition = CptDefinitions::get( $slug );
 		if ( ! $definition ) {
 			return [];
 		}
-		$field_keys = null === $blueprint ? $this->legacy_cpt_keys( $definition ) : $this->blueprint_field_keys( $blueprint );
+		$field_keys = null === $blueprint ? $this->legacy_cpt_keys( $definition ) : $this->compiled_field_keys( 'cpt', $projection );
 		$statuses = [ 'publish', 'draft', 'pending', 'private', 'future', 'trash', 'eit_archived' ];
 		$ids = get_posts( [ 'post_type' => $slug, 'post_status' => $statuses, 'posts_per_page' => -1, 'fields' => 'ids', 'orderby' => 'ID', 'order' => 'ASC', 'no_found_rows' => true ] );
 		$rows = [];
@@ -89,16 +104,16 @@ class ShadowComparator {
 		return $this->record_snapshot( $rows );
 	}
 
-	private function cct_snapshot( $slug, array $blueprint = null ) {
+	private function cct_snapshot( $slug, array $blueprint = null, array $projection = [] ) {
 		$definition = CctDefinitions::get( $slug );
 		if ( ! $definition ) {
 			return [];
 		}
-		$field_keys = null === $blueprint ? array_keys( CctDefinitions::fields( $slug ) ) : $this->blueprint_field_keys( $blueprint );
+		$field_keys = null === $blueprint ? array_keys( CctDefinitions::fields( $slug ) ) : $this->compiled_field_keys( 'cct', $projection );
 		$page = 1;
 		$rows = [];
 		do {
-			$result = $this->cct->query( $slug, [ 'status' => [ 'publish', 'draft', 'pending', 'private', 'eit_archived' ], 'page' => $page, 'per_page' => 100, 'orderby' => 'id' ] );
+			$result = $this->cct->query( $slug, [ 'status' => [ 'publish', 'draft', 'review', 'archived' ], 'page' => $page, 'per_page' => 100, 'orderby' => 'id' ] );
 			foreach ( $result['items'] ?? [] as $item ) {
 				$values = [];
 				foreach ( $field_keys as $key ) {
@@ -146,7 +161,7 @@ class ShadowComparator {
 	private function record_snapshot( array $rows ) {
 		$statuses = array_count_values( array_column( $rows, 'status' ) );
 		ksort( $statuses );
-		return [ 'count' => count( $rows ), 'status_checksum' => $this->checksum( $statuses ), 'data_checksum' => $this->checksum( $rows ) ];
+		return [ 'count' => count( $rows ), 'status_counts' => $statuses, 'status_checksum' => $this->checksum( $statuses ), 'data_checksum' => $this->checksum( $rows ) ];
 	}
 
 	private function checks( array $legacy, array $shadow ) {
@@ -173,6 +188,21 @@ class ShadowComparator {
 			}
 		}
 		return $keys;
+	}
+
+	private function compiled_field_keys( $strategy, array $artifacts ) {
+		foreach ( $artifacts as $artifact ) {
+			$payload = $artifact['payload'] ?? [];
+			if ( 'entity_definition' !== ( $artifact['kind'] ?? '' ) || $strategy !== ( $payload['strategy'] ?? '' ) ) {
+				continue;
+			}
+			$definition = $payload['definition'] ?? [];
+			if ( 'cct' === $strategy ) {
+				return array_values( array_filter( array_map( fn( $field ) => sanitize_key( $field['key'] ?? '' ), $definition['fields'] ?? [] ) ) );
+			}
+			return $this->legacy_cpt_keys( $definition );
+		}
+		return [];
 	}
 
 	private function legacy_cpt_keys( array $definition ) {

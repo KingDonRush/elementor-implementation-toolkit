@@ -13,8 +13,9 @@ export function evaluateEntryExpression(expression, values) {
         raw && "object" === typeof raw && !Array.isArray(raw)
           ? raw.amount
           : raw;
-      if (!Number.isFinite(Number(value))) return null;
-      stack.push(Number(value));
+      const number = expressionNumber(value);
+      if (null === number) return null;
+      stack.push(number);
     } else {
       const right = stack.pop();
       const left = stack.pop();
@@ -28,6 +29,17 @@ export function evaluateEntryExpression(expression, values) {
     }
   }
   return 1 === stack.length && Number.isFinite(stack[0]) ? stack[0] : null;
+}
+
+function expressionNumber(value) {
+  if (
+    null == value ||
+    "boolean" === typeof value ||
+    ("string" === typeof value && "" === value.trim())
+  )
+    return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function tokenize(expression) {

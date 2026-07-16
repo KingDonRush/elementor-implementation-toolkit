@@ -34,6 +34,11 @@ class WooCollectionProvider extends BaseCollectionProvider {
 			return new \WP_Error( 'eit_collection_woo_unavailable', __( 'WooCommerce product queries are unavailable.', 'elementor-implementation-toolkit' ) );
 		}
 		$fields = $this->fields( $contract );
+		$request = $this->apply_policy_scope( $contract, $request, $context );
+		$request = $this->apply_product_scope( $request );
+		if ( is_wp_error( $request ) ) {
+			return $request;
+		}
 		$args = $this->query_args( $request, $fields );
 		if ( is_wp_error( $args ) ) {
 			return $args;
@@ -53,13 +58,17 @@ class WooCollectionProvider extends BaseCollectionProvider {
 		}
 		$total = is_object( $result ) ? (int) ( $result->total ?? count( $items ) ) : count( $items );
 		$pages = is_object( $result ) ? (int) ( $result->max_num_pages ?? 1 ) : 1;
+		$facets = $this->facets( $contract, $request, $fields );
+		if ( is_wp_error( $facets ) ) {
+			return $facets;
+		}
 		return [
 			'items' => $items,
 			'total' => $total,
 			'page' => max( 1, absint( $request['page'] ?? 1 ) ),
 			'per_page' => max( 1, min( 48, absint( $request['per_page'] ?? 24 ) ) ),
 			'pages' => max( 1, $pages ),
-			'facets' => $this->facets( $contract, $request, $fields ),
+			'facets' => $facets,
 		];
 	}
 
@@ -74,6 +83,11 @@ class WooCollectionProvider extends BaseCollectionProvider {
 			'page' => max( 1, absint( $request['page'] ?? 1 ) ),
 			'paginate' => true,
 		];
+		if ( ! empty( $request['_policy_deny'] ) ) {
+			$args['include'] = [ 0 ];
+		} elseif ( ! empty( $request['_policy_include'] ) ) {
+			$args['include'] = array_values( array_filter( array_map( 'absint', $request['_policy_include'] ) ) );
+		}
 		if ( '' !== ( $request['search'] ?? '' ) ) {
 			$args['search'] = '*' . wc_clean( $request['search'] ) . '*';
 		}
@@ -93,6 +107,39 @@ class WooCollectionProvider extends BaseCollectionProvider {
 		return $args;
 	}
 
+	private function apply_product_scope( array $request ) {
+		if ( empty( $request['_policy_author_id'] ) || ! empty( $request['_policy_deny'] ) ) {
+			return $request;
+		}
+		if ( ! function_exists( 'get_posts' ) ) {
+			$request['_policy_deny'] = true;
+			return $request;
+		}
+		$owned = get_posts(
+			[
+				'post_type' => 'product',
+				'post_status' => 'publish',
+				'author' => absint( $request['_policy_author_id'] ),
+				'fields' => 'ids',
+				'posts_per_page' => CollectionRequestValidator::MAX_PROVIDER_SCAN + 1,
+				'no_found_rows' => true,
+			]
+		);
+		if ( count( $owned ) > CollectionRequestValidator::MAX_PROVIDER_SCAN ) {
+			return $this->scan_limit_error();
+		}
+		$owned = array_values( array_map( 'strval', $owned ) );
+		if ( array_key_exists( '_policy_include', $request ) ) {
+			$owned = $this->intersect_ids( $owned, $request['_policy_include'] );
+		}
+		if ( ! $owned ) {
+			$request['_policy_deny'] = true;
+		} else {
+			$request['_policy_include'] = $owned;
+		}
+		return $request;
+	}
+
 	private function facets( array $contract, array $request, array $fields ) {
 		$facets = [];
 		foreach ( array_slice( $request['facets'] ?? [], 0, 10 ) as $field_id ) {
@@ -106,15 +153,23 @@ class WooCollectionProvider extends BaseCollectionProvider {
 			if ( is_wp_error( $args ) ) {
 				continue;
 			}
-			$args['limit'] = -1;
+			$args['limit'] = CollectionRequestValidator::MAX_PROVIDER_SCAN + 1;
 			$args['page'] = 1;
 			$args['paginate'] = false;
 			unset( $args['orderby'], $args['order'] );
 			$products = $this->query_products( $args );
 			if ( is_wp_error( $products ) ) {
-				continue;
+				return $products;
 			}
-			$facets[ $field_id ] = $this->count_values( (array) $products, $field );
+			$products = (array) $products;
+			if ( count( $products ) > CollectionRequestValidator::MAX_PROVIDER_SCAN ) {
+				return $this->scan_limit_error();
+			}
+			$counts = $this->count_values( $products, $field );
+			if ( is_wp_error( $counts ) ) {
+				return $counts;
+			}
+			$facets[ $field_id ] = $counts;
 		}
 		return $facets;
 	}
@@ -144,6 +199,9 @@ class WooCollectionProvider extends BaseCollectionProvider {
 			$ids = array_merge( $ids, (array) $this->values->read( $product, $key ) );
 		}
 		$ids = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+		if ( count( $ids ) > 5000 ) {
+			return $this->scan_limit_error();
+		}
 		$terms = $ids ? get_terms( [ 'taxonomy' => $taxonomy, 'include' => $ids, 'hide_empty' => false ] ) : [];
 		$terms = is_wp_error( $terms ) ? [] : array_column( $terms, null, 'term_id' );
 		$counts = [];
@@ -174,5 +232,13 @@ class WooCollectionProvider extends BaseCollectionProvider {
 		} catch ( \Throwable $error ) {
 			return new \WP_Error( 'eit_collection_woo_query_failed', sanitize_text_field( $error->getMessage() ) );
 		}
+	}
+
+	private function scan_limit_error() {
+		return new \WP_Error(
+			'eit_collection_scan_limit',
+			__( 'This WooCommerce scope or facet would scan too many products. Narrow the Collection before requesting counts.', 'elementor-implementation-toolkit' ),
+			[ 'status' => 422, 'limit' => CollectionRequestValidator::MAX_PROVIDER_SCAN ]
+		);
 	}
 }

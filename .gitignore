@@ -4,6 +4,7 @@ vendor/
 .phpunit.cache/
 playwright-report/
 test-results/
+dist/
 .idea/
 .vscode/
 *.log

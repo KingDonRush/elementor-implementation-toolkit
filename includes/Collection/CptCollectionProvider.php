@@ -5,6 +5,8 @@
 
 namespace EIT\Collection;
 
+use EIT\Support\CptMultivalueMeta;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -34,12 +36,20 @@ class CptCollectionProvider extends BaseCollectionProvider {
 		}
 		$fields = $this->fields( $contract );
 		$request = $this->relations->apply( $contract, $request );
+		$request = $this->apply_policy_scope( $contract, $request, $context );
 		$args = $this->query_args( $post_type, $request, $fields, $contract['search_field_ids'] ?? [] );
+		if ( is_wp_error( $args ) ) {
+			return $args;
+		}
 		$query = new \WP_Query( $args );
 		$items = [];
 		foreach ( $query->posts as $post ) {
 			$record = $this->record( $post->ID, $fields );
 			$items[] = $this->item( $post->ID, get_the_title( $post ), get_permalink( $post ), $record, $fields );
+		}
+		$facets = $this->facet_counts( $post_type, $contract, $request, $fields );
+		if ( is_wp_error( $facets ) ) {
+			return $facets;
 		}
 		return [
 			'items' => $items,
@@ -47,7 +57,7 @@ class CptCollectionProvider extends BaseCollectionProvider {
 			'page' => max( 1, absint( $request['page'] ?? 1 ) ),
 			'per_page' => (int) $args['posts_per_page'],
 			'pages' => max( 1, (int) $query->max_num_pages ),
-			'facets' => $this->facet_counts( $post_type, $contract, $request, $fields ),
+			'facets' => $facets,
 		];
 	}
 
@@ -65,7 +75,11 @@ class CptCollectionProvider extends BaseCollectionProvider {
 			'ignore_sticky_posts' => true,
 		];
 		if ( '' !== ( $request['search'] ?? '' ) ) {
-			$args['post__in'] = $this->search_ids( $post_type, $request['search'], $search_field_ids, $fields );
+			$search_ids = $this->search_ids( $post_type, $request['search'], $search_field_ids, $fields );
+			if ( is_wp_error( $search_ids ) ) {
+				return $search_ids;
+			}
+			$args['post__in'] = $search_ids;
 		}
 		$this->append_identity_constraints( $args, $request );
 		$this->append_filters( $args, $request['filters'] ?? [], $fields );
@@ -74,7 +88,14 @@ class CptCollectionProvider extends BaseCollectionProvider {
 	}
 
 	private function append_identity_constraints( array &$args, array $request ) {
-		$include = array_map( 'absint', $request['_relation_include'] ?? [] );
+		$include = $request['_relation_include'] ?? [];
+		if ( array_key_exists( '_policy_include', $request ) ) {
+			$include = $this->intersect_ids( $include, $request['_policy_include'] );
+		}
+		$include = array_map( 'absint', $include );
+		if ( ! empty( $request['_policy_deny'] ) ) {
+			$include = [ 0 ];
+		}
 		if ( $include ) {
 			$args['post__in'] = isset( $args['post__in'] ) ? array_values( array_intersect( $args['post__in'], $include ) ) : $include;
 			if ( ! $args['post__in'] ) {
@@ -84,6 +105,9 @@ class CptCollectionProvider extends BaseCollectionProvider {
 		$exclude = array_values( array_filter( array_map( 'absint', $request['_relation_exclude'] ?? [] ) ) );
 		if ( $exclude ) {
 			$args['post__not_in'] = $exclude;
+		}
+		if ( ! empty( $request['_policy_author_id'] ) ) {
+			$args['author'] = absint( $request['_policy_author_id'] );
 		}
 	}
 
@@ -152,6 +176,8 @@ class CptCollectionProvider extends BaseCollectionProvider {
 			$key = $field['storage']['key'] ?? '';
 			if ( 'taxonomy' === ( $field['type'] ?? '' ) ) {
 				$record[ $key ] = wp_get_object_terms( $post_id, $field['taxonomy']['slug'] ?? $key, [ 'fields' => 'ids' ] );
+			} elseif ( 'multiple_choice' === ( $field['type'] ?? '' ) ) {
+				$record[ $key ] = CptMultivalueMeta::read( $post_id, $key );
 			} elseif ( ! in_array( $field['type'] ?? '', [ 'relation', 'repeatable_group' ], true ) ) {
 				$record[ $key ] = get_post_meta( $post_id, $key, true );
 			}
@@ -170,13 +196,19 @@ class CptCollectionProvider extends BaseCollectionProvider {
 			$facet_request['filters'] = array_values( array_filter( $request['filters'] ?? [], fn( $filter ) => $field_id !== ( $filter['field_id'] ?? '' ) ) );
 			$facet_request = $this->relations->apply( $contract, $facet_request );
 			$args = $this->query_args( $post_type, $facet_request, $fields, $contract['search_field_ids'] ?? [] );
-			$args['posts_per_page'] = -1;
+			if ( is_wp_error( $args ) ) {
+				return $args;
+			}
+			$args['posts_per_page'] = CollectionRequestValidator::MAX_PROVIDER_SCAN + 1;
 			$args['paged'] = 1;
 			$args['fields'] = 'ids';
 			$args['no_found_rows'] = true;
 			$args['orderby'] = 'none';
 			unset( $args['meta_key'], $args['order'] );
 			$ids = ( new \WP_Query( $args ) )->posts;
+			if ( count( $ids ) > CollectionRequestValidator::MAX_PROVIDER_SCAN ) {
+				return $this->scan_limit_error();
+			}
 			$result[ $field_id ] = 'relation' === ( $field['type'] ?? '' )
 				? $this->relations->facet_counts( $contract, $field_id, array_map( 'strval', $ids ) )
 				: $this->count_field_values( $ids, $field );
@@ -196,7 +228,9 @@ class CptCollectionProvider extends BaseCollectionProvider {
 		}
 		update_meta_cache( 'post', $post_ids );
 		foreach ( $post_ids as $post_id ) {
-			$value = get_post_meta( $post_id, $field['storage']['key'], true );
+			$value = 'multiple_choice' === ( $field['type'] ?? '' )
+				? CptMultivalueMeta::read( $post_id, $field['storage']['key'] )
+				: get_post_meta( $post_id, $field['storage']['key'], true );
 			if ( is_array( $value ) && array_key_exists( 'amount', $value ) ) {
 				$value = $value['amount'];
 			}
@@ -218,11 +252,14 @@ class CptCollectionProvider extends BaseCollectionProvider {
 				'post_status' => 'publish',
 				's' => $search,
 				'fields' => 'ids',
-				'posts_per_page' => -1,
+				'posts_per_page' => CollectionRequestValidator::MAX_PROVIDER_SCAN + 1,
 				'no_found_rows' => true,
 			]
 		);
 		$ids = $title_query->posts;
+		if ( count( $ids ) > CollectionRequestValidator::MAX_PROVIDER_SCAN ) {
+			return $this->scan_limit_error();
+		}
 		$meta = [];
 		$taxonomies = [];
 		foreach ( $field_ids as $field_id ) {
@@ -242,20 +279,44 @@ class CptCollectionProvider extends BaseCollectionProvider {
 					'post_type' => $post_type,
 					'post_status' => 'publish',
 					'fields' => 'ids',
-					'posts_per_page' => -1,
+					'posts_per_page' => CollectionRequestValidator::MAX_PROVIDER_SCAN + 1,
 					'no_found_rows' => true,
 					'meta_query' => array_merge( [ 'relation' => 'OR' ], $meta ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Search is limited to published Field contracts.
 				]
 			);
 			$ids = array_merge( $ids, $meta_query->posts );
+			if ( count( array_unique( array_map( 'absint', $ids ) ) ) > CollectionRequestValidator::MAX_PROVIDER_SCAN ) {
+				return $this->scan_limit_error();
+			}
 		}
 		foreach ( array_unique( $taxonomies ) as $taxonomy ) {
 			$terms = get_terms( [ 'taxonomy' => $taxonomy, 'search' => $search, 'hide_empty' => false, 'fields' => 'ids', 'number' => 100 ] );
 			if ( ! is_wp_error( $terms ) && $terms ) {
-				$ids = array_merge( $ids, get_objects_in_term( $terms, $taxonomy ) );
+				$taxonomy_query = new \WP_Query(
+					[
+						'post_type' => $post_type,
+						'post_status' => 'publish',
+						'fields' => 'ids',
+						'posts_per_page' => CollectionRequestValidator::MAX_PROVIDER_SCAN + 1,
+						'no_found_rows' => true,
+						'tax_query' => [ [ 'taxonomy' => $taxonomy, 'field' => 'term_id', 'terms' => $terms ] ], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- Published contract and bounded result set.
+					]
+				);
+				$ids = array_merge( $ids, $taxonomy_query->posts );
+				if ( count( array_unique( array_map( 'absint', $ids ) ) ) > CollectionRequestValidator::MAX_PROVIDER_SCAN ) {
+					return $this->scan_limit_error();
+				}
 			}
 		}
 		$ids = array_values( array_unique( array_map( 'absint', $ids ) ) );
 		return $ids ?: [ 0 ];
+	}
+
+	private function scan_limit_error() {
+		return new \WP_Error(
+			'eit_collection_scan_limit',
+			__( 'This search or facet would scan too many records. Add a narrower filter or use an indexed CCT Collection.', 'elementor-implementation-toolkit' ),
+			[ 'status' => 422, 'limit' => CollectionRequestValidator::MAX_PROVIDER_SCAN ]
+		);
 	}
 }

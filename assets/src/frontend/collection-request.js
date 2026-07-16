@@ -18,6 +18,7 @@ export function collectionPayload( state, runtime, page ) {
 		filters,
 		facets: Array.from( new Set( runtime.collectionFacetIds || [] ) ),
 	};
+	if ( runtime.collectionExplain ) payload.explain = true;
 	const sort = collectionSort( state.sort );
 	if ( sort ) payload.sort = sort;
 	return payload;

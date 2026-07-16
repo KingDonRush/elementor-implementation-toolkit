@@ -20,6 +20,10 @@ export class Controller {
     this.requestSequence = 0;
     this.searchTimer = null;
     this.statusTimer = null;
+    this.targetObserver = null;
+    this.targetWaitTimer = null;
+    this.pendingApply = null;
+    this.destroyed = false;
     this.init();
   }
 
@@ -34,13 +38,13 @@ export class Controller {
   }
 
   bind() {
-    this.$root.on('submit', '.eit-filter-controller__form', (event) => {
+    this.$root.on('submit.eitFilterController', '.eit-filter-controller__form', (event) => {
       event.preventDefault();
       this.clearSearchTimer();
       this.page = 1;
       this.apply(true, true);
     });
-    this.$root.on('input change', '[data-eit-control], [data-eit-sort]', (event) => {
+    this.$root.on('input.eitFilterController change.eitFilterController', '[data-eit-control], [data-eit-sort]', (event) => {
       this.updateOptionStates();
       this.syncRangeInputs(event.currentTarget);
       this.syncDateRanges($(event.currentTarget).closest('.eit-date-range'));
@@ -50,7 +54,7 @@ export class Controller {
         this.scheduleAutoApply(event.currentTarget, event.type);
       }
     });
-    this.$root.on('click', '[data-eit-search-clear]', (event) => {
+    this.$root.on('click.eitFilterController', '[data-eit-search-clear]', (event) => {
       const input = $(event.currentTarget).closest('[data-eit-search-field]').find('[data-eit-search-input]').get(0);
       if (!input) return;
       input.value = '';
@@ -61,19 +65,19 @@ export class Controller {
       this.clearSearchTimer();
       if (this.config.autoApply) this.apply(true, false, true);
     });
-    this.$root.on('click', '[data-eit-date-clear]', (event) => {
+    this.$root.on('click.eitFilterController', '[data-eit-date-clear]', (event) => {
       this.resetDate($(event.currentTarget).closest('.eit-date-range'));
       this.page = 1;
       this.clearSearchTimer();
       if (this.config.autoApply) this.apply(true, false, true);
     });
-    this.$root.on('click', '[data-eit-reset]', () => this.reset());
-    this.$root.on('click', '[data-eit-page]', (event) => {
+    this.$root.on('click.eitFilterController', '[data-eit-reset]', () => this.reset());
+    this.$root.on('click.eitFilterController', '[data-eit-page]', (event) => {
       this.clearSearchTimer();
       this.page = parseInt($(event.currentTarget).attr('data-eit-page'), 10) || 1;
       this.apply(true, true);
     });
-    this.$root.on('click', '[data-eit-remove-filter]', (event) => {
+    this.$root.on('click.eitFilterController', '[data-eit-remove-filter]', (event) => {
       this.clearSearchTimer();
       this.clearFilter($(event.currentTarget).attr('data-eit-remove-filter'));
       this.page = 1;
@@ -85,6 +89,39 @@ export class Controller {
     this.target = this.findTarget();
     this.itemMap = {};
     this.items = this.indexItems();
+  }
+
+  waitForCollectionTarget(shouldSyncUrl, shouldFocusResults, shouldFocusError) {
+    if (this.destroyed) return;
+    this.pendingApply = [shouldSyncUrl, shouldFocusResults, shouldFocusError];
+    if (this.targetObserver) return;
+
+    const resume = () => {
+      if (!this.targetObserver) return;
+      if (!this.findTarget()) return;
+      const pending = this.pendingApply || [false, false, false];
+      this.stopWaitingForTarget();
+      this.apply(...pending);
+    };
+    this.clearError();
+    this.setLoading(true);
+    this.targetObserver = new MutationObserver(resume);
+    this.targetObserver.observe(document.body, { childList: true, subtree: true });
+    this.targetWaitTimer = window.setTimeout(() => {
+      const pending = this.pendingApply || [false, false, false];
+      this.stopWaitingForTarget();
+      this.setLoading(false);
+      this.renderError(i18n.targetMissing || 'The connected listing could not be found.', pending[2]);
+    }, 2000);
+    window.queueMicrotask(resume);
+  }
+
+  stopWaitingForTarget() {
+    this.targetObserver?.disconnect();
+    this.targetObserver = null;
+    window.clearTimeout(this.targetWaitTimer);
+    this.targetWaitTimer = null;
+    this.pendingApply = null;
   }
 
   findTarget() {
@@ -132,11 +169,16 @@ export class Controller {
   }
 
   apply(shouldSyncUrl, shouldFocusResults, shouldFocusError = shouldFocusResults) {
+    if (this.destroyed) return;
     this.refreshTarget();
     const sequence = ++this.requestSequence;
     if (this.request && 4 !== this.request.readyState) this.request.abort();
 
     if (!this.target) {
+      if ('collection' === this.config.provider && this.config.collectionTarget) {
+        this.waitForCollectionTarget(shouldSyncUrl, shouldFocusResults, shouldFocusError);
+        return;
+      }
       this.request = null;
       this.setLoading(false);
       this.renderError(i18n.targetMissing || 'The connected listing could not be found.', shouldFocusError);
@@ -195,6 +237,23 @@ export class Controller {
       this.request = null;
       this.setLoading(false);
     });
+  }
+
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.requestSequence += 1;
+    this.$root.off('.eitFilterController');
+    this.clearSearchTimer();
+    window.clearTimeout(this.statusTimer);
+    this.statusTimer = null;
+    this.stopWaitingForTarget();
+    if (this.request && 4 !== this.request.readyState) this.request.abort();
+    this.request = null;
+    this.setLoading(false);
+    this.target = null;
+    this.items = [];
+    this.itemMap = {};
   }
 }
 

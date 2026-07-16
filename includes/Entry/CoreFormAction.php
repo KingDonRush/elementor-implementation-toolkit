@@ -1,6 +1,6 @@
 <?php
 /**
- * Built-in redirect, email, notification and safe webhook actions.
+ * Built-in redirect, email and safe webhook actions.
  */
 
 namespace EIT\Entry;
@@ -16,7 +16,7 @@ class CoreFormAction implements FormActionInterface {
 	private $type;
 
 	public function __construct( $type ) {
-		if ( ! in_array( $type, [ 'redirect', 'email', 'notification', 'webhook' ], true ) ) {
+		if ( ! in_array( $type, [ 'redirect', 'email', 'webhook' ], true ) ) {
 			throw new \InvalidArgumentException( 'Unsupported core Entry action.' );
 		}
 		$this->type = $type;
@@ -31,7 +31,7 @@ class CoreFormAction implements FormActionInterface {
 	}
 
 	public function get_capabilities() {
-		return [ 'idempotent_job', 'redacted_context', 'retryable' ];
+		return [ 'durable_job', 'redacted_diagnostics', 'retryable' ];
 	}
 
 	public function execute( array $action, array $context = [] ) {
@@ -41,10 +41,6 @@ class CoreFormAction implements FormActionInterface {
 		}
 		if ( 'email' === $this->type ) {
 			return $this->email( $config, $context );
-		}
-		if ( 'notification' === $this->type ) {
-			do_action( 'eit_entry_notification', $action, $context );
-			return [ 'notified' => true ];
 		}
 		return $this->webhook( $config, $context );
 	}
@@ -88,7 +84,10 @@ class CoreFormAction implements FormActionInterface {
 			[
 				'timeout' => 5,
 				'redirection' => 0,
-				'headers' => [ 'Content-Type' => 'application/json' ],
+				'headers' => [
+					'Content-Type' => 'application/json',
+					'X-EIT-Idempotency-Key' => hash( 'sha256', (string) ( $context['submission_id'] ?? '' ) . '|' . (string) ( $context['action_id'] ?? '' ) ),
+				],
 				'body' => wp_json_encode( $this->webhook_payload( $context ) ),
 				'data_format' => 'body',
 			]
@@ -107,6 +106,8 @@ class CoreFormAction implements FormActionInterface {
 			'request_id' => $context['request_id'] ?? '',
 			'surface_id' => $context['surface_id'] ?? '',
 			'item_id' => $context['item_id'] ?? '',
+			'submission_id' => $context['submission_id'] ?? '',
+			'action_id' => $context['action_id'] ?? '',
 			'event' => $context['event'] ?? '',
 			'status' => $context['status'] ?? '',
 		];

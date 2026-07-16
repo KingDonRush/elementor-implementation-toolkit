@@ -96,12 +96,25 @@ class ToolkitAction extends Widget_Base {
 			return;
 		}
 		$intent = in_array( $operation, [ 'create', 'update' ], true ) ? 'default' : $operation;
-		printf(
-			'<button type="button" class="eit-toolkit-action" aria-controls="eit-entry-%1$s" data-eit-action-surface="%1$s" data-eit-action-intent="%2$s">%3$s</button>',
-			esc_attr( $surface_id ),
-			esc_attr( $intent ),
-			esc_html( $settings['label'] ?? '' )
-		);
+		$status_id = 'eit-action-status-' . sanitize_html_class( $this->get_id() );
+		$this->add_render_attribute( 'button', [
+			'type' => 'button',
+			'class' => [ 'elementor-button', 'elementor-button-link', 'elementor-size-sm', 'eit-toolkit-action' ],
+			'aria-busy' => 'false',
+			'aria-describedby' => $status_id,
+			'data-eit-action-surface' => $surface_id,
+			'data-eit-action-intent' => $intent,
+		] );
+		?>
+		<div class="elementor-button-wrapper" data-eit-toolkit-action>
+			<button <?php $this->print_render_attribute_string( 'button' ); ?>>
+				<span class="elementor-button-content-wrapper">
+					<span class="elementor-button-text"><?php echo esc_html( $settings['label'] ?? '' ); ?></span>
+				</span>
+			</button>
+			<span id="<?php echo esc_attr( $status_id ); ?>" class="eit-toolkit-action__status eit-connector-notice" data-eit-action-status role="status" aria-live="polite" hidden></span>
+		</div>
+		<?php
 	}
 
 	private function render_notice() {

@@ -43,17 +43,20 @@ class EitSufficiencyBlueprints {
 		$agent_group = $this->node( 'real-estate:agent-fields', 'field_group', 'Agent details', [ 'fields' => $agent_fields ] );
 		$relation = $this->node( 'real-estate:assignment', 'relation', 'Agent assignment', [ 'cardinality' => 'many_to_one', 'field_id' => $property_fields[4]['id'] ] );
 		$collection = $this->node( 'real-estate:collection', 'collection', 'Available properties', [ 'access' => 'public', 'page_size' => 24, 'projection_field_ids' => array_column( $property_fields, 'id' ), 'sort_field_ids' => [ $property_fields[1]['id'] ] ] );
+		$agent_collection = $this->node( 'real-estate:agent-options', 'collection', 'Agent options', [ 'access' => 'public', 'page_size' => 24, 'projection_field_ids' => [ $agent_fields[0]['id'] ], 'sort_field_ids' => [ $agent_fields[0]['id'] ] ] );
 		$filters = $this->node( 'real-estate:filters', 'filter_surface', 'Property filters', [ 'fields' => [ $property_fields[1]['id'], $property_fields[2]['id'], $property_fields[4]['id'] ], 'facet_fields' => [ $property_fields[4]['id'] ], 'url_state' => true ] );
 		return $this->blueprint(
 			'real-estate',
 			'Real estate sufficiency',
-			[ $property, $agent, $property_group, $agent_group, $relation, $collection, $filters ],
+			[ $property, $agent, $property_group, $agent_group, $relation, $collection, $agent_collection, $filters ],
 			[
 				$this->edge( 'real-estate:property-fields', 'entity_fields', $property, $property_group ),
 				$this->edge( 'real-estate:agent-fields', 'entity_fields', $agent, $agent_group ),
 				$this->edge( 'real-estate:relation-source', 'relation_source', $property, $relation ),
 				$this->edge( 'real-estate:relation-target', 'relation_target', $relation, $agent ),
 				$this->edge( 'real-estate:collection', 'collection_for', $property, $collection ),
+				$this->edge( 'real-estate:agent-collection', 'collection_for', $agent, $agent_collection ),
+				$this->edge( 'real-estate:relation-options', 'relation_options', $relation, $agent_collection ),
 				$this->edge( 'real-estate:filters', 'filters', $collection, $filters ),
 			]
 		);
@@ -98,17 +101,20 @@ class EitSufficiencyBlueprints {
 		$group = $this->node( 'delivery:fields', 'field_group', 'Menu item structure', [ 'fields' => $fields ] );
 		$adapter = $this->node( 'delivery:woo-adapter', 'adapter', 'WooCommerce checkout bridge', [ 'adapter_id' => 'woocommerce' ] );
 		$relation = $this->node( 'delivery:product-link', 'relation', 'Checkout product link', [ 'cardinality' => 'many_to_one', 'field_id' => $fields[3]['id'] ] );
+		$product_collection = $this->node( 'delivery:product-options', 'collection', 'Checkout product options', [ 'access' => 'public', 'page_size' => 24 ] );
 		$entry = $this->entry_node( 'delivery:entry', 'Menu workspace', array_column( $fields, 'id' ), $fields[0]['id'] );
 		$policy = $this->node( 'delivery:policy', 'policy', 'Menu operators', [ 'capability' => 'edit_posts', 'ownership' => 'any', 'object_scope' => 'entity' ] );
 		return $this->blueprint(
 			'delivery',
 			'Delivery sufficiency',
-			[ $item, $product, $group, $adapter, $relation, $entry, $policy ],
+			[ $item, $product, $group, $adapter, $relation, $product_collection, $entry, $policy ],
 			[
 				$this->edge( 'delivery:fields', 'entity_fields', $item, $group ),
 				$this->edge( 'delivery:adapter', 'adapts', $adapter, $product ),
 				$this->edge( 'delivery:relation-source', 'relation_source', $item, $relation ),
 				$this->edge( 'delivery:relation-target', 'relation_target', $relation, $product ),
+				$this->edge( 'delivery:product-collection', 'collection_for', $product, $product_collection ),
+				$this->edge( 'delivery:relation-options', 'relation_options', $relation, $product_collection ),
 				$this->edge( 'delivery:entry', 'entry_for', $item, $entry ),
 				$this->edge( 'delivery:policy', 'governs_entry', $policy, $entry ),
 			]

@@ -122,6 +122,7 @@ class Repository {
 		}
 
 		$this->append_id_filters( $where, $params, $args );
+		$this->append_author_filter( $where, $params, $args );
 		$this->append_search( $where, $params, $args['search'] ?? '', $fields, $args['search_fields'] ?? [] );
 		$this->append_field_filters( $where, $params, $args['filters'] ?? [], $fields );
 
@@ -179,6 +180,7 @@ class Repository {
 			$where = [ 'status = %s' ];
 			$params = [ 'publish' ];
 			$this->append_id_filters( $where, $params, $args );
+			$this->append_author_filter( $where, $params, $args );
 			$this->append_search( $where, $params, $args['search'] ?? '', $fields, $args['search_fields'] ?? [] );
 			$this->append_field_filters( $where, $params, $args['filters'] ?? [], $fields, $key );
 			$column = SchemaManager::column_name( $key );
@@ -206,6 +208,7 @@ class Repository {
 		$where = [ 'status = %s' ];
 		$params = [ 'publish' ];
 		$this->append_id_filters( $where, $params, $args );
+		$this->append_author_filter( $where, $params, $args );
 		$this->append_search( $where, $params, $args['search'] ?? '', $fields, $args['search_fields'] ?? [] );
 		$this->append_field_filters( $where, $params, $args['filters'] ?? [], $fields );
 		$limit = max( 1, min( 10000, absint( $limit ) ) );
@@ -227,6 +230,12 @@ class Repository {
 			}
 			$where[] = 'id ' . $operator . ' (' . implode( ', ', array_fill( 0, count( $ids ), '%d' ) ) . ')';
 			$params = array_merge( $params, $ids );
+		}
+	}
+	private function append_author_filter( array &$where, array &$params, array $args ) {
+		if ( ! empty( $args['author_id'] ) ) {
+			$where[] = 'author_id = %d';
+			$params[] = absint( $args['author_id'] );
 		}
 	}
 

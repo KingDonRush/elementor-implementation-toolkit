@@ -14,11 +14,15 @@ class EntryMediaService {
 	private $resolver;
 	private $policy;
 	private $guard;
+	private $pending;
+	private $media_policy;
 
-	public function __construct( EntrySurfaceResolver $resolver = null, EntryPolicyEngine $policy = null, GuestIntakeGuard $guard = null ) {
+	public function __construct( EntrySurfaceResolver $resolver = null, EntryPolicyEngine $policy = null, GuestIntakeGuard $guard = null, PendingUploadStore $pending = null, EntryMediaPolicy $media_policy = null ) {
 		$this->resolver = $resolver ?: new EntrySurfaceResolver();
 		$this->policy = $policy ?: new EntryPolicyEngine();
 		$this->guard = $guard ?: new GuestIntakeGuard();
+		$this->pending = $pending ?: new PendingUploadStore();
+		$this->media_policy = $media_policy ?: new EntryMediaPolicy();
 	}
 
 	public function upload( array $request, array $file ) {
@@ -51,12 +55,38 @@ class EntryMediaService {
 		if ( is_wp_error( $checked ) ) {
 			return $checked;
 		}
+		$original_name = sanitize_file_name( $file['name'] ?? '' );
+		if ( $guest ) {
+			return $this->pending->quarantine(
+				[
+					'blueprint_id' => $contract['blueprint_id'],
+					'version_id' => $contract['version_id'],
+					'contract_checksum' => $contract['artifact_checksum'],
+					'surface_id' => $contract['surface_id'],
+					'field_id' => $field['id'],
+					'actor_key' => $this->guard->actor_key(),
+				],
+				[
+					'tmp_name' => $file['tmp_name'],
+					'original_name' => $original_name,
+					'mime_type' => $checked['type'],
+					'extension' => $checked['ext'],
+					'size_bytes' => $file['size'] ?? 0,
+				]
+			);
+		}
+		$file['name'] = $this->pending_filename( $checked['ext'] ?? '' );
 
 		require_once ABSPATH . 'wp-admin/includes/file.php';
 		require_once ABSPATH . 'wp-admin/includes/media.php';
 		require_once ABSPATH . 'wp-admin/includes/image.php';
 		$_FILES['eit_entry_file'] = $file;
-		$attachment_id = media_handle_upload( 'eit_entry_file', 0, [], [ 'test_form' => false ] );
+		$attachment_id = media_handle_upload(
+			'eit_entry_file',
+			0,
+			[ 'post_status' => 'private', 'post_title' => pathinfo( $original_name, PATHINFO_FILENAME ) ],
+			[ 'test_form' => false ]
+		);
 		unset( $_FILES['eit_entry_file'] );
 		if ( is_wp_error( $attachment_id ) ) {
 			return $attachment_id;
@@ -67,27 +97,28 @@ class EntryMediaService {
 		wp_schedule_single_event( time() + DAY_IN_SECONDS, 'eit_cleanup_entry_upload', [ $attachment_id, $contract['surface_id'] ] );
 		return [
 			'id' => $attachment_id,
-			'url' => wp_get_attachment_url( $attachment_id ),
 			'name' => get_the_title( $attachment_id ),
 			'mime' => get_post_mime_type( $attachment_id ),
+			'url' => wp_get_attachment_url( $attachment_id ),
 		];
 	}
 
 	private function validate_file( array $contract, array $field, array $file, $guest ) {
-		if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
-			return $this->error( 'eit_entry_upload_missing', 'Choose a valid file to upload.', 400 );
+		return $this->media_policy->validate_upload( $contract, $field, $file, $guest );
+	}
+
+	private function field_accepts( array $field, $mime_type, $extension ) {
+		return $this->media_policy->field_accepts( $field, $mime_type, $extension );
+	}
+
+	private function pending_filename( $extension ) {
+		try {
+			$token = bin2hex( random_bytes( 16 ) );
+		} catch ( \Throwable $error ) {
+			$token = wp_generate_password( 32, false, false );
 		}
-		$max_bytes = $guest ? absint( $contract['guest']['upload_max_bytes'] ?? 0 ) : (int) wp_max_upload_size();
-		if ( $max_bytes < 1 || (int) ( $file['size'] ?? 0 ) > $max_bytes ) {
-			return $this->error( 'eit_entry_upload_size', 'The upload exceeds this Surface size limit.', 413 );
-		}
-		$allowed = $guest ? array_filter( $contract['guest']['upload_mime_types'] ?? [] ) : array_values( get_allowed_mime_types() );
-		$checked = wp_check_filetype_and_ext( $file['tmp_name'], sanitize_file_name( $file['name'] ?? '' ) );
-		$needs_image = in_array( $field['type'], [ 'image', 'gallery' ], true );
-		if ( empty( $checked['type'] ) || ! in_array( $checked['type'], $allowed, true ) || ( $needs_image && 0 !== strpos( $checked['type'], 'image/' ) ) ) {
-			return $this->error( 'eit_entry_upload_type', 'This file type is not allowed by the Entry Surface.', 415 );
-		}
-		return true;
+		$extension = preg_replace( '/[^a-zA-Z0-9]/', '', (string) $extension );
+		return 'eit-pending-' . strtolower( $token ) . ( $extension ? '.' . strtolower( $extension ) : '' );
 	}
 
 	private function field( array $contract, $field_id ) {

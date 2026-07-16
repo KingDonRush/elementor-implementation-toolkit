@@ -56,6 +56,14 @@ class MigrationStore {
 		return $row ? $this->hydrate( $row ) : null;
 	}
 
+	public function for_blueprint( $blueprint_id ) {
+		global $wpdb;
+
+		$table = Tables::name( Tables::MIGRATIONS );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$table}` WHERE blueprint_id = %s ORDER BY source_type,source_key", (string) $blueprint_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return array_map( [ $this, 'hydrate' ], $rows ?: [] );
+	}
+
 	public function all() {
 		global $wpdb;
 

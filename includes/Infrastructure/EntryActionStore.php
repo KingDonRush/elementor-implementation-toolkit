@@ -13,9 +13,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class EntryActionStore {
 
+	const LEASE_SECONDS = 300;
+
 	public function enqueue( array $job ) {
 		global $wpdb;
 
+		$action_type = strtolower( trim( (string) ( $job['action_type'] ?? '' ) ) );
+		if ( ! preg_match( '/^[a-z][a-z0-9_.-]{1,63}$/', $action_type ) ) {
+			return new \WP_Error( 'eit_entry_action_type_invalid', __( 'The Entry action type is invalid.', 'elementor-implementation-toolkit' ) );
+		}
 		$context = JsonCodec::encode( $job['context'] ?? [] );
 		if ( is_wp_error( $context ) ) {
 			return $context;
@@ -31,7 +37,7 @@ class EntryActionStore {
 				'surface_id' => (string) $job['surface_id'],
 				'submission_id' => (string) $job['submission_id'],
 				'action_id' => (string) $job['action_id'],
-				'action_type' => sanitize_key( $job['action_type'] ),
+				'action_type' => $action_type,
 				'event' => sanitize_key( $job['event'] ),
 				'status' => 'queued',
 				'attempts' => 0,
@@ -55,12 +61,15 @@ class EntryActionStore {
 		global $wpdb;
 
 		$table = Tables::name( Tables::ACTION_JOBS );
+		$now = current_time( 'mysql', true );
+		$expired = gmdate( 'Y-m-d H:i:s', time() - self::LEASE_SECONDS );
 		$result = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE `{$table}` SET status = 'running', attempts = attempts + 1, updated_at = %s WHERE id = %s AND status IN ('queued','failed') AND attempts < 5 AND available_at <= %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				current_time( 'mysql', true ),
+				"UPDATE `{$table}` SET status = 'running', attempts = attempts + 1, updated_at = %s WHERE id = %s AND attempts < 5 AND ((status IN ('queued','failed') AND available_at <= %s) OR (status = 'running' AND updated_at <= %s))", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$now,
 				$id,
-				current_time( 'mysql', true )
+				$now,
+				$expired
 			)
 		);
 		return 1 === $result ? $this->get( $id ) : null;

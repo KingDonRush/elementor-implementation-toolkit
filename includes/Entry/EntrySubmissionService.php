@@ -7,6 +7,7 @@ namespace EIT\Entry;
 
 use EIT\Infrastructure\EntrySubmissionStore;
 use EIT\Infrastructure\RunStore;
+use EIT\Infrastructure\Transaction;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -18,10 +19,13 @@ class EntrySubmissionService {
 	private $policy;
 	private $guard;
 	private $processor;
+	private $references;
 	private $storage;
 	private $submissions;
 	private $actions;
 	private $runs;
+	private $transaction;
+	private $pending;
 
 	public function __construct( array $dependencies = [] ) {
 		$this->resolver = $dependencies['resolver'] ?? new EntrySurfaceResolver();
@@ -29,9 +33,12 @@ class EntrySubmissionService {
 		$this->policy = $dependencies['policy'] ?? new EntryPolicyEngine( $this->storage );
 		$this->guard = $dependencies['guard'] ?? new GuestIntakeGuard();
 		$this->processor = $dependencies['processor'] ?? new EntryValueProcessor();
+		$this->references = $dependencies['references'] ?? new EntryReferenceValidator();
 		$this->submissions = $dependencies['submissions'] ?? new EntrySubmissionStore();
 		$this->actions = $dependencies['actions'] ?? new EntryActionDispatcher();
 		$this->runs = $dependencies['runs'] ?? new RunStore();
+		$this->transaction = $dependencies['transaction'] ?? new Transaction();
+		$this->pending = $dependencies['pending'] ?? new PendingUploadStore();
 	}
 
 	public function submit( array $request ) {
@@ -85,11 +92,10 @@ class EntrySubmissionService {
 		if ( is_wp_error( $processed ) ) {
 			return $processed;
 		}
-		$media = $this->validate_media_ownership( $contract, $processed['values'], $guest );
-		if ( is_wp_error( $media ) ) {
-			return $media;
+		$references = $this->references->validate( $contract, $processed['values'], $guest, $item_id );
+		if ( is_wp_error( $references ) ) {
+			return $references;
 		}
-
 		$status = $this->status( $contract, $intent, $guest, $loaded['item']['status'] ?? null );
 		if ( ! $guest && 'publish' === $status && 'publish' !== $operation ) {
 			$authorized = $this->policy->authorize( $contract, 'publish', $item_id );
@@ -113,23 +119,64 @@ class EntrySubmissionService {
 			return $claim;
 		}
 		if ( ! $claim['claimed'] ) {
-			return $this->replay( $claim['record'] );
+			return 'persisted' === $claim['record']['status']
+				? $this->recover_persisted( $claim['record'], $contract )
+				: $this->replay( $claim['record'] );
 		}
 
 		$submission = $claim['record'];
+		$media = $this->claim_media_ownership( $contract, $processed['values'], $guest, $submission['id'] );
+		if ( is_wp_error( $media ) ) {
+			$this->submissions->fail( $submission['id'], $media );
+			return $media;
+		}
 		$run = $this->runs->start( $contract['blueprint_id'], 'entry_submission', null, [ 'surface_id' => $contract['surface_id'], 'submission_id' => $submission['id'], 'operation' => $operation, 'item_id' => $item_id ?: null ] );
 		if ( is_wp_error( $run ) ) {
 			$this->submissions->fail( $submission['id'], $run );
 			return $run;
 		}
-		$saved = $this->storage->save( $contract, $processed['values'], $item_id, $status, $guest ? 0 : get_current_user_id(), $request['content'] ?? null );
-		if ( is_wp_error( $saved ) ) {
-			$this->submissions->fail( $submission['id'], $saved );
-			$this->runs->finish( $run['id'], 'failed', $saved );
-			return $saved;
+		$materialized = $this->materialize_media( $contract, $processed['values'], $submission['id'] );
+		if ( is_wp_error( $materialized ) ) {
+			$this->submissions->fail( $submission['id'], $materialized );
+			$this->runs->finish( $run['id'], 'failed', $materialized );
+			return $materialized;
+		}
+		$processed['values'] = $materialized['values'];
+		$event = $this->event( $operation, $item_id );
+		$persisted = $this->transaction->run(
+			function () use ( $contract, $processed, $item_id, $status, $guest, $request, $submission, $run, $event, $materialized ) {
+				$saved = $this->storage->save( $contract, $processed['values'], $item_id, $status, $guest ? 0 : get_current_user_id(), $request['content'] ?? null );
+				if ( is_wp_error( $saved ) ) {
+					return $saved;
+				}
+				$response = [
+					'submission_id' => $submission['id'],
+					'request_id' => $run['request_id'],
+					'item_id' => $saved,
+					'status' => $status,
+					'event' => $event,
+					'_recovery' => [
+						'run_id' => $run['id'],
+						'actor_id' => $guest ? 0 : get_current_user_id(),
+						'is_guest' => $guest,
+						'pending_attachment_ids' => $materialized['attachment_ids'],
+					],
+				];
+				$recorded = $this->submissions->persist( $submission['id'], $saved, $response );
+				return is_wp_error( $recorded ) ? $recorded : $recorded['response'];
+			}
+		);
+		if ( is_wp_error( $persisted ) ) {
+			$this->submissions->fail( $submission['id'], $persisted );
+			$this->runs->finish( $run['id'], 'failed', $persisted );
+			return $persisted;
+		}
+		$consumed = $this->pending->consume( $materialized['attachment_ids'], $submission['id'] );
+		if ( is_wp_error( $consumed ) ) {
+			return $consumed;
 		}
 
-		$event = $this->event( $operation, $item_id );
+		$saved = $persisted['item_id'];
 		$action_results = 'autosave' === $operation ? [] : $this->actions->dispatch(
 			$contract,
 			$submission['id'],
@@ -144,13 +191,49 @@ class EntrySubmissionService {
 				'is_guest' => $guest,
 			]
 		);
-		$response = [ 'submission_id' => $submission['id'], 'request_id' => $run['request_id'], 'item_id' => $saved, 'status' => $status, 'event' => $event, 'actions' => $action_results, 'replayed' => false ];
+		$response = array_merge( $persisted, [ 'actions' => $action_results, 'replayed' => false ] );
+		unset( $response['_recovery'] );
 		$recorded = $this->submissions->succeed( $submission['id'], $saved, $response );
 		if ( is_wp_error( $recorded ) ) {
 			$this->runs->finish( $run['id'], 'failed', $recorded );
 			return $recorded;
 		}
 		$this->runs->finish( $run['id'], 'succeeded' );
+		return $response;
+	}
+
+	private function recover_persisted( array $record, array $contract ) {
+		$response = is_array( $record['response'] ?? null ) ? $record['response'] : [];
+		$recovery = is_array( $response['_recovery'] ?? null ) ? $response['_recovery'] : [];
+		$consumed = $this->pending->consume( (array) ( $recovery['pending_attachment_ids'] ?? [] ), $record['id'] );
+		if ( is_wp_error( $consumed ) ) {
+			return $consumed;
+		}
+		$event = sanitize_key( $response['event'] ?? '' );
+		$actions = 'autosaved' === $event ? [] : $this->actions->dispatch(
+			$contract,
+			$record['id'],
+			$event,
+			[
+				'request_id' => $response['request_id'] ?? '',
+				'surface_id' => $contract['surface_id'],
+				'surface_name' => $contract['name'],
+				'item_id' => $response['item_id'] ?? $record['item_id'],
+				'status' => $response['status'] ?? '',
+				'actor_id' => absint( $recovery['actor_id'] ?? 0 ),
+				'is_guest' => ! empty( $recovery['is_guest'] ),
+			]
+		);
+		$response['actions'] = $actions;
+		$response['replayed'] = true;
+		unset( $response['_recovery'] );
+		$finished = $this->submissions->succeed( $record['id'], $response['item_id'] ?? $record['item_id'], $response );
+		if ( is_wp_error( $finished ) ) {
+			return $finished;
+		}
+		if ( ! empty( $recovery['run_id'] ) ) {
+			$this->runs->finish( $recovery['run_id'], 'succeeded' );
+		}
 		return $response;
 	}
 
@@ -171,7 +254,10 @@ class EntrySubmissionService {
 		if ( $guest ) {
 			return $contract['guest']['moderation_status'];
 		}
-		$map = [ 'submit_review' => 'review', 'publish' => 'publish', 'archive' => 'archived', 'restore' => 'draft', 'autosave' => 'draft', 'save_draft' => 'draft' ];
+		if ( 'autosave' === $intent ) {
+			return $existing_status ?: 'draft';
+		}
+		$map = [ 'submit_review' => 'review', 'publish' => 'publish', 'archive' => 'archived', 'restore' => 'draft', 'save_draft' => 'draft' ];
 		return $map[ $intent ] ?? ( $existing_status ?: $contract['workflow']['initial_status'] );
 	}
 
@@ -190,13 +276,24 @@ class EntrySubmissionService {
 		return hash( 'sha256', wp_json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
 	}
 
-	private function validate_media_ownership( array $contract, array $values, $guest ) {
+	private function claim_media_ownership( array $contract, array $values, $guest, $submission_id ) {
 		foreach ( $contract['fields'] as $field ) {
 			if ( ! isset( $values[ $field['id'] ] ) || ! in_array( $field['type'], [ 'image', 'gallery', 'file' ], true ) ) {
 				continue;
 			}
 			$items = 'gallery' === $field['type'] ? (array) $values[ $field['id'] ] : [ $values[ $field['id'] ] ];
 			foreach ( $items as $item ) {
+				$pending_token = is_array( $item ) ? (string) ( $item['pending_token'] ?? '' ) : '';
+				if ( '' !== $pending_token ) {
+					$allowed = $this->pending->claim(
+						$pending_token,
+						$this->pending_identity( $contract, $field['id'], $submission_id )
+					);
+					if ( is_wp_error( $allowed ) ) {
+						return $allowed;
+					}
+					continue;
+				}
 				$attachment_id = absint( is_array( $item ) ? ( $item['id'] ?? 0 ) : $item );
 				$pending_surface = (string) get_post_meta( $attachment_id, '_eit_entry_pending_surface', true );
 				$pending_actor = (string) get_post_meta( $attachment_id, '_eit_entry_pending_actor', true );
@@ -207,6 +304,50 @@ class EntrySubmissionService {
 			}
 		}
 		return true;
+	}
+
+	private function materialize_media( array $contract, array $values, $submission_id ) {
+		$attachment_ids = [];
+		foreach ( $contract['fields'] as $field ) {
+			$field_id = $field['id'];
+			if ( ! isset( $values[ $field_id ] ) || ! in_array( $field['type'], [ 'image', 'gallery', 'file' ], true ) ) {
+				continue;
+			}
+			$multiple = 'gallery' === $field['type'];
+			$items = $multiple ? (array) $values[ $field_id ] : [ $values[ $field_id ] ];
+			foreach ( $items as &$item ) {
+				$token = is_array( $item ) ? (string) ( $item['pending_token'] ?? '' ) : '';
+				if ( '' === $token ) {
+					continue;
+				}
+				$item = $this->pending->promote(
+					$token,
+					$this->pending_identity( $contract, $field_id, $submission_id )
+				);
+				if ( is_wp_error( $item ) ) {
+					return $item;
+				}
+				$attachment_ids[] = absint( $item['id'] ?? 0 );
+			}
+			unset( $item );
+			$values[ $field_id ] = $multiple ? $items : ( $items[0] ?? null );
+		}
+		return [ 'values' => $values, 'attachment_ids' => array_values( array_filter( $attachment_ids ) ) ];
+	}
+
+	private function pending_identity( array $contract, $field_id, $submission_id = '' ) {
+		$identity = [
+			'blueprint_id' => $contract['blueprint_id'],
+			'version_id' => $contract['version_id'],
+			'contract_checksum' => $contract['artifact_checksum'],
+			'surface_id' => $contract['surface_id'],
+			'field_id' => $field_id,
+			'actor_key' => $this->guard->actor_key(),
+		];
+		if ( $submission_id ) {
+			$identity['submission_id'] = $submission_id;
+		}
+		return $identity;
 	}
 
 	private function checksum_value( $value ) {

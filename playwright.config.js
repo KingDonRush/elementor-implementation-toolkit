@@ -7,6 +7,7 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 15_000 },
   globalSetup: './tests/e2e/global-setup.js',
+  globalTeardown: './tests/e2e/global-teardown.js',
   reporter: [['line']],
   use: {
     baseURL: process.env.EIT_E2E_BASE_URL || 'http://localhost:8080',

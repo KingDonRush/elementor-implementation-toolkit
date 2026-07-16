@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SchemaManager {
 
-	const VERSION = '3';
+	const VERSION = '6';
 	const VERSION_OPTION = 'eit_blueprint_schema_version';
 
 	public static function maybe_upgrade() {
@@ -141,6 +141,22 @@ class SchemaManager {
 				PRIMARY KEY  (id),
 				KEY blueprint_status (blueprint_id,status)
 			) {$collate};",
+			"CREATE TABLE {$table( Tables::STORAGE_CLAIMS )} (
+				identity_hash char(64) NOT NULL,
+				strategy varchar(16) NOT NULL,
+				storage_slug varchar(191) NOT NULL,
+				blueprint_id char(36) NOT NULL,
+				change_set_id char(36) NOT NULL,
+				artifact_checksum char(64) NOT NULL,
+				existed_before tinyint(1) unsigned NOT NULL DEFAULT 0,
+				status varchar(24) NOT NULL,
+				failure_code varchar(96) DEFAULT NULL,
+				created_at datetime NOT NULL,
+				updated_at datetime NOT NULL,
+				PRIMARY KEY  (identity_hash),
+				UNIQUE KEY storage_identity (strategy,storage_slug),
+				KEY claim_owner (blueprint_id,change_set_id,status)
+			) {$collate};",
 			"CREATE TABLE {$table( Tables::LOCKS )} (
 				resource_key varchar(191) NOT NULL,
 				token_hash char(64) NOT NULL,
@@ -233,6 +249,36 @@ class SchemaManager {
 				UNIQUE KEY idempotent_actor (surface_id,actor_key,idempotency_hash),
 				KEY surface_created (surface_id,created_at)
 			) {$collate};",
+			"CREATE TABLE {$table( Tables::PENDING_UPLOADS )} (
+				id char(36) NOT NULL,
+				blueprint_id char(36) NOT NULL,
+				version_id bigint(20) unsigned NOT NULL DEFAULT 0,
+				contract_checksum char(64) NOT NULL DEFAULT '',
+				surface_id char(36) NOT NULL,
+				field_id char(36) NOT NULL,
+				actor_key char(64) NOT NULL,
+				token_hash char(64) NOT NULL,
+				storage_name varchar(96) NOT NULL,
+				original_name varchar(191) NOT NULL,
+				mime_type varchar(127) NOT NULL,
+				size_bytes bigint(20) unsigned NOT NULL DEFAULT 0,
+				file_checksum char(64) NOT NULL DEFAULT '',
+				status varchar(24) NOT NULL,
+				submission_id char(36) DEFAULT NULL,
+				attachment_id bigint(20) unsigned DEFAULT NULL,
+				promoted_path varchar(255) DEFAULT NULL,
+				cleanup_attempts smallint(5) unsigned NOT NULL DEFAULT 0,
+				last_error varchar(191) DEFAULT NULL,
+				expires_at datetime NOT NULL,
+				created_at datetime NOT NULL,
+				updated_at datetime NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY token_hash (token_hash),
+				KEY pending_owner (surface_id,actor_key,status),
+				KEY submission_id (submission_id),
+				KEY attachment_id (attachment_id),
+				KEY expires_at (expires_at)
+			) {$collate};",
 			"CREATE TABLE {$table( Tables::ACTION_JOBS )} (
 				id char(36) NOT NULL,
 				blueprint_id char(36) NOT NULL,
@@ -308,6 +354,7 @@ class SchemaManager {
 			Tables::ARTIFACTS => [ 'id', 'version_id', 'kind', 'payload' ],
 			Tables::BINDINGS => [ 'id', 'field_id', 'storage_key', 'aliases' ],
 			Tables::CHANGE_SETS => [ 'id', 'status', 'impact', 'confirmation_hash' ],
+			Tables::STORAGE_CLAIMS => [ 'identity_hash', 'strategy', 'storage_slug', 'blueprint_id', 'change_set_id', 'artifact_checksum', 'existed_before', 'status', 'failure_code' ],
 			Tables::LOCKS => [ 'resource_key', 'token_hash', 'expires_at' ],
 			Tables::RUNS => [ 'id', 'operation', 'status', 'request_id' ],
 			Tables::RECONCILIATIONS => [ 'id', 'change_set_id', 'counts', 'checksums' ],
@@ -315,6 +362,7 @@ class SchemaManager {
 			Tables::RELATIONS => [ 'id', 'relation_id', 'source_id', 'target_id' ],
 			Tables::MULTIVALUES => [ 'id', 'field_id', 'owner_id', 'row_id', 'value' ],
 			Tables::ENTRY_SUBMISSIONS => [ 'id', 'surface_id', 'actor_key', 'idempotency_hash', 'payload_checksum', 'status', 'response' ],
+			Tables::PENDING_UPLOADS => [ 'id', 'blueprint_id', 'version_id', 'contract_checksum', 'surface_id', 'field_id', 'actor_key', 'token_hash', 'storage_name', 'file_checksum', 'status', 'submission_id', 'attachment_id', 'promoted_path', 'cleanup_attempts', 'last_error', 'expires_at' ],
 			Tables::ACTION_JOBS => [ 'id', 'submission_id', 'action_id', 'action_type', 'status', 'attempts', 'context', 'available_at' ],
 			Tables::MIGRATIONS => [ 'id', 'source_type', 'source_key', 'blueprint_id', 'source_checksum', 'draft_checksum', 'status', 'comparison' ],
 			Tables::RUN_EVENTS => [ 'id', 'run_id', 'sequence', 'event_type', 'payload', 'duration_ms' ],

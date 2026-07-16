@@ -46,13 +46,30 @@ class GuestIntakeGuard {
 	}
 
 	private function consume( array $contract, $scope, $limit ) {
-		$key = 'eit_entry_rate_' . hash( 'sha256', $scope . '|' . $contract['surface_id'] . '|' . $this->remote_address() . '|' . gmdate( 'Y-m-d-H' ) );
-		$count = (int) get_transient( $key );
-		if ( $count >= $limit ) {
-			return new \WP_Error( 'eit_entry_guest_rate_limited', __( 'Guest intake has reached its hourly limit. Try again later.', 'elementor-implementation-toolkit' ), [ 'status' => 429 ] );
+		global $wpdb;
+
+		$key = 'eit_entry_rate_' . gmdate( 'YmdH' ) . '_' . hash( 'sha256', $scope . '|' . $contract['surface_id'] . '|' . $this->remote_address() );
+		$increment = function () use ( $wpdb, $key, $limit ) {
+			$result = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE `{$wpdb->options}` SET option_value = CAST(option_value AS UNSIGNED) + 1 WHERE option_name = %s AND CAST(option_value AS UNSIGNED) < %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$key,
+					$limit
+				)
+			);
+			wp_cache_delete( $key, 'options' );
+			return 1 === $result;
+		};
+		if ( $increment() ) {
+			return true;
 		}
-		set_transient( $key, $count + 1, HOUR_IN_SECONDS + 60 );
-		return true;
+		if ( add_option( $key, '1', '', 'no' ) ) {
+			wp_schedule_single_event( time() + HOUR_IN_SECONDS + 120, 'eit_cleanup_entry_rate', [ $key ] );
+			return true;
+		}
+		return $increment()
+			? true
+			: new \WP_Error( 'eit_entry_guest_rate_limited', __( 'Guest intake has reached its hourly limit. Try again later.', 'elementor-implementation-toolkit' ), [ 'status' => 429 ] );
 	}
 
 	public function actor_key() {

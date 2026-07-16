@@ -1,11 +1,11 @@
 {
   "name": "elementor-implementation-toolkit",
-  "version": "0.9.0",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build-assets.mjs",
-    "check:js": "node --check assets/js/eit-admin.js && node --check assets/js/eit-editor.js && node --check assets/js/eit-frontend.js && node --check assets/js/eit-systems.js",
+    "check:js": "node --check assets/js/eit-admin.js && node --check assets/js/eit-diagnostics.js && node --check assets/js/eit-editor.js && node --check assets/js/eit-frontend.js && node --check assets/js/eit-systems.js",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },

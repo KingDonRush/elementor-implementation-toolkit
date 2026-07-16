@@ -16,6 +16,7 @@ class BlueprintModule {
 
 	public function init_hooks() {
 		add_action( 'plugins_loaded', [ self::class, 'registries' ], 8 );
+		( new RouteRuntime() )->init_hooks();
 	}
 
 	public static function registries() {
@@ -28,9 +29,11 @@ class BlueprintModule {
 	public static function lifecycle() {
 		if ( null === self::$lifecycle ) {
 			$registries = self::registries();
+			$validator = new BlueprintValidator( null, $registries->field_primitives(), null, $registries );
 			self::$lifecycle = new LifecycleService(
 				[
-					'compiler' => new Compiler( null, null, null, $registries ),
+					'validator' => $validator,
+					'compiler' => new Compiler( $validator, null, null, $registries ),
 					'preparer' => new RuntimeArtifactPreparer( $registries ),
 				]
 			);

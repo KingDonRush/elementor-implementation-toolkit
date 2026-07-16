@@ -2,6 +2,7 @@ export const $ = window.jQuery;
 export const config = window.eitEditorConfig || {};
 export const i18n = config.i18n || {};
 export const filterTypeDefinitions = config.filterTypes || {};
+export const dynamicTagCatalog = window.eitDynamicTagCatalog || { contextEntityId: '', entities: {} };
 
 export function isTruthy(value) {
   return value === true || value === 1 || ['1', 'yes', 'on', 'true'].includes(value);

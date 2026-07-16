@@ -34,6 +34,7 @@ class CollectionWidgetContract {
 			'filters' => $filters,
 			'sort_options' => $this->sort_options( $surface['sort_options'] ?? [] ),
 			'settings' => [
+				'data_provider' => 'collection',
 				'configuration_source' => 'collection',
 				'preset_resolution_state' => 'collection',
 				'per_page' => min( 48, max( 1, absint( $contract['page_size'] ?? 24 ) ) ),
@@ -41,8 +42,9 @@ class CollectionWidgetContract {
 				'show_active_chips' => ! empty( $surface['active_chips'] ) ? 'yes' : '',
 				'show_sort' => ! empty( $surface['sort_options'] ) ? 'yes' : '',
 				'auto_apply' => 'submit' === ( $surface['apply_mode'] ?? '' ) ? '' : 'yes',
-				'show_apply' => 'submit' === ( $surface['apply_mode'] ?? '' ) ? 'yes' : '',
-			],
+					'show_apply' => 'submit' === ( $surface['apply_mode'] ?? '' ) ? 'yes' : '',
+					'collection_explain' => ! empty( $contract['explain_available'] ) ? 'yes' : '',
+				],
 			'facet_field_ids' => array_values( array_map( 'strval', $surface['facet_field_ids'] ?? [] ) ),
 		];
 	}

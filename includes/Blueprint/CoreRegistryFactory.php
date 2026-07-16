@@ -31,7 +31,7 @@ class CoreRegistryFactory {
 		$hub->collection_providers()->register( new WooCollectionProvider() );
 		$hub->collection_providers()->register( new LegacyDomCollectionProvider() );
 		$hub->presentation_adapters()->register( new ElementorPresentationAdapter() );
-		foreach ( [ 'redirect', 'email', 'notification', 'webhook' ] as $action_type ) {
+		foreach ( [ 'redirect', 'email', 'webhook' ] as $action_type ) {
 			$hub->form_actions()->register( new CoreFormAction( $action_type ) );
 		}
 		do_action( 'eit_register_blueprint_extensions', $hub );

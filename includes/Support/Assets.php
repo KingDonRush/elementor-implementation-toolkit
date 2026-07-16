@@ -8,6 +8,7 @@ namespace EIT\Support;
 use EIT\Admin\AdminPages;
 use EIT\CPT\CptManager;
 use EIT\Admin\CctItemAdmin;
+use EIT\Elementor\Contracts\PublishedContractCatalog;
 use EIT\Elementor\FilterController\FilterTypeRegistry;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -126,7 +127,14 @@ class Assets {
 					'entryError' => __( 'Your changes are still in the form. Review the error and try again.', 'elementor-implementation-toolkit' ),
 					'entryUploading' => __( 'Uploading media…', 'elementor-implementation-toolkit' ),
 					'entryCalculationWaiting' => __( 'Complete the number fields to calculate.', 'elementor-implementation-toolkit' ),
+					'entryChoiceRequired' => __( 'Choose at least one option.', 'elementor-implementation-toolkit' ),
+					'entryRelationLoading' => __( 'Loading options…', 'elementor-implementation-toolkit' ),
+					'entryRelationCount' => __( '%d options available.', 'elementor-implementation-toolkit' ),
+					'entryRelationEmpty' => __( 'No available options.', 'elementor-implementation-toolkit' ),
+					'entryRelationError' => __( 'Options could not be loaded. Existing selections were preserved.', 'elementor-implementation-toolkit' ),
+					'entryRelationChoose' => __( 'Choose an option', 'elementor-implementation-toolkit' ),
 					'entryActionUnavailable' => __( 'This action is not available in the current item state.', 'elementor-implementation-toolkit' ),
+					'entrySurfaceMissing' => __( 'The connected Entry Surface is not present on this page.', 'elementor-implementation-toolkit' ),
 				],
 			]
 		);
@@ -156,6 +164,14 @@ class Assets {
 					'presetImportFailed'        => __( 'Could not import preset.', 'elementor-implementation-toolkit' ),
 					'editorCompatFallbackTitle' => __( 'Compatibility fallback active', 'elementor-implementation-toolkit' ),
 					'editorCompatFallback'      => __( 'Elementor did not refresh this panel natively, so the toolkit applied its editor fallback. The frontend output remains controlled by the widget settings.', 'elementor-implementation-toolkit' ),
+					'collectionPairAutomatic' => __( 'Connected automatically to the Collection Surface on this document.', 'elementor-implementation-toolkit' ),
+					'collectionPairCompatible' => __( 'The saved 1.x binding matches the Collection Surface.', 'elementor-implementation-toolkit' ),
+					'collectionPairDisambiguated' => __( 'Connected to exactly one matching Collection Surface.', 'elementor-implementation-toolkit' ),
+					'collectionPairAuthority' => __( 'This Surface owns the Collection contract for connected filters.', 'elementor-implementation-toolkit' ),
+					'collectionPairMissing' => __( 'Add a Toolkit Collection Surface to complete this connection.', 'elementor-implementation-toolkit' ),
+					'collectionPairUnconfigured' => __( 'Select a published Collection for this Surface.', 'elementor-implementation-toolkit' ),
+					'collectionPairAmbiguous' => __( 'Several Collection Surfaces were found. Choose the specific Collection below.', 'elementor-implementation-toolkit' ),
+					'collectionPairMismatch' => __( 'The Filter and Collection Surfaces do not use the same published Collection.', 'elementor-implementation-toolkit' ),
 				],
 			]
 		);
@@ -163,6 +179,14 @@ class Assets {
 
 	public function enqueue_editor_assets() {
 		$this->register_assets();
+		wp_add_inline_script(
+			'eit-editor',
+			'window.eitDynamicTagCatalog = ' . wp_json_encode(
+				( new PublishedContractCatalog() )->editor_field_catalog(),
+				JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+			) . ';',
+			'before'
+		);
 		wp_enqueue_script( 'eit-editor' );
 		wp_enqueue_style( 'eit-editor' );
 	}

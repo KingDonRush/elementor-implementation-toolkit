@@ -12,6 +12,7 @@ use EIT\Blueprint\FieldContractFactory;
 use EIT\Blueprint\FieldPrimitiveRegistry;
 use EIT\Blueprint\LegacyImporter;
 use EIT\Blueprint\RuntimeDefinitionProvider;
+use EIT\Blueprint\RouteRuntime;
 use EIT\Blueprint\Uuid;
 use EIT\CCT\DefinitionManager as CctDefinitions;
 use EIT\CCT\SchemaManager as CctSchema;
@@ -30,6 +31,8 @@ $blueprint_id = Uuid::v4();
 $suffix = substr( str_replace( '-', '', $blueprint_id ), 0, 8 );
 $project_slug = 'qa_project_' . $suffix;
 $client_slug = 'qa_client_' . $suffix;
+$route_id = Uuid::v5( $blueprint_id, 'route:project-list' );
+$presentation_id = Uuid::v5( $blueprint_id, 'presentation:project-list' );
 
 $assert = function ( $condition, $message ) use ( &$assertions ) {
 	++$assertions;
@@ -59,7 +62,7 @@ $cleanup = function () use ( $blueprint_id, $project_slug, $client_slug ) {
 	CctSchema::drop_table( $client_slug );
 };
 
-$build_blueprint = function ( $version ) use ( $blueprint_id, $project_slug, $client_slug ) {
+$build_blueprint = function ( $version ) use ( $blueprint_id, $project_slug, $client_slug, $suffix ) {
 	$factory = new FieldContractFactory( new FieldPrimitiveRegistry() );
 	$entity_project = Uuid::v5( $blueprint_id, 'entity:project' );
 	$entity_client = Uuid::v5( $blueprint_id, 'entity:client' );
@@ -68,22 +71,25 @@ $build_blueprint = function ( $version ) use ( $blueprint_id, $project_slug, $cl
 	$relation = Uuid::v5( $blueprint_id, 'relation:project-client' );
 	$entry = Uuid::v5( $blueprint_id, 'entry:project' );
 	$collection = Uuid::v5( $blueprint_id, 'collection:project' );
+	$client_collection = Uuid::v5( $blueprint_id, 'collection:client-options' );
 	$filter = Uuid::v5( $blueprint_id, 'filter:project' );
 	$presentation = Uuid::v5( $blueprint_id, 'presentation:project-list' );
 	$route = Uuid::v5( $blueprint_id, 'route:project-list' );
 	$policy = Uuid::v5( $blueprint_id, 'policy:project-editor' );
 	$budget_id = Uuid::v5( $blueprint_id, 'field:budget' );
 	$steps_id = Uuid::v5( $blueprint_id, 'field:steps' );
+	$client_ref_id = Uuid::v5( $blueprint_id, 'field:client-reference' );
 	$step_name_id = Uuid::v5( $blueprint_id, 'field:steps:name' );
 	$client_name_id = Uuid::v5( $blueprint_id, 'field:client-name' );
 	$budget_key = 3 === $version ? 'budget_v2' : 'budget';
 	$budget = $factory->make(
 		$budget_id,
 		2 === $version ? 'Approved budget' : 'Budget',
-		'decimal',
-		[ 'storage' => [ 'key' => $budget_key ], 'indexing' => [ 'filter' => true, 'sort' => true ] ]
+		4 === $version ? 'short_text' : 'decimal',
+		[ 'storage' => [ 'key' => $budget_key ], 'exposure' => [ 'public' => true ], 'indexing' => [ 'filter' => true, 'sort' => true ] ]
 	);
 	$steps = $factory->make( $steps_id, 'Delivery steps', 'repeatable_group', [ 'validation' => [ 'children' => [ [ 'id' => $step_name_id, 'name' => 'Step name', 'type' => 'short_text' ] ] ] ] );
+	$client_ref = $factory->make( $client_ref_id, 'Client', 'relation' );
 	$client_name = $factory->make( $client_name_id, 'Client name', 'short_text', [ 'indexing' => [ 'search' => true, 'sort' => true ] ] );
 
 	return [
@@ -95,15 +101,16 @@ $build_blueprint = function ( $version ) use ( $blueprint_id, $project_slug, $cl
 		'version' => $version,
 		'nodes' => [
 			[ 'id' => $entity_project, 'type' => 'entity', 'lane' => 'data', 'name' => 'Project', 'config' => [ 'slug' => $project_slug, 'mode' => 'structured', 'high_volume' => true, 'public' => false ] ],
-			[ 'id' => $group_project, 'type' => 'field_group', 'lane' => 'data', 'name' => 'Project fields', 'config' => [ 'fields' => [ $budget, $steps ] ] ],
+			[ 'id' => $group_project, 'type' => 'field_group', 'lane' => 'data', 'name' => 'Project fields', 'config' => [ 'fields' => [ $budget, $steps, $client_ref ] ] ],
 			[ 'id' => $entity_client, 'type' => 'entity', 'lane' => 'data', 'name' => 'Client', 'config' => [ 'slug' => $client_slug, 'mode' => 'structured', 'public' => false ] ],
 			[ 'id' => $group_client, 'type' => 'field_group', 'lane' => 'data', 'name' => 'Client fields', 'config' => [ 'fields' => [ $client_name ] ] ],
-			[ 'id' => $relation, 'type' => 'relation', 'lane' => 'data', 'name' => 'Project client', 'config' => [ 'cardinality' => 'many_to_one' ] ],
+			[ 'id' => $relation, 'type' => 'relation', 'lane' => 'data', 'name' => 'Project client', 'config' => [ 'cardinality' => 'many_to_one', 'field_id' => $client_ref_id ] ],
 			[ 'id' => $entry, 'type' => 'entry_surface', 'lane' => 'experience', 'name' => 'Project entry', 'config' => [ 'operations' => [ 'create', 'update' ] ] ],
 			[ 'id' => $collection, 'type' => 'collection', 'lane' => 'experience', 'name' => 'Project collection', 'config' => [ 'page_size' => 24 ] ],
+			[ 'id' => $client_collection, 'type' => 'collection', 'lane' => 'experience', 'name' => 'Client options', 'config' => [ 'page_size' => 24 ] ],
 			[ 'id' => $filter, 'type' => 'filter_surface', 'lane' => 'experience', 'name' => 'Project filters', 'config' => [ 'fields' => [ $budget_id ] ] ],
 			[ 'id' => $presentation, 'type' => 'presentation', 'lane' => 'presentation', 'name' => 'Project list', 'config' => [ 'adapter' => 'elementor' ] ],
-			[ 'id' => $route, 'type' => 'route', 'lane' => 'presentation', 'name' => 'Projects route', 'config' => [ 'path' => '/projects' ] ],
+			[ 'id' => $route, 'type' => 'route', 'lane' => 'presentation', 'name' => 'Projects route', 'config' => [ 'path' => '/qa-projects-' . $suffix ] ],
 			[ 'id' => $policy, 'type' => 'policy', 'lane' => 'governance', 'name' => 'Project editor policy', 'config' => [ 'capability' => 'edit_posts' ] ],
 		],
 		'connections' => [
@@ -111,6 +118,8 @@ $build_blueprint = function ( $version ) use ( $blueprint_id, $project_slug, $cl
 			[ 'id' => Uuid::v5( $blueprint_id, 'edge:client-fields' ), 'type' => 'entity_fields', 'from' => $entity_client, 'to' => $group_client ],
 			[ 'id' => Uuid::v5( $blueprint_id, 'edge:relation-source' ), 'type' => 'relation_source', 'from' => $entity_project, 'to' => $relation ],
 			[ 'id' => Uuid::v5( $blueprint_id, 'edge:relation-target' ), 'type' => 'relation_target', 'from' => $relation, 'to' => $entity_client ],
+			[ 'id' => Uuid::v5( $blueprint_id, 'edge:client-collection' ), 'type' => 'collection_for', 'from' => $entity_client, 'to' => $client_collection ],
+			[ 'id' => Uuid::v5( $blueprint_id, 'edge:relation-options' ), 'type' => 'relation_options', 'from' => $relation, 'to' => $client_collection ],
 			[ 'id' => Uuid::v5( $blueprint_id, 'edge:project-entry' ), 'type' => 'entry_for', 'from' => $entity_project, 'to' => $entry ],
 			[ 'id' => Uuid::v5( $blueprint_id, 'edge:project-collection' ), 'type' => 'collection_for', 'from' => $entity_project, 'to' => $collection ],
 			[ 'id' => Uuid::v5( $blueprint_id, 'edge:collection-filter' ), 'type' => 'filters', 'from' => $collection, 'to' => $filter ],
@@ -130,7 +139,7 @@ try {
 	$second_compile = $compiler->compile( $blueprint_v1 );
 	$assert( $first_compile->is_valid(), 'Valid Blueprint did not compile: ' . wp_json_encode( $first_compile->errors() ) );
 	$assert( $first_compile->checksum() === $second_compile->checksum(), 'Compiler output is not idempotent.' );
-	$assert( 3 === count( $first_compile->bindings() ), 'Compiler did not bind all stable Field IDs.' );
+	$assert( 4 === count( $first_compile->bindings() ), 'Compiler did not bind all stable Field IDs.' );
 	$assert( in_array( 'relation_contract', array_column( $first_compile->artifacts(), 'kind' ), true ), 'Normalized relation artifact is missing.' );
 	$required_artifacts = [ 'entry_contract', 'collection_contract', 'filter_contract', 'presentation_contract', 'route_contract', 'policy_contract' ];
 	$assert( [] === array_diff( $required_artifacts, array_column( $first_compile->artifacts(), 'kind' ) ), 'Experience, presentation or governance artifacts are missing.' );
@@ -144,6 +153,12 @@ try {
 	$version_v1 = $lifecycle->apply( $prepared_v1['id'], $prepared_v1['confirmation_token'], 1 );
 	$assert( ! is_wp_error( $version_v1 ) && 1 === $version_v1['version'], 'Blueprint V1 publication failed.' );
 	$assert( ! is_wp_error( $lifecycle->reconcile( $prepared_v1['id'] ) ), 'Blueprint V1 reconciliation failed.' );
+	$route_runtime = new RouteRuntime();
+	$active_routes = $route_runtime->contracts();
+	$assert( isset( $active_routes[ $route_id ] ) && $presentation_id === $active_routes[ $route_id ]['presentation_id'] && 'qa-projects-' . $suffix === $active_routes[ $route_id ]['path'], 'Published Route did not resolve its owning Presentation and executable path.' );
+	$route_runtime->register_routes();
+	global $wp_rewrite;
+	$assert( isset( $wp_rewrite->extra_rules_top[ '^qa\-projects\-' . $suffix . '/?$' ] ), 'Published virtual Route did not register a bounded WordPress rewrite.' );
 	$assert( CctSchema::table_exists( $project_slug ) && CctSchema::table_exists( $client_slug ), 'Compiled CCT storage was not prepared.' );
 	$assert( isset( CctDefinitions::all()[ $project_slug ] ), 'Active compiled definition is not projected into runtime.' );
 	$assert( ! isset( get_option( CctDefinitions::OPTION, [] )[ $project_slug ] ), 'Compiled definition leaked into legacy options.' );
@@ -158,6 +173,12 @@ try {
 	$version_v2 = $lifecycle->apply( $prepared_v2['id'], $prepared_v2['confirmation_token'], 1 );
 	$assert( ! is_wp_error( $version_v2 ) && 2 === $version_v2['version'], 'Blueprint V2 publication failed.' );
 	$assert( ! is_wp_error( $lifecycle->reconcile( $prepared_v2['id'] ) ), 'Blueprint V2 reconciliation failed.' );
+
+	$blueprint_type_change = $build_blueprint( 4 );
+	$assert( ! is_wp_error( $lifecycle->save_draft( $blueprint_type_change ) ), 'Blueprint type-change draft save failed.' );
+	$blocked_type = $lifecycle->prepare( $blueprint_id, 1 );
+	$assert( ! is_wp_error( $blocked_type ) && 'blocked' === $blocked_type['status'] && null === $blocked_type['confirmation_token'], 'Published field type change was not blocked before storage preparation.' );
+	$assert( in_array( 'published_field_semantics_locked', array_column( $blocked_type['impact']['blockers'], 'code' ), true ), 'Field semantic migration blocker is not explicit.' );
 
 	$blueprint_v3 = $build_blueprint( 3 );
 	$assert( ! is_wp_error( $lifecycle->save_draft( $blueprint_v3 ) ), 'Blueprint V3 draft save failed.' );

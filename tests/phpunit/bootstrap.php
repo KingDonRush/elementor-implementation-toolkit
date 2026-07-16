@@ -79,6 +79,12 @@ if ( ! function_exists( 'do_action' ) ) {
 	}
 }
 
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	function get_current_user_id() {
+		return 0;
+	}
+}
+
 if ( ! function_exists( 'absint' ) ) {
 	function absint( $value ) {
 		return abs( (int) $value );

@@ -47,13 +47,31 @@ class ToolkitField extends Widget_Base {
 	}
 
 	protected function register_controls() {
+		$catalog = new PublishedContractCatalog();
+		$context_entity_id = $catalog->context_entity_id();
 		$this->start_controls_section( 'content', [ 'label' => esc_html__( 'Connection', 'elementor-implementation-toolkit' ) ] );
-		$this->add_control( 'field_id', [
+		if ( '' === $context_entity_id ) {
+			$this->add_control( 'entity_id', [
+				'label' => esc_html__( 'Entity context', 'elementor-implementation-toolkit' ),
+				'type' => Controls_Manager::SELECT,
+				'options' => $catalog->entity_options(),
+				'description' => esc_html__( 'Required because the current preview does not identify one Entity unambiguously.', 'elementor-implementation-toolkit' ),
+			] );
+			$this->add_control( 'eit_field_category', [
+				'type' => Controls_Manager::HIDDEN,
+				'default' => 'all',
+			] );
+		}
+		$field_control = [
 			'label' => esc_html__( 'Published Field', 'elementor-implementation-toolkit' ),
 			'type' => Controls_Manager::SELECT,
-			'options' => ( new PublishedContractCatalog() )->field_options(),
+			'options' => $catalog->editor_field_options( [], $context_entity_id ),
 			'description' => esc_html__( 'The stable Field ID remains connected when its public name changes.', 'elementor-implementation-toolkit' ),
-		] );
+		];
+		if ( '' === $context_entity_id ) {
+			$field_control['condition'] = [ 'entity_id!' => '' ];
+		}
+		$this->add_control( 'field_id', $field_control );
 		$this->add_control( 'html_tag', [
 			'label' => esc_html__( 'HTML element', 'elementor-implementation-toolkit' ),
 			'type' => Controls_Manager::SELECT,
@@ -93,19 +111,20 @@ class ToolkitField extends Widget_Base {
 	protected function render() {
 		$settings = $this->get_settings_for_display();
 		$field_id = (string) ( $settings['field_id'] ?? '' );
+		$entity_id = (string) ( $settings['entity_id'] ?? '' );
 		$resolver = new TypedValueResolver();
-		$context = $resolver->resolve( $field_id, 'text' );
+		$context = $resolver->resolve( $field_id, 'text', $entity_id );
 		if ( ! $context ) {
 			$this->render_notice( __( 'Select an available published Field.', 'elementor-implementation-toolkit' ) );
 			return;
 		}
 		$field = $context['field'];
 		if ( in_array( 'gallery', $field['elementor'] ?? [], true ) ) {
-			$this->render_gallery( $resolver->resolve( $field_id, 'gallery' )['value'] ?? [], $field );
+			$this->render_gallery( $resolver->resolve( $field_id, 'gallery', $entity_id )['value'] ?? [], $field );
 			return;
 		}
 		if ( in_array( 'image', $field['elementor'] ?? [], true ) ) {
-			$this->render_image( $resolver->resolve( $field_id, 'image' )['value'] ?? null, $field );
+			$this->render_image( $resolver->resolve( $field_id, 'image', $entity_id )['value'] ?? null, $field );
 			return;
 		}
 		$value = $context['value'];
@@ -114,7 +133,7 @@ class ToolkitField extends Widget_Base {
 		}
 		$tag = in_array( $settings['html_tag'] ?? '', [ 'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ], true ) ? $settings['html_tag'] : 'div';
 		$url = 'yes' === ( $settings['link_value'] ?? '' ) && in_array( 'url', $field['elementor'] ?? [], true )
-			? ( $resolver->resolve( $field_id, 'url' )['value'] ?? '' )
+			? ( $resolver->resolve( $field_id, 'url', $entity_id )['value'] ?? '' )
 			: '';
 		printf( '<%1$s class="eit-toolkit-field"><span class="eit-toolkit-field__value">', esc_attr( $tag ) );
 		echo esc_html( $settings['prefix'] ?? '' );
@@ -128,10 +147,13 @@ class ToolkitField extends Widget_Base {
 	}
 
 	private function render_image( $image, array $field ) {
-		if ( ! is_array( $image ) || empty( $image['url'] ) ) {
+		if ( ! is_array( $image ) ) {
 			return;
 		}
-		printf( '<figure class="eit-toolkit-field eit-toolkit-field--image"><img src="%1$s" alt="%2$s" loading="lazy"></figure>', esc_url( $image['url'] ), esc_attr( $field['name'] ) );
+		$image_html = $this->image_html( $image, $field, 'eit-toolkit-field__image' );
+		if ( '' !== $image_html ) {
+			echo '<figure class="eit-toolkit-field eit-toolkit-field--image">' . $image_html . '</figure>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_get_attachment_image or escaped fallback markup.
+		}
 	}
 
 	private function render_gallery( array $images, array $field ) {
@@ -140,11 +162,34 @@ class ToolkitField extends Widget_Base {
 		}
 		echo '<div class="eit-toolkit-field eit-toolkit-field--gallery">';
 		foreach ( $images as $image ) {
-			if ( ! empty( $image['url'] ) ) {
-				printf( '<img src="%1$s" alt="%2$s" loading="lazy">', esc_url( $image['url'] ), esc_attr( $field['name'] ) );
+			if ( is_array( $image ) ) {
+				echo $this->image_html( $image, $field, 'eit-toolkit-field__gallery-image' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_get_attachment_image or escaped fallback markup.
 			}
 		}
 		echo '</div>';
+	}
+
+	private function image_html( array $image, array $field, $class ) {
+		$attachment_id = absint( $image['id'] ?? 0 );
+		if ( $attachment_id ) {
+			$html = wp_get_attachment_image( $attachment_id, 'full', false, [
+				'class' => sanitize_html_class( $class ),
+				'loading' => 'lazy',
+				'decoding' => 'async',
+			] );
+			if ( $html ) {
+				return $html;
+			}
+		}
+		if ( empty( $image['url'] ) ) {
+			return '';
+		}
+		return sprintf(
+			'<img class="%1$s" src="%2$s" alt="%3$s" loading="lazy" decoding="async">',
+			esc_attr( sanitize_html_class( $class ) ),
+			esc_url( $image['url'] ),
+			esc_attr( $field['name'] )
+		);
 	}
 
 	private function render_notice( $message ) {

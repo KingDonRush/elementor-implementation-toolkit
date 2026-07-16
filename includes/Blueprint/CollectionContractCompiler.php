@@ -6,6 +6,7 @@
 namespace EIT\Blueprint;
 
 use EIT\Collection\CollectionFieldSemantics;
+use EIT\Registry\ExtensionContract;
 use EIT\Registry\RegistryHub;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -16,10 +17,12 @@ class CollectionContractCompiler {
 
 	private $registries;
 	private $semantics;
+	private $requirements;
 
-	public function __construct( RegistryHub $registries = null ) {
+	public function __construct( RegistryHub $registries = null, CollectionProviderRequirements $requirements = null ) {
 		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
 		$this->semantics = new CollectionFieldSemantics();
+		$this->requirements = $requirements ?: new CollectionProviderRequirements();
 	}
 
 	public function compile_collection( array $collection, array $nodes, array $connections, array $entities ) {
@@ -29,22 +32,25 @@ class CollectionContractCompiler {
 		if ( ! $fields ) {
 			$fields = $this->entity_fields( $entity_id, $nodes, $connections );
 		}
+		$fields = array_filter( $fields, [ $this, 'is_public_field' ] );
 		$config = $collection['config'] ?? [];
-		$provider_id = $this->provider_id( $entity );
-		$provider = $this->registries->collection_providers()->get( $provider_id );
-		if ( ! $provider ) {
-			return new \WP_Error( 'eit_collection_provider_missing', __( 'The Collection provider is not registered.', 'elementor-implementation-toolkit' ) );
-		}
-		$health = $provider->health_check();
-		if ( ! is_array( $health ) || empty( $health['ok'] ) ) {
-			return new \WP_Error( 'eit_collection_provider_unhealthy', __( 'The Collection provider is not available in this environment.', 'elementor-implementation-toolkit' ) );
-		}
+		$explicit_provider = $this->explicit_provider( $entity_id, $nodes, $connections );
 		$filter_id = $this->connected_id( $collection['id'], 'filters', 'to', $connections, 'from' );
 		$filter_config = $nodes[ $filter_id ]['config'] ?? [];
+		$filter_config['_connected'] = (bool) $filter_id;
+		$provider_id = ! empty( $explicit_provider['configured'] ) && $this->valid_provider_config( $explicit_provider['contract'] ?? null )
+			? (string) $explicit_provider['contract']['id']
+			: $this->provider_id( $entity );
+		$declared = ! empty( $explicit_provider['configured'] ) && $this->valid_provider_config( $explicit_provider['contract'] ?? null )
+			? $this->capabilities( $explicit_provider['contract']['required_capabilities'] ?? [] )
+			: [];
+		$plan = $this->requirements->plan( $provider_id, $config, $filter_config, array_values( $fields ), $declared );
+		$provider_contract = $this->provider_contract( $explicit_provider, $entity, $plan['required_capabilities'] );
+		if ( is_wp_error( $provider_contract ) ) {
+			return $provider_contract;
+		}
 		$policy_id = $this->connected_id( $collection['id'], 'governs_collection', 'from', $connections );
 		$policy_config = $nodes[ $policy_id ]['config'] ?? [];
-		$filter_ids = $this->selected_capability_fields( $fields, $filter_config['fields'] ?? [], 'filter' );
-		$sort_ids = $this->selected_capability_fields( $fields, $config['sort_field_ids'] ?? [], 'sort' );
 		$projection_ids = $this->projection_fields( $fields, $config['projection_field_ids'] ?? [] );
 
 		return [
@@ -57,23 +63,16 @@ class CollectionContractCompiler {
 				'definition' => $entity['definition'] ?? [],
 				'adapter' => $entity['adapter'] ?? [],
 			],
-			'provider' => [
-				'id' => $provider_id,
-				'version' => $provider->get_version(),
-				'capabilities' => $provider->get_capabilities(),
-			],
+			'provider' => $provider_contract,
 			'fields' => array_values( $fields ),
 			'projection_field_ids' => $projection_ids,
-			'filter_field_ids' => $filter_ids,
-			'sort_field_ids' => $sort_ids,
-			'search_field_ids' => $this->capability_fields( $fields, 'search' ),
-			'default_sort' => $this->default_sort( $config, $sort_ids ),
+			'filter_field_ids' => $plan['filter_field_ids'],
+			'sort_field_ids' => $plan['sort_field_ids'],
+			'search_field_ids' => $plan['search_field_ids'],
+			'default_sort' => $this->default_sort( $config, $plan['sort_field_ids'] ),
 			'page_size' => min( 48, max( 1, absint( $config['page_size'] ?? 24 ) ) ),
 			'access' => $this->access( $config, $entity ),
-			'policy' => [
-				'id' => $policy_id,
-				'capability' => sanitize_key( $policy_config['read_capability'] ?? $policy_config['capability'] ?? 'read' ),
-			],
+			'policy' => $this->policy( $policy_id, $policy_config ),
 			'cache' => [
 				'enabled' => ! isset( $config['cache']['enabled'] ) || ! empty( $config['cache']['enabled'] ),
 				'ttl_seconds' => min( 3600, max( 30, absint( $config['cache']['ttl_seconds'] ?? 300 ) ) ),
@@ -93,8 +92,10 @@ class CollectionContractCompiler {
 		}
 		$fields = array_column( $contract['fields'], null, 'id' );
 		$config = $surface['config'] ?? [];
-		$field_ids = $this->selected_capability_fields( $fields, $config['fields'] ?? [], 'filter' );
-		$facet_ids = $this->facet_fields( $config, $field_ids, $fields );
+		$config['_connected'] = true;
+		$field_ids = $contract['filter_field_ids'];
+		$plan = $this->requirements->plan( $contract['provider']['id'] ?? '', [], $config, array_values( $fields ) );
+		$facet_ids = $plan['facet_field_ids'];
 		$controls = [];
 		foreach ( $field_ids as $field_id ) {
 			$field = $fields[ $field_id ];
@@ -134,6 +135,72 @@ class CollectionContractCompiler {
 		return 'woocommerce' === $adapter_id ? 'woocommerce' : 'legacy_dom';
 	}
 
+	private function explicit_provider( $entity_id, array $nodes, array $connections ) {
+		foreach ( $connections as $connection ) {
+			if ( 'adapts' !== ( $connection['type'] ?? '' ) || $entity_id !== ( $connection['to'] ?? '' ) ) {
+				continue;
+			}
+			$config = $nodes[ $connection['from'] ]['config'] ?? [];
+			if ( array_key_exists( 'collection_provider', $config ) ) {
+				return [ 'configured' => true, 'contract' => $config['collection_provider'] ];
+			}
+		}
+		$config = $nodes[ $entity_id ]['config'] ?? [];
+		return array_key_exists( 'collection_provider', $config )
+			? [ 'configured' => true, 'contract' => $config['collection_provider'] ]
+			: [ 'configured' => false, 'contract' => null ];
+	}
+
+	private function provider_contract( array $explicit, array $entity, array $required ) {
+		$configured = ! empty( $explicit['configured'] );
+		$contract = $explicit['contract'] ?? null;
+		if ( $configured && ! $this->valid_provider_config( $contract ) ) {
+			return new \WP_Error( 'eit_collection_provider_contract_invalid', __( 'Explicit Collection provider configuration is invalid.', 'elementor-implementation-toolkit' ) );
+		}
+		$provider_id = $configured ? (string) $contract['id'] : $this->provider_id( $entity );
+		$provider = $this->registries->collection_providers()->get( $provider_id );
+		if ( ! $provider ) {
+			return new \WP_Error( 'eit_collection_provider_missing', __( 'The Collection provider is not registered.', 'elementor-implementation-toolkit' ) );
+		}
+		$snapshot = ExtensionContract::snapshot( $provider );
+		if ( is_wp_error( $snapshot ) && 'eit_extension_unavailable' === $snapshot->get_error_code() ) {
+			return new \WP_Error( 'eit_collection_provider_unhealthy', __( 'The Collection provider is not available in this environment.', 'elementor-implementation-toolkit' ) );
+		}
+		if ( is_wp_error( $snapshot ) || ! hash_equals( $provider_id, (string) ( $snapshot['id'] ?? '' ) ) ) {
+			return new \WP_Error( 'eit_collection_provider_incompatible', __( 'The Collection provider metadata is invalid.', 'elementor-implementation-toolkit' ) );
+		}
+		$version = $snapshot['version'];
+		$capabilities = $snapshot['capabilities'];
+		if ( null === $capabilities || ! preg_match( '/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/', $version ) || array_diff( $required, $capabilities ) ) {
+			return new \WP_Error( 'eit_collection_provider_incompatible', __( 'The Collection provider cannot execute every operation required by this Collection.', 'elementor-implementation-toolkit' ) );
+		}
+		return [ 'id' => $provider_id, 'version' => $version, 'capabilities' => $capabilities, 'required_capabilities' => $required, 'selection' => $configured ? 'explicit' : 'automatic' ];
+	}
+
+	private function valid_provider_config( $contract ) {
+		if ( ! is_array( $contract ) || array_is_list( $contract ) || array_diff( array_keys( $contract ), [ 'id', 'required_capabilities' ] ) ) {
+			return false;
+		}
+		$id = (string) ( $contract['id'] ?? '' );
+		return (bool) preg_match( '/^[a-z][a-z0-9_.-]{1,63}$/', $id ) && null !== $this->capabilities( $contract['required_capabilities'] ?? [] );
+	}
+
+	private function capabilities( $capabilities ) {
+		if ( ! is_array( $capabilities ) || ! array_is_list( $capabilities ) || count( $capabilities ) > 32 ) {
+			return null;
+		}
+		$result = [];
+		foreach ( $capabilities as $capability ) {
+			if ( ! is_string( $capability ) || ! preg_match( '/^[a-z][a-z0-9_]{1,63}$/', $capability ) || isset( $result[ $capability ] ) ) {
+				return null;
+			}
+			$result[ $capability ] = true;
+		}
+		$result = array_keys( $result );
+		sort( $result, SORT_STRING );
+		return $result;
+	}
+
 	private function entity_fields( $entity_id, array $nodes, array $connections ) {
 		$fields = [];
 		foreach ( $connections as $connection ) {
@@ -147,20 +214,8 @@ class CollectionContractCompiler {
 		return $fields;
 	}
 
-	private function selected_capability_fields( array $fields, $selected, $capability ) {
-		$available = $this->capability_fields( $fields, $capability );
-		$selected = is_array( $selected ) ? array_values( array_filter( array_map( 'strval', $selected ) ) ) : [];
-		return $selected ? array_values( array_intersect( $selected, $available ) ) : $available;
-	}
-
-	private function capability_fields( array $fields, $capability ) {
-		$result = [];
-		foreach ( $fields as $field ) {
-			if ( ! empty( $field['capabilities'][ $capability ] ) && ! empty( $field['indexing'][ $capability ] ) ) {
-				$result[] = $field['id'];
-			}
-		}
-		return $result;
+	private function is_public_field( array $field ) {
+		return ! empty( $field['exposure']['public'] );
 	}
 
 	private function projection_fields( array $fields, $selected ) {
@@ -185,18 +240,15 @@ class CollectionContractCompiler {
 		return ! empty( $entity['definition']['public'] ) ? 'public' : 'authenticated';
 	}
 
-	private function facet_fields( array $config, array $field_ids, array $fields ) {
-		$configured = is_array( $config['facet_fields'] ?? null ) ? $config['facet_fields'] : [];
-		if ( array_key_exists( 'facet_fields', $config ) ) {
-			return array_slice( array_values( array_intersect( $configured, $field_ids ) ), 0, 10 );
-		}
-		$result = [];
-		foreach ( $field_ids as $field_id ) {
-			if ( in_array( $fields[ $field_id ]['type'] ?? '', [ 'boolean', 'single_choice', 'multiple_choice', 'taxonomy', 'relation' ], true ) ) {
-				$result[] = $field_id;
-			}
-		}
-		return array_slice( $result, 0, 10 );
+	private function policy( $policy_id, array $config ) {
+		$ownership = sanitize_key( $config['ownership'] ?? 'any' );
+		$object_scope = sanitize_key( $config['object_scope'] ?? 'entity' );
+		return [
+			'id' => $policy_id,
+			'capability' => sanitize_key( $config['read_capability'] ?? $config['capability'] ?? 'read' ),
+			'ownership' => in_array( $ownership, [ 'own', 'any' ], true ) ? $ownership : 'any',
+			'object_scope' => in_array( $object_scope, [ 'entity', 'assigned' ], true ) ? $object_scope : 'entity',
+		];
 	}
 
 	private function options( array $field ) {

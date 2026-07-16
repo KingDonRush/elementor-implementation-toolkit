@@ -53,7 +53,11 @@ class ExtensionRegistry {
 	public function health() {
 		$health = [];
 		foreach ( $this->all() as $id => $extension ) {
-			$result = $extension->health_check();
+			try {
+				$result = $extension->health_check();
+			} catch ( \Throwable $error ) {
+				$result = [ 'ok' => false, 'message' => 'Runtime canary failed.' ];
+			}
 			$health[ $id ] = is_array( $result ) ? $result : [ 'ok' => false, 'message' => 'Invalid health response.' ];
 		}
 		return $health;

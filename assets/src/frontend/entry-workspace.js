@@ -1,7 +1,22 @@
 import { evaluateEntryExpression } from "./entry-expression.js";
+import { matchesEntryCondition } from "./entry-condition.js";
 import { uploadEntryMedia } from "./entry-media-client.js";
 import { setEntryButtonsBusy, uniqueEntryKey } from "./entry-request-state.js";
 import { readEntryValues } from "./entry-values.js";
+import {
+  addEntryRepeaterRow,
+  syncEntryRepeater,
+} from "./entry-repeater.js";
+import {
+  bindEntryWorkspace,
+  destroyEntryWorkspace,
+} from "./entry-lifecycle.js";
+import {
+  clearEntryFieldInvalid,
+  exposeClientValidity,
+  setEntryFieldInvalid,
+  syncChoiceGroup,
+} from "./entry-validation.js";
 
 export class EntryWorkspace {
   constructor(root) {
@@ -13,44 +28,26 @@ export class EntryWorkspace {
     this.step = 0;
     this.dirty = false;
     this.busy = false;
+    this.destroyed = false;
     this.abortController = null;
+    this.mediaAbortController = null;
+    this.autosaveTimer = null;
     this.key = uniqueEntryKey();
     this.root.setAttribute("aria-busy", "false");
     this.bind();
     this.applyConditions();
     this.updateStep();
     this.installAutosave();
+    this.root.dispatchEvent(
+      new CustomEvent("eit:entry-ready", {
+        bubbles: true,
+        detail: { surfaceId: this.contract.surface_id },
+      }),
+    );
   }
 
   bind() {
-    this.form.addEventListener("input", () => {
-      this.dirty = true;
-      this.applyConditions();
-    });
-    this.form.addEventListener("change", (event) => {
-      this.dirty = true;
-      this.applyConditions();
-      if (event.target.matches("[data-eit-media-input]")) {
-        this.uploadMedia(event.target);
-      }
-    });
-    this.form.addEventListener("submit", (event) => this.submit(event));
-    this.root
-      .querySelector("[data-eit-next]")
-      ?.addEventListener("click", () => this.nextStep());
-    this.root
-      .querySelector("[data-eit-previous]")
-      ?.addEventListener("click", () => this.previousStep());
-    this.root.addEventListener("click", (event) => {
-      const add = event.target.closest("[data-eit-add-row]");
-      const remove = event.target.closest("[data-eit-remove-row]");
-      if (add) {
-        this.addRepeaterRow(add.closest("[data-eit-repeater]"));
-      } else if (remove) {
-        remove.closest("[data-eit-repeater-row]")?.remove();
-        this.dirty = true;
-      }
-    });
+    bindEntryWorkspace(this);
   }
 
   values() {
@@ -68,7 +65,7 @@ export class EntryWorkspace {
     );
     for (const condition of this.contract.conditions || []) {
       if (!state[condition.target_field_id]) continue;
-      const matched = this.matches(
+      const matched = matchesEntryCondition(
         values[condition.source_field_id],
         condition.operator,
         condition.value,
@@ -100,8 +97,18 @@ export class EntryWorkspace {
               .querySelector("[data-eit-media-value]")
               ?.value?.replace(/\[\]|null/, ""),
           );
-        control.required =
-          fieldState.visible && fieldState.required && !hasMedia;
+        const required = fieldState.visible && fieldState.required && !hasMedia;
+        if ("multiple_choice" === wrapper.dataset.fieldType) {
+          control.required = false;
+          syncChoiceGroup(
+            wrapper,
+            required,
+            window.eitConfig.i18n.entryChoiceRequired ||
+              "Choose at least one option.",
+          );
+        } else {
+          control.required = required;
+        }
       }
     }
   }
@@ -126,44 +133,10 @@ export class EntryWorkspace {
     }
   }
 
-  matches(actual, operator, expected) {
-    if ("empty" === operator || "not_empty" === operator) {
-      const empty =
-        null == actual ||
-        "" === actual ||
-        (Array.isArray(actual) && 0 === actual.length);
-      return "empty" === operator ? empty : !empty;
-    }
-    if ("in" === operator || "not_in" === operator) {
-      const actualList = Array.isArray(actual)
-        ? actual.map(String)
-        : [String(actual)];
-      const expectedList = (
-        Array.isArray(expected) ? expected : [expected]
-      ).map(String);
-      const found = actualList.some((value) => expectedList.includes(value));
-      return "in" === operator ? found : !found;
-    }
-    if (["gt", "gte", "lt", "lte"].includes(operator)) {
-      const left = Number(actual);
-      const right = Number(expected);
-      if (!Number.isFinite(left) || !Number.isFinite(right)) return false;
-      return {
-        gt: left > right,
-        gte: left >= right,
-        lt: left < right,
-        lte: left <= right,
-      }[operator];
-    }
-    const equal = String(actual) === String(expected);
-    return "not_equals" === operator ? !equal : equal;
-  }
-
   nextStep() {
     const current = this.steps()[this.step];
-    const invalid = [
-      ...current.querySelectorAll("input, textarea, select"),
-    ].find((input) => !input.disabled && !input.checkValidity());
+    this.applyConditions();
+    const invalid = exposeClientValidity(current);
     if (invalid) {
       invalid.reportValidity();
       invalid.focus();
@@ -197,13 +170,20 @@ export class EntryWorkspace {
   async submit(event) {
     event.preventDefault();
     const intent = event.submitter?.dataset.eitIntent || "default";
-    if (!["archive", "restore"].includes(intent) && !this.form.reportValidity())
+    this.applyConditions();
+    const invalid = !["archive", "restore"].includes(intent)
+      ? exposeClientValidity(this.form)
+      : null;
+    if (invalid) {
+      invalid.reportValidity();
+      invalid.focus();
       return;
+    }
     await this.send(intent);
   }
 
   async send(intent) {
-    if (this.busy) return;
+    if (this.busy || this.destroyed) return;
     this.abortController?.abort();
     this.abortController = new AbortController();
     this.setBusy(true, window.eitConfig.i18n.entrySaving);
@@ -233,6 +213,7 @@ export class EntryWorkspace {
       );
       const result = await response.json();
       if (!response.ok) throw result;
+      if (this.destroyed) return;
       this.root.dataset.itemId = result.item_id;
       this.contract.item = {
         ...(this.contract.item || {}),
@@ -258,15 +239,25 @@ export class EntryWorkspace {
       if (redirect) window.location.assign(redirect);
     } catch (error) {
       if ("AbortError" === error?.name) return;
-      this.key = uniqueEntryKey();
+      if (
+        [
+          "eit_entry_idempotency_failed",
+          "eit_entry_idempotency_mismatch",
+        ].includes(error?.code)
+      ) {
+        this.key = uniqueEntryKey();
+      }
       this.showErrors(error);
     } finally {
-      this.setBusy(false);
+      if (!this.destroyed) this.setBusy(false);
     }
   }
 
   async uploadMedia(input) {
-    if (!input.files?.length) return;
+    if (!input.files?.length || this.destroyed) return;
+    this.mediaAbortController?.abort();
+    const mediaAbortController = new AbortController();
+    this.mediaAbortController = mediaAbortController;
     this.setBusy(true, window.eitConfig.i18n.entryUploading);
     try {
       const uploaded = await uploadEntryMedia({
@@ -275,6 +266,7 @@ export class EntryWorkspace {
         contract: this.contract,
         restUrl: window.eitConfig.entryRestUrl,
         nonceHeaders: this.nonceHeaders(),
+        signal: mediaAbortController.signal,
       });
       if (!uploaded) return;
       const { wrapper, value } = uploaded;
@@ -284,11 +276,13 @@ export class EntryWorkspace {
       this.dirty = true;
       this.message(window.eitConfig.i18n.entrySaved, "success");
     } catch (error) {
-      const wrapper = input.closest("[data-eit-entry-field]");
-      wrapper.querySelector("[data-eit-media-value]").value = "";
+      if ("AbortError" === error?.name) return;
       this.showErrors(error);
     } finally {
-      this.setBusy(false);
+      if (this.mediaAbortController === mediaAbortController) {
+        this.mediaAbortController = null;
+        if (!this.destroyed) this.setBusy(false);
+      }
     }
   }
 
@@ -311,15 +305,11 @@ export class EntryWorkspace {
   }
 
   addRepeaterRow(repeater) {
-    const fragment = repeater
-      .querySelector("[data-eit-repeater-template]")
-      ?.content.cloneNode(true);
-    if (fragment)
-      repeater.insertBefore(
-        fragment,
-        repeater.querySelector("[data-eit-repeater-template]"),
-      );
-    this.dirty = true;
+    if (addEntryRepeaterRow(repeater)) this.dirty = true;
+  }
+
+  syncRepeater(repeater) {
+    syncEntryRepeater(repeater);
   }
 
   showErrors(error) {
@@ -331,8 +321,7 @@ export class EntryWorkspace {
         `[data-eit-entry-field="${fieldId}"]`,
       );
       if (!wrapper) continue;
-      wrapper.classList.add("has-error");
-      wrapper.querySelector("[data-eit-field-error]").textContent = message;
+      setEntryFieldInvalid(wrapper, message);
       firstInvalid ||= wrapper;
     }
     if (firstInvalid) {
@@ -347,11 +336,8 @@ export class EntryWorkspace {
 
   clearErrors() {
     this.root
-      .querySelectorAll(".has-error")
-      .forEach((field) => field.classList.remove("has-error"));
-    this.root
-      .querySelectorAll("[data-eit-field-error]")
-      .forEach((error) => (error.textContent = ""));
+      .querySelectorAll("[data-eit-entry-field]")
+      .forEach(clearEntryFieldInvalid);
   }
 
   setBusy(busy, message = "") {
@@ -362,6 +348,12 @@ export class EntryWorkspace {
     this.busy = busy;
     this.root.setAttribute("aria-busy", String(busy));
     setEntryButtonsBusy(this.root, busy, this.busyFocus);
+    this.root.dispatchEvent(
+      new CustomEvent("eit:entry-busy", {
+        bubbles: true,
+        detail: { surfaceId: this.contract.surface_id, busy },
+      }),
+    );
     if (!busy && this.busyFocus?.isConnected) {
       this.busyFocus.focus({ preventScroll: true });
       this.busyFocus = null;
@@ -371,6 +363,7 @@ export class EntryWorkspace {
 
   message(text, type) {
     const region = this.root.querySelector("[data-eit-form-message]");
+    if (!region) return;
     region.textContent = text;
     region.dataset.state = type;
   }
@@ -387,5 +380,17 @@ export class EntryWorkspace {
 
   steps() {
     return [...this.root.querySelectorAll("[data-eit-entry-step]")];
+  }
+
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    destroyEntryWorkspace(this);
+    this.root.dispatchEvent(
+      new CustomEvent("eit:entry-removed", {
+        bubbles: true,
+        detail: { surfaceId: this.contract.surface_id },
+      }),
+    );
   }
 }

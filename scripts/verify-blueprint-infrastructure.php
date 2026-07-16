@@ -22,6 +22,7 @@ use EIT\Infrastructure\RunStore;
 use EIT\Infrastructure\RuntimeCache;
 use EIT\Infrastructure\ScenarioStore;
 use EIT\Infrastructure\SchemaManager;
+use EIT\Infrastructure\StorageClaimStore;
 use EIT\Infrastructure\Tables;
 use EIT\Infrastructure\Transaction;
 use EIT\Infrastructure\VersionStore;
@@ -70,7 +71,7 @@ try {
 	$cleanup();
 	$assert( true === SchemaManager::install(), 'Infrastructure installation failed.' );
 	$assert( true === SchemaManager::verify(), 'Infrastructure verification failed.' );
-	$assert( count( Tables::keys() ) === 16, 'Dedicated infrastructure table count drifted.' );
+	$assert( count( Tables::keys() ) === 18, 'Dedicated infrastructure table count drifted.' );
 
 	$document = [
 		'api_version' => 'eit.dev/v1',
@@ -141,6 +142,87 @@ try {
 	$assert( ! is_wp_error( $change_sets->transition( $change_set_id, 'prepared', 'applying' ) ), 'Change set transition failed.' );
 	$assert( is_wp_error( $change_sets->transition( $change_set_id, 'prepared', 'applied' ) ), 'Stale change set transition was not blocked.' );
 
+	$claim_slug = 'claim_' . substr( str_replace( '-', '', $blueprint_id ), 0, 12 );
+	$cpt_claim_slug = substr( $claim_slug, 0, 20 );
+	$claim_artifact = function ( $strategy, $slug ) use ( $blueprint_id ) {
+		$payload = [ 'strategy' => $strategy, 'definition' => [ 'slug' => $slug ] ];
+		return [
+			'id' => hash( 'sha256', $blueprint_id . '|claim|' . $strategy . '|' . $slug ),
+			'kind' => 'entity_definition',
+			'checksum' => hash( 'sha256', wp_json_encode( $payload ) ),
+			'payload' => $payload,
+		];
+	};
+	$claim_artifacts = [ $claim_artifact( 'cpt', $cpt_claim_slug ), $claim_artifact( 'cct', $claim_slug ) ];
+	$storage_claims = new StorageClaimStore();
+	$claimed = $storage_claims->claim_many( $blueprint_id, $change_set_id, $claim_artifacts );
+	$assert( ! is_wp_error( $claimed ) && 2 === count( $claimed ), 'Core Entity storage identities were not claimed atomically.' );
+	$assert( ! array_filter( $claimed, fn( $record ) => 'claimed' !== $record['status'] || $record['existed_before'] ), 'A new storage identity claim has invalid provenance.' );
+	$idempotent_claim = $storage_claims->claim_many( $blueprint_id, $change_set_id, $claim_artifacts );
+	$assert( ! is_wp_error( $idempotent_claim ) && array_column( $claimed, 'identity_hash' ) === array_column( $idempotent_claim, 'identity_hash' ), 'Storage claim retry is not idempotent.' );
+
+	$changed_artifacts = $claim_artifacts;
+	$changed_artifacts[0]['checksum'] = str_repeat( 'a', 64 );
+	$changed_claim = $storage_claims->claim_many( $blueprint_id, $change_set_id, $changed_artifacts );
+	$assert( is_wp_error( $changed_claim ) && 'eit_storage_claim_artifact_mismatch' === $changed_claim->get_error_code(), 'A change set reused its storage claim with different compiled content.' );
+
+	$other_change_set_id = Uuid::v4();
+	$other_change_set = $change_sets->create(
+		[
+			'id' => $other_change_set_id,
+			'blueprint_id' => $transaction_blueprint_id,
+			'draft_checksum' => $checksum,
+			'impact' => [],
+			'compiled_artifacts' => [ 'artifacts' => $claim_artifacts ],
+			'confirmation_hash' => hash( 'sha256', $other_change_set_id ),
+		]
+	);
+	$assert( ! is_wp_error( $other_change_set ) && ! is_wp_error( $change_sets->transition( $other_change_set_id, 'prepared', 'applying' ) ), 'Competing claim fixture could not enter applying state.' );
+	$conflict_artifact = StorageClaimStore::identity_hash( 'cpt', $cpt_claim_slug ) > StorageClaimStore::identity_hash( 'cct', $claim_slug ) ? $claim_artifacts[0] : $claim_artifacts[1];
+	$conflict_hash = StorageClaimStore::identity_hash( $conflict_artifact['payload']['strategy'], $conflict_artifact['payload']['definition']['slug'] );
+	$atomic_slug = '';
+	for ( $candidate = 0; $candidate < 512; ++$candidate ) {
+		$proposed_slug = 'atomic_' . $candidate . '_' . substr( str_replace( '-', '', $blueprint_id ), 0, 8 );
+		if ( StorageClaimStore::identity_hash( 'cct', $proposed_slug ) < $conflict_hash ) {
+			$atomic_slug = $proposed_slug;
+			break;
+		}
+	}
+	$assert( '' !== $atomic_slug, 'Atomic claim fixture could not order its insert before the owned identity.' );
+	$foreign_claim = $storage_claims->claim_many( $transaction_blueprint_id, $other_change_set_id, [ $claim_artifact( 'cct', $atomic_slug ), $conflict_artifact ] );
+	$assert( is_wp_error( $foreign_claim ) && 'eit_storage_claim_conflict' === $foreign_claim->get_error_code() && null === $storage_claims->owner( 'cct', $atomic_slug ), 'A conflicting multi-claim retained its earlier partial insert.' );
+
+	$failed_claims = $storage_claims->mark_failed( $blueprint_id, $change_set_id, 'eit_qa_storage_failure' );
+	$assert( ! is_wp_error( $failed_claims ) && ! array_filter( $failed_claims, fn( $record ) => 'failed' !== $record['status'] || 'eit_qa_storage_failure' !== $record['failure_code'] ), 'Failed storage preparation was not retained durably.' );
+	$next_change_set_id = Uuid::v4();
+	$next_change_set = $change_sets->create(
+		[
+			'id' => $next_change_set_id,
+			'blueprint_id' => $blueprint_id,
+			'draft_checksum' => $checksum,
+			'impact' => [],
+			'compiled_artifacts' => [ 'artifacts' => $claim_artifacts ],
+			'confirmation_hash' => hash( 'sha256', $next_change_set_id ),
+		]
+	);
+	$assert( ! is_wp_error( $next_change_set ) && ! is_wp_error( $change_sets->transition( $next_change_set_id, 'prepared', 'applying' ) ), 'Retry claim fixture could not enter applying state.' );
+	$reclaimed = $storage_claims->claim_many( $blueprint_id, $next_change_set_id, $claim_artifacts );
+	$assert( ! is_wp_error( $reclaimed ) && ! array_filter( $reclaimed, fn( $record ) => 'claimed' !== $record['status'] || $record['existed_before'] ), 'The owning Blueprint could not reclaim failed storage without losing original provenance.' );
+	$prepared_claims = $storage_claims->mark_prepared( $blueprint_id, $next_change_set_id );
+	$owner = $storage_claims->owner( 'cct', $claim_slug );
+	$assert( ! is_wp_error( $prepared_claims ) && 'prepared' === $owner['status'] && $next_change_set_id === $owner['change_set_id'], 'Prepared storage ownership was not persisted.' );
+	$assert( is_wp_error( $storage_claims->release( $blueprint_id, $next_change_set_id ) ), 'Prepared storage ownership was released without reconciliation.' );
+
+	$release_slug = substr( 'release_' . str_replace( '-', '', $blueprint_id ), 0, 20 );
+	$release_artifact = $claim_artifact( 'cpt', $release_slug );
+	$release_claim = $storage_claims->claim_many( $blueprint_id, $next_change_set_id, [ $release_artifact ] );
+	$release_hash = StorageClaimStore::identity_hash( 'cpt', $release_slug );
+	register_post_type( $release_slug );
+	$assert( is_wp_error( $storage_claims->release( $blueprint_id, $next_change_set_id, [ $release_hash ] ) ), 'A claim was released after its previously absent storage appeared.' );
+	unregister_post_type( $release_slug );
+	$assert( ! is_wp_error( $release_claim ) && true === $storage_claims->release( $blueprint_id, $next_change_set_id, [ $release_hash ] ) && null === $storage_claims->owner( 'cpt', $release_slug ), 'An untouched storage claim could not be released safely.' );
+	$assert( ! \EIT\CCT\SchemaManager::table_exists( $claim_slug ) && ! post_type_exists( $cpt_claim_slug ), 'Storage claim bookkeeping created or removed external storage.' );
+
 	$locks = new LockStore();
 	$resource = 'blueprint-' . $blueprint_id;
 	$lock_token = $locks->acquire( $resource, 1 );
@@ -170,6 +252,9 @@ try {
 	$relation_id = Uuid::v4();
 	$assert( true === $normalized->replace_relation_targets( $blueprint_id, $relation_id, 'source-1', [ 'target-1', [ 'id' => 'target-2', 'payload' => [ 'role' => 'secondary' ] ] ] ), 'Relation normalization failed.' );
 	$assert( 2 === count( $normalized->relation_targets( $blueprint_id, $relation_id, 'source-1' ) ), 'Relation query failed.' );
+	$assert( true === $normalized->replace_relation_targets( $blueprint_id, $relation_id, 'source-1', [ 'target-unique' ], true ), 'Unique relation target could not be assigned.' );
+	$conflict = $normalized->replace_relation_targets( $blueprint_id, $relation_id, 'source-2', [ 'target-unique' ], true );
+	$assert( is_wp_error( $conflict ) && 'eit_relation_cardinality_conflict' === $conflict->get_error_code(), 'Unique relation target was assigned to a second source.' );
 	$rows = [ [ 'id' => Uuid::v4(), 'value' => [ 'label' => 'First' ] ], [ 'label' => 'Second' ] ];
 	$assert( true === $normalized->replace_multivalue_rows( $blueprint_id, $field_id, 'owner-1', $rows ), 'Repeatable row normalization failed.' );
 	$assert( 2 === count( $normalized->multivalue_rows( $blueprint_id, $field_id, 'owner-1' ) ), 'Repeatable row query failed.' );
@@ -203,6 +288,40 @@ try {
 		}
 	);
 	$assert( is_wp_error( $rolled_back ) && null === $blueprints->get( $transaction_blueprint_id ), 'Transaction rollback did not remove partial metadata.' );
+
+	$nested_outer_id = Uuid::v4();
+	$nested_inner_id = Uuid::v4();
+	$nested = $transaction->run(
+		function () use ( $transaction, $nested_outer_id, $nested_inner_id, $document ) {
+			global $wpdb;
+			$table = Tables::name( Tables::BLUEPRINTS );
+			$record = function ( $id, $slug ) use ( $wpdb, $table, $document ) {
+				return $wpdb->insert(
+					$table,
+					[
+						'id' => $id,
+						'slug' => $slug,
+						'name' => $document['name'],
+						'draft_revision' => 0,
+						'created_at' => current_time( 'mysql', true ),
+						'updated_at' => current_time( 'mysql', true ),
+					]
+				);
+			};
+			if ( false === $record( $nested_outer_id, 'nested-outer-' . substr( $nested_outer_id, 0, 8 ) ) ) {
+				return new WP_Error( 'nested_outer_insert_failed', 'QA nested outer insert.' );
+			}
+			$inner = $transaction->run(
+				function () use ( $record, $nested_inner_id ) {
+					return false === $record( $nested_inner_id, 'nested-inner-' . substr( $nested_inner_id, 0, 8 ) )
+						? new WP_Error( 'nested_inner_insert_failed', 'QA nested inner insert.' )
+						: true;
+				}
+			);
+			return is_wp_error( $inner ) ? $inner : new WP_Error( 'nested_outer_rollback', 'QA nested outer rollback.' );
+		}
+	);
+	$assert( is_wp_error( $nested ) && null === $blueprints->get( $nested_outer_id ) && null === $blueprints->get( $nested_inner_id ), 'Nested transaction committed partial Entry-style writes.' );
 
 	WP_CLI::success( sprintf( 'Blueprint infrastructure verified with %d assertions.', $assertions ) );
 } catch ( Throwable $error ) {

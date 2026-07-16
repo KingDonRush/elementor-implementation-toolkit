@@ -5,8 +5,10 @@
 
 namespace EIT\Elementor;
 
+use EIT\Collection\CollectionRenderer;
 use EIT\Contracts\PresentationAdapterInterface;
 use EIT\Elementor\Contracts\ElementorTemplateCatalog;
+use EIT\Entry\EntryRenderer;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -81,6 +83,18 @@ class ElementorPresentationAdapter implements PresentationAdapterInterface {
 	}
 
 	public function render( array $contract, array $context = [] ) {
+		$document_id = absint( $contract['template_id'] ?? 0 ) ?: absint( $contract['document_id'] ?? 0 );
+		if ( $document_id ) {
+			return ( new ElementorDocumentRenderer() )->render( $document_id );
+		}
+		foreach ( $contract['sources'] ?? [] as $source ) {
+			if ( 'presents_collection' === ( $source['connection'] ?? '' ) ) {
+				return ( new CollectionRenderer() )->render( $source['node_id'] ?? '' );
+			}
+			if ( 'presents_entry' === ( $source['connection'] ?? '' ) ) {
+				return ( new EntryRenderer() )->render( $source['node_id'] ?? '', absint( $context['item_id'] ?? 0 ), 'route' );
+			}
+		}
 		return '';
 	}
 

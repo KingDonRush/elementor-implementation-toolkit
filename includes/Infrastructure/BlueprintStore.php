@@ -100,6 +100,48 @@ class BlueprintStore {
 			: true;
 	}
 
+	public function activate_if_current( $blueprint_id, $version_id, $expected_active_version_id, $draft_checksum ) {
+		global $wpdb;
+
+		$table = Tables::name( Tables::BLUEPRINTS );
+		if ( null === $expected_active_version_id ) {
+			$result = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE `{$table}` SET active_version_id = %d, updated_at = %s WHERE id = %s AND draft_checksum = %s AND active_version_id IS NULL", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					absint( $version_id ),
+					current_time( 'mysql', true ),
+					(string) $blueprint_id,
+					(string) $draft_checksum
+				)
+			);
+		} else {
+			$result = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE `{$table}` SET active_version_id = %d, updated_at = %s WHERE id = %s AND draft_checksum = %s AND active_version_id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					absint( $version_id ),
+					current_time( 'mysql', true ),
+					(string) $blueprint_id,
+					(string) $draft_checksum,
+					absint( $expected_active_version_id )
+				)
+			);
+		}
+		if ( false === $result ) {
+			return new \WP_Error( 'eit_blueprint_activation_failed', __( 'Blueprint active version could not be changed.', 'elementor-implementation-toolkit' ) );
+		}
+		if ( 1 === $result ) {
+			return true;
+		}
+		$current = $this->get( $blueprint_id );
+		$no_op = null !== $expected_active_version_id
+			&& absint( $expected_active_version_id ) === absint( $version_id )
+			&& absint( $current['active_version_id'] ?? 0 ) === absint( $version_id )
+			&& hash_equals( (string) $draft_checksum, (string) ( $current['draft_checksum'] ?? '' ) );
+		return $no_op
+			? true
+			: new \WP_Error( 'eit_blueprint_activation_stale', __( 'Blueprint authority changed before activation could commit.', 'elementor-implementation-toolkit' ), [ 'status' => 409 ] );
+	}
+
 	public function delete_unpublished( $blueprint_id ) {
 		global $wpdb;
 

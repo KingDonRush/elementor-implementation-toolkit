@@ -13,16 +13,22 @@ class EntryContractPresenter {
 
 	private $policy;
 	private $guard;
+	private $relations;
 
-	public function __construct( EntryPolicyEngine $policy = null, GuestIntakeGuard $guard = null ) {
+	public function __construct( EntryPolicyEngine $policy = null, GuestIntakeGuard $guard = null, RelationLabelResolver $relations = null ) {
 		$this->policy = $policy ?: new EntryPolicyEngine();
 		$this->guard = $guard ?: new GuestIntakeGuard();
+		$this->relations = $relations ?: new RelationLabelResolver();
 	}
 
 	public function present( array $contract, array $loaded = null ) {
 		$item_id = (int) ( $loaded['item']['id'] ?? 0 );
+		$values = $loaded['values'] ?? [];
 		$fields = [];
 		foreach ( $contract['fields'] ?? [] as $field ) {
+			if ( 'relation' === ( $field['type'] ?? '' ) ) {
+				$field['validation']['options'] = $this->relations->options( $contract, $field, $values[ $field['id'] ] ?? [], $item_id );
+			}
 			unset( $field['storage'], $field['indexing'], $field['capabilities'], $field['exposure']['roles'] );
 			$fields[] = $field;
 		}
@@ -47,15 +53,24 @@ class EntryContractPresenter {
 			'form_token' => ! is_user_logged_in() ? $this->guard->issue_token( $contract['surface_id'] ) : '',
 			'permissions' => $permissions,
 			'item' => $loaded['item'] ?? null,
-			'values' => $this->media_projection( $loaded['values'] ?? [], $contract['fields'] ?? [] ),
+			'values' => $this->value_projection( $values, $contract['fields'] ?? [] ),
 			'content' => $loaded['content'] ?? '',
 		];
 	}
 
-	private function media_projection( array $values, array $fields ) {
+	private function value_projection( array $values, array $fields ) {
 		foreach ( $fields as $field ) {
 			$id = $field['id'];
-			if ( ! isset( $values[ $id ] ) || ! in_array( $field['type'], [ 'image', 'file', 'gallery' ], true ) ) {
+			if ( ! array_key_exists( $id, $values ) ) {
+				continue;
+			}
+			if ( 'relation' === ( $field['type'] ?? '' ) ) {
+				$identities = $this->relations->identities( $values[ $id ] );
+				$multiple = in_array( $field['relation']['cardinality'] ?? '', [ 'one_to_many', 'many_to_many' ], true );
+				$values[ $id ] = $multiple ? $identities : ( $identities[0] ?? '' );
+				continue;
+			}
+			if ( ! in_array( $field['type'], [ 'image', 'file', 'gallery' ], true ) ) {
 				continue;
 			}
 			$items = 'gallery' === $field['type'] ? (array) $values[ $id ] : [ $values[ $id ] ];

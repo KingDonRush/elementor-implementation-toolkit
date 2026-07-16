@@ -41,14 +41,35 @@ class ConditionEvaluator {
 		if ( 'in' === $operator || 'not_in' === $operator ) {
 			$expected = is_array( $expected ) ? $expected : [ $expected ];
 			$actual = is_array( $actual ) ? $actual : [ $actual ];
-			$found = (bool) array_intersect( array_map( 'strval', $actual ), array_map( 'strval', $expected ) );
+			$found = (bool) array_intersect( array_map( [ $this, 'string_value' ], $actual ), array_map( [ $this, 'string_value' ], $expected ) );
 			return 'in' === $operator ? $found : ! $found;
 		}
-		if ( in_array( $operator, [ 'gt', 'gte', 'lt', 'lte' ], true ) && is_numeric( $actual ) && is_numeric( $expected ) ) {
-			return $this->numeric_compare( (float) $actual, (float) $expected, $operator );
+		if ( in_array( $operator, [ 'gt', 'gte', 'lt', 'lte' ], true ) ) {
+			$actual = $this->scalar_value( $actual );
+			$expected = $this->scalar_value( $expected );
+			return is_numeric( $actual ) && is_numeric( $expected )
+				? $this->numeric_compare( (float) $actual, (float) $expected, $operator )
+				: false;
 		}
-		$equal = (string) $actual === (string) $expected;
+		$equal = $this->string_value( $actual ) === $this->string_value( $expected );
 		return 'not_equals' === $operator ? ! $equal : $equal;
+	}
+
+	private function scalar_value( $value ) {
+		if ( is_array( $value ) && ! array_is_list( $value ) ) {
+			if ( array_key_exists( 'id', $value ) ) {
+				return $value['id'];
+			}
+			if ( array_key_exists( 'amount', $value ) ) {
+				return $value['amount'];
+			}
+		}
+		return $value;
+	}
+
+	private function string_value( $value ) {
+		$value = $this->scalar_value( $value );
+		return is_scalar( $value ) || null === $value ? (string) $value : wp_json_encode( $value );
 	}
 
 	private function numeric_compare( $actual, $expected, $operator ) {

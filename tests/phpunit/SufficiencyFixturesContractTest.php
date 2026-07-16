@@ -6,6 +6,7 @@
 use EIT\Blueprint\BlueprintValidator;
 use EIT\Blueprint\Compiler;
 use EIT\Blueprint\CoreStorageAdapter;
+use EIT\Blueprint\Uuid;
 use EIT\Collection\CctCollectionProvider;
 use EIT\Collection\CptCollectionProvider;
 use EIT\Collection\WooCollectionProvider;
@@ -58,6 +59,96 @@ class SufficiencyFixturesContractTest extends TestCase {
 		self::assertSame( [], $this->field_types( $fixtures['ecommerce'] ) );
 		self::assertContains( 'woocommerce', $this->adapter_ids( $fixtures['delivery'] ) );
 		self::assertContains( 'woocommerce', $this->adapter_ids( $fixtures['ecommerce'] ) );
+	}
+
+	public function test_entry_relation_compiles_its_exact_target_entity_contract(): void {
+		$fixtures = ( new EitSufficiencyBlueprints() )->all();
+		$result = ( new Compiler( null, null, null, $this->healthy_registries() ) )->compile( $fixtures['delivery'] );
+		$entry = current( array_filter( $result->artifacts(), fn( $artifact ) => 'entry_contract' === $artifact['kind'] ) );
+		$relation = current( array_filter( $entry['payload']['fields'], fn( $field ) => 'relation' === $field['type'] ) );
+
+		self::assertTrue( $result->is_valid(), wp_json_encode( $result->errors() ) );
+		self::assertNotEmpty( $relation['relation']['target_entity_id'] );
+		self::assertSame( 'woocommerce', $relation['relation']['target']['adapter']['id'] );
+		self::assertSame( 'any', $relation['relation']['ownership'] );
+		self::assertNotEmpty( $relation['relation']['options_collection_id'] );
+		self::assertTrue( $relation['relation']['search_enabled'] );
+	}
+
+	public function test_relation_option_collection_rejects_a_provider_without_required_search(): void {
+		$blueprint = ( new EitSufficiencyBlueprints() )->all()['delivery'];
+		foreach ( $blueprint['nodes'] as &$node ) {
+			if ( 'adapter' === $node['type'] ) {
+				$node['config']['collection_provider'] = [ 'id' => 'pagination_only', 'required_capabilities' => [] ];
+			}
+		}
+		unset( $node );
+		$registries = $this->healthy_registries();
+		$registries->collection_providers()->register(
+			new class() extends WooCollectionProvider {
+				public function get_id() {
+					return 'pagination_only';
+				}
+
+				public function get_capabilities() {
+					return [ 'pagination' ];
+				}
+
+				public function health_check() {
+					return [ 'ok' => true, 'version' => $this->get_version(), 'fixture' => true ];
+				}
+			}
+		);
+		$result = ( new Compiler( null, null, null, $registries ) )->compile( $blueprint );
+		self::assertFalse( $result->is_valid() );
+		self::assertContains( 'collection_provider_incompatible', array_column( $result->errors(), 'code' ) );
+	}
+
+	public function test_relation_option_collection_is_required_and_must_query_the_target_entity(): void {
+		$blueprint = ( new EitSufficiencyBlueprints() )->all()['real_estate'];
+		$without_options = $blueprint;
+		$without_options['connections'] = array_values( array_filter( $without_options['connections'], fn( $edge ) => 'relation_options' !== $edge['type'] ) );
+		$mismatched = $blueprint;
+		$property_collection = current( array_filter( $mismatched['connections'], fn( $edge ) => 'collection_for' === $edge['type'] ) );
+		foreach ( $mismatched['connections'] as &$edge ) {
+			if ( 'relation_options' === $edge['type'] ) {
+				$edge['to'] = $property_collection['to'];
+			}
+		}
+		unset( $edge );
+		$validator = new BlueprintValidator();
+
+		self::assertContains( 'relation_options_required', array_column( $validator->validate( $without_options )->errors(), 'code' ) );
+		self::assertContains( 'relation_options_target_mismatch', array_column( $validator->validate( $mismatched )->errors(), 'code' ) );
+	}
+
+	public function test_relation_option_collection_must_enforce_the_same_policy_scope(): void {
+		$blueprint = ( new EitSufficiencyBlueprints() )->all()['real_estate'];
+		$relation_index = array_search( 'relation', array_column( $blueprint['nodes'], 'type' ), true );
+		$blueprint['nodes'][ $relation_index ]['config']['ownership'] = 'own';
+		$codes = array_column( ( new BlueprintValidator() )->validate( $blueprint )->errors(), 'code' );
+
+		self::assertContains( 'relation_options_policy_mismatch', $codes );
+
+		$option_edges = array_values( array_filter( $blueprint['connections'], fn( $edge ) => 'relation_options' === $edge['type'] ) );
+		$collection_id = $option_edges[0]['to'];
+		$policy_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'real-estate:agent-options-policy' );
+		$blueprint['nodes'][] = [ 'id' => $policy_id, 'type' => 'policy', 'lane' => 'governance', 'name' => 'Agent ownership', 'config' => [ 'ownership' => 'own', 'object_scope' => 'entity' ] ];
+		foreach ( $blueprint['nodes'] as &$node ) {
+			if ( $collection_id === $node['id'] ) {
+				$node['config']['access'] = 'authenticated';
+			}
+		}
+		unset( $node );
+		$blueprint['connections'][] = [
+			'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'real-estate:agent-options-policy-edge' ),
+			'type' => 'governs_collection',
+			'from' => $policy_id,
+			'to' => $collection_id,
+		];
+		$aligned = ( new BlueprintValidator() )->validate( $blueprint );
+
+		self::assertTrue( $aligned->is_valid(), wp_json_encode( $aligned->errors() ) );
 	}
 
 	private function healthy_registries(): RegistryHub {

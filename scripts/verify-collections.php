@@ -15,7 +15,11 @@ use EIT\Blueprint\Uuid;
 use EIT\CCT\Repository;
 use EIT\CCT\SchemaManager as CctSchema;
 use EIT\Collection\CollectionCache;
+use EIT\Collection\CctCollectionProvider;
+use EIT\Collection\CptCollectionProvider;
+use EIT\Collection\CollectionSurfaceResolver;
 use EIT\Elementor\FilterController\CollectionWidgetBridge;
+use EIT\Entry\EntryStorageGateway;
 use EIT\Infrastructure\SchemaManager;
 use EIT\Infrastructure\Tables;
 use EIT\Infrastructure\NormalizedValueStore;
@@ -35,18 +39,26 @@ $assert = function ( $condition, $message ) use ( &$assertions ) {
 $ids = [
 	'blueprint' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:blueprint' ),
 	'entity' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:entity' ),
+	'agent_entity' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:agent-entity' ),
 	'group' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:group' ),
+	'relation' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:agent-relation' ),
 	'collection' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:surface' ),
+	'agent_collection' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:agent-options' ),
 	'filter' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:filters' ),
 	'title' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:title' ),
 	'price' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:price' ),
 	'tier' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:tier' ),
 	'secret' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:secret' ),
-	'agent' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:agent' ),
+		'agent' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:agent' ),
+		'choices' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:choices' ),
 ];
 $slug = 'eit_collection_verify';
+$agent_slug = 'eit_collection_agent';
+$scope_post_type = 'eit_scope_verify';
+$scope_post_ids = [];
+$scope_user_id = 0;
 
-$cleanup = function () use ( $ids, $slug ) {
+$cleanup = function () use ( $ids, $slug, $agent_slug, $scope_post_type, &$scope_post_ids, &$scope_user_id ) {
 	global $wpdb;
 
 	foreach ( [ Tables::RELATIONS, Tables::MULTIVALUES, Tables::RECONCILIATIONS, Tables::ROLLBACKS, Tables::RUNS, Tables::BINDINGS, Tables::ARTIFACTS, Tables::CHANGE_SETS, Tables::VERSIONS ] as $table_key ) {
@@ -56,6 +68,19 @@ $cleanup = function () use ( $ids, $slug ) {
 	$locks = Tables::name( Tables::LOCKS );
 	$wpdb->query( $wpdb->prepare( "DELETE FROM `{$locks}` WHERE resource_key LIKE %s", '%' . $wpdb->esc_like( $ids['blueprint'] ) . '%' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	CctSchema::drop_table( $slug );
+	CctSchema::drop_table( $agent_slug );
+	foreach ( $scope_post_ids as $post_id ) {
+		wp_delete_post( $post_id, true );
+	}
+	$scope_post_ids = [];
+	if ( post_type_exists( $scope_post_type ) ) {
+		unregister_post_type( $scope_post_type );
+	}
+	if ( $scope_user_id ) {
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+		wp_delete_user( $scope_user_id );
+		$scope_user_id = 0;
+	}
 	delete_option( 'eit_col_gen_' . substr( hash( 'sha256', $ids['entity'] ), 0, 24 ) );
 	RuntimeDefinitionProvider::invalidate();
 };
@@ -63,6 +88,9 @@ $cleanup = function () use ( $ids, $slug ) {
 try {
 	$cleanup();
 	$assert( true === SchemaManager::install(), 'Toolkit infrastructure must install.' );
+	$admin = get_users( [ 'role' => 'administrator', 'number' => 1, 'fields' => 'ids' ] );
+	$assert( ! empty( $admin[0] ), 'An administrator is required for Collection scope verification.' );
+	wp_set_current_user( (int) $admin[0] );
 	$factory = new FieldContractFactory( new FieldPrimitiveRegistry() );
 	$fields = [
 		$factory->make( $ids['title'], 'Title', 'short_text', [ 'exposure' => [ 'public' => true ], 'indexing' => [ 'search' => true ] ] ),
@@ -89,13 +117,17 @@ try {
 		'version' => 1,
 		'nodes' => [
 			[ 'id' => $ids['entity'], 'type' => 'entity', 'lane' => 'data', 'name' => 'Catalog item', 'config' => [ 'slug' => $slug, 'mode' => 'structured', 'public' => true, 'high_volume' => true, 'storage' => [ 'strategy' => 'cct', 'override_reason' => 'Exercise the public projection of an indexed operational catalog.' ] ] ],
+			[ 'id' => $ids['agent_entity'], 'type' => 'entity', 'lane' => 'data', 'name' => 'Catalog agent', 'config' => [ 'slug' => $agent_slug, 'mode' => 'structured', 'public' => false ] ],
 			[ 'id' => $ids['group'], 'type' => 'field_group', 'lane' => 'data', 'name' => 'Catalog fields', 'config' => [ 'fields' => $fields ] ],
+			[ 'id' => $ids['relation'], 'type' => 'relation', 'lane' => 'data', 'name' => 'Catalog agent', 'config' => [ 'cardinality' => 'many_to_one', 'field_id' => $ids['agent'] ] ],
 			[ 'id' => $ids['collection'], 'type' => 'collection', 'lane' => 'experience', 'name' => 'Public catalog', 'config' => [
 				'page_size' => 2,
 				'access' => 'public',
+				'projection_field_ids' => [ $ids['title'], $ids['tier'], $ids['agent'] ],
 				'default_sort' => [ 'field_id' => $ids['price'], 'direction' => 'asc' ],
 				'explain' => true,
 			] ],
+			[ 'id' => $ids['agent_collection'], 'type' => 'collection', 'lane' => 'experience', 'name' => 'Catalog agent options', 'config' => [ 'page_size' => 24 ] ],
 			[ 'id' => $ids['filter'], 'type' => 'filter_surface', 'lane' => 'experience', 'name' => 'Catalog filters', 'config' => [
 				'fields' => [ $ids['price'], $ids['tier'], $ids['agent'] ],
 				'facet_fields' => [ $ids['tier'], $ids['agent'] ],
@@ -105,6 +137,10 @@ try {
 		],
 		'connections' => [
 			[ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:edge:fields' ), 'type' => 'entity_fields', 'from' => $ids['entity'], 'to' => $ids['group'] ],
+			[ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:edge:relation-source' ), 'type' => 'relation_source', 'from' => $ids['entity'], 'to' => $ids['relation'] ],
+			[ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:edge:relation-target' ), 'type' => 'relation_target', 'from' => $ids['relation'], 'to' => $ids['agent_entity'] ],
+			[ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:edge:agent-surface' ), 'type' => 'collection_for', 'from' => $ids['agent_entity'], 'to' => $ids['agent_collection'] ],
+			[ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:edge:relation-options' ), 'type' => 'relation_options', 'from' => $ids['relation'], 'to' => $ids['agent_collection'] ],
 			[ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:edge:surface' ), 'type' => 'collection_for', 'from' => $ids['entity'], 'to' => $ids['collection'] ],
 			[ 'id' => Uuid::v5( Uuid::LEGACY_NAMESPACE, 'verify:collection:edge:filters' ), 'type' => 'filters', 'from' => $ids['collection'], 'to' => $ids['filter'] ],
 		],
@@ -113,7 +149,7 @@ try {
 	$lifecycle = BlueprintModule::lifecycle();
 	$assert( ! is_wp_error( $lifecycle->save_draft( $document ) ), 'Collection Blueprint draft must save.' );
 	$prepared = $lifecycle->prepare( $ids['blueprint'], 1 );
-	$assert( ! is_wp_error( $prepared ) && ! empty( $prepared['confirmation_token'] ), 'Collection impact must prepare.' );
+	$assert( ! is_wp_error( $prepared ) && ! empty( $prepared['confirmation_token'] ), 'Collection impact must prepare: ' . ( is_wp_error( $prepared ) ? $prepared->get_error_code() . ' ' . $prepared->get_error_message() : wp_json_encode( $prepared['impact']['blockers'] ?? $prepared ) ) );
 	$published = $lifecycle->apply( $prepared['id'], $prepared['confirmation_token'], 1 );
 	$assert( ! is_wp_error( $published ), 'Collection Blueprint must publish.' );
 	$assert( ! is_wp_error( $lifecycle->reconcile( $prepared['id'] ) ), 'Collection publication must reconcile.' );
@@ -160,7 +196,9 @@ try {
 	$assert( 2 === $data['pagination']['total'] && [ 'Starter', 'Pro' ] === array_column( $data['items'], 'title' ), 'Indexed filter or sort drifted.' );
 	$assert( false === strpos( wp_json_encode( $data ), 'Draft leak' ), 'Non-public draft leaked through Collection query.' );
 	$assert( false === strpos( wp_json_encode( $data ), 'hidden-' ), 'Private Field value leaked through Collection projection.' );
+	$assert( ! array_key_exists( $ids['price'], $data['items'][0]['values'] ), 'A filter-only Field leaked into the item projection.' );
 	$assert( 2 === count( $data['explain'] ) && ! empty( $data['explain'][0]['checks'][0]['result'] ), 'Explain Why did not prove the applied comparison.' );
+	$assert( 10.0 === $data['explain'][0]['checks'][0]['actual'], 'Explain Why did not use the typed filter Field outside the item projection.' );
 	$tier_facet = current( array_filter( $data['facets'], fn( $facet ) => $ids['tier'] === $facet['field_id'] ) );
 	$facet_counts = array_column( $tier_facet['values'], 'count', 'value' );
 	$assert( 1 === ( $facet_counts['basic'] ?? 0 ) && 1 === ( $facet_counts['premium'] ?? 0 ), 'Facet counts do not respect the other active filters.' );
@@ -195,6 +233,64 @@ try {
 	$assert( ! is_wp_error( $repository->save( $slug, [ 'title' => 'Plus', 'status' => 'publish', $fields[0]['storage']['key'] => 'Plus', $fields[1]['storage']['key'] => 30, $fields[2]['storage']['key'] => 'premium' ] ) ), 'Cache invalidation fixture must save.' );
 	$after_change = rest_do_request( $query_request )->get_data();
 	$assert( 3 === $after_change['pagination']['total'], 'Content mutation did not invalidate Collection cache.' );
+
+	$scope_user = wp_insert_user( [ 'user_login' => 'eit_collection_scope_user', 'user_pass' => wp_generate_password( 24 ), 'user_email' => 'eit-collection-scope@example.invalid', 'role' => 'author' ] );
+	$assert( ! is_wp_error( $scope_user ), 'Collection scope verification user must be created.' );
+	$scope_user_id = (int) $scope_user;
+	$foreign_cct = $repository->save( $slug, [ 'title' => 'Foreign owner', 'status' => 'publish', 'author_id' => $scope_user_id, $fields[0]['storage']['key'] => 'Foreign owner', $fields[1]['storage']['key'] => 999, $fields[2]['storage']['key'] => 'premium' ] );
+	$assert( ! is_wp_error( $foreign_cct ), 'Foreign-owner CCT fixture must save.' );
+	$scoped_contract = ( new CollectionSurfaceResolver() )->get( $ids['collection'] );
+	$scoped_contract['access'] = 'authenticated';
+	$scoped_contract['policy'] = [ 'capability' => 'read', 'ownership' => 'own', 'object_scope' => 'entity' ];
+	$scoped_request = [ 'page' => 1, 'per_page' => 48, 'search' => '', 'filters' => [], 'sort' => [], 'facets' => [ $ids['tier'] ] ];
+	$scoped_cct = ( new CctCollectionProvider() )->query( $scoped_contract, $scoped_request, [ 'user_id' => (int) $admin[0] ] );
+	$assert( false === in_array( 'Foreign owner', array_column( $scoped_cct['items'], 'title' ), true ), 'CCT provider ignored compiled ownership scope.' );
+	$assert( 2 === ( $scoped_cct['facets'][ $ids['tier'] ]['premium'] ?? 0 ), 'CCT facets included a foreign-owner record.' );
+	$assigned_scope = fn( $allowed, $contract, $user_id ) => (int) $admin[0] === $user_id ? [ $saved_ids['Starter'] ] : [];
+	add_filter( 'eit_collection_object_scope_ids', $assigned_scope, 10, 3 );
+	$assigned_contract = $scoped_contract;
+	$assigned_contract['policy'] = [ 'capability' => 'read', 'ownership' => 'any', 'object_scope' => 'assigned' ];
+	$assigned_cct = ( new CctCollectionProvider() )->query( $assigned_contract, $scoped_request, [ 'user_id' => (int) $admin[0] ] );
+	remove_filter( 'eit_collection_object_scope_ids', $assigned_scope, 10 );
+	$assert( 1 === $assigned_cct['total'] && 'Starter' === $assigned_cct['items'][0]['title'], 'CCT provider trusted browser identity instead of compiled assignment scope.' );
+
+	register_post_type( $scope_post_type, [ 'public' => true ] );
+	$scope_post_ids[] = wp_insert_post( [ 'post_type' => $scope_post_type, 'post_status' => 'publish', 'post_title' => 'Owned CPT', 'post_author' => (int) $admin[0] ] );
+	$scope_post_ids[] = wp_insert_post( [ 'post_type' => $scope_post_type, 'post_status' => 'publish', 'post_title' => 'Foreign CPT', 'post_author' => $scope_user_id ] );
+	$choice_field = $factory->make(
+		$ids['choices'],
+		'Capabilities',
+		'multiple_choice',
+		[ 'exposure' => [ 'public' => true ], 'indexing' => [ 'filter' => true ], 'validation' => [ 'options' => [ [ 'value' => 'pro', 'label' => 'Pro' ], [ 'value' => 'professional', 'label' => 'Professional' ], [ 'value' => 'shared', 'label' => 'Shared' ] ] ] ]
+	);
+	$cpt_contract = [
+		'blueprint_id' => $ids['blueprint'],
+		'entity' => [ 'strategy' => 'cpt', 'mode' => 'structured', 'definition' => [ 'slug' => $scope_post_type ] ],
+		'title_field_id' => $ids['title'],
+		'fields' => [ $fields[0], $choice_field ],
+		'search_field_ids' => [],
+		'policy' => [ 'ownership' => 'own', 'object_scope' => 'entity' ],
+	];
+	$gateway = new EntryStorageGateway();
+	$assert( ! is_wp_error( $gateway->save( $cpt_contract, [ $ids['title'] => 'Owned CPT', $ids['choices'] => [ 'pro', 'shared' ] ], $scope_post_ids[0], 'publish', (int) $admin[0] ) ), 'CPT multiple choice values must persist as exact rows.' );
+	$assert( ! is_wp_error( $gateway->save( $cpt_contract, [ $ids['title'] => 'Foreign CPT', $ids['choices'] => [ 'professional', 'shared' ] ], $scope_post_ids[1], 'publish', $scope_user_id ) ), 'Second CPT multiple choice fixture must persist.' );
+	$assert( [ 'pro', 'shared' ] === get_post_meta( $scope_post_ids[0], $choice_field['storage']['key'], false ), 'CPT multiple choices were serialized instead of normalized into repeated meta rows.' );
+	$multi_contract = $cpt_contract;
+	$multi_contract['policy'] = [ 'ownership' => 'any', 'object_scope' => 'entity' ];
+	$multi_request = [
+		'page' => 1,
+		'per_page' => 24,
+		'search' => '',
+		'filters' => [ [ 'field_id' => $ids['choices'], 'operator' => 'in', 'value' => [ 'pro' ] ] ],
+		'sort' => [],
+		'facets' => [ $ids['choices'] ],
+	];
+	$multi = ( new CptCollectionProvider() )->query( $multi_contract, $multi_request, [ 'user_id' => (int) $admin[0] ] );
+	$assert( 1 === $multi['total'] && 'Owned CPT' === $multi['items'][0]['title'], 'CPT multiple-choice filter used substring or serialized matching: ' . wp_json_encode( $multi ) );
+	$assert( 1 === ( $multi['facets'][ $ids['choices'] ]['pro'] ?? 0 ) && 1 === ( $multi['facets'][ $ids['choices'] ]['professional'] ?? 0 ) && 2 === ( $multi['facets'][ $ids['choices'] ]['shared'] ?? 0 ), 'CPT multiple-choice facets did not count exact normalized values.' );
+	$cpt_request = [ 'page' => 1, 'per_page' => 24, 'search' => '', 'filters' => [], 'sort' => [], 'facets' => [] ];
+	$scoped_cpt = ( new CptCollectionProvider() )->query( $cpt_contract, $cpt_request, [ 'user_id' => (int) $admin[0] ] );
+	$assert( 1 === $scoped_cpt['total'] && 'Owned CPT' === $scoped_cpt['items'][0]['title'], 'CPT provider ignored compiled ownership scope.' );
 
 	$html = do_shortcode( '[eit_collection id="' . $ids['collection'] . '"]' );
 	$assert( false !== strpos( $html, 'data-eit-collection-item' ) && false === strpos( $html, 'hidden-' ), 'Semantic Collection fallback did not render safely.' );

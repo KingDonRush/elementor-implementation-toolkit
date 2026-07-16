@@ -19,13 +19,21 @@ class LegacyDomCollectionProvider extends BaseCollectionProvider {
 	}
 
 	public function get_capabilities() {
-		return [ 'field_id_filters', 'exact_token_match', 'pagination', 'facets', 'bounded_snapshot' ];
+		return [ 'field_id_filters', 'typed_sort', 'search', 'exact_token_match', 'pagination', 'facets', 'bounded_snapshot' ];
 	}
 
 	public function query( array $contract, array $request, array $context = [] ) {
+		$request = $this->apply_policy_scope( $contract, $request, $context );
+		if ( ! empty( $request['_policy_author_id'] ) || ! empty( $request['_policy_deny'] ) ) {
+			return $this->empty_result( $request );
+		}
 		$fields = $this->fields( $contract );
 		$normalizer = new LegacyDomPayload();
 		$payload = $normalizer->normalize( [ 'items' => $request['legacy_snapshot'] ?? [] ] );
+		if ( array_key_exists( '_policy_include', $request ) ) {
+			$allowed = array_fill_keys( array_map( 'strval', $request['_policy_include'] ), true );
+			$payload['items'] = array_values( array_filter( $payload['items'], fn( $item ) => isset( $allowed[ (string) ( $item['clientId'] ?? '' ) ] ) ) );
+		}
 		$matcher = new LegacyDomMatcher();
 		$filters = $this->legacy_filters( $request['filters'] ?? [], $fields );
 		if ( '' !== ( $request['search'] ?? '' ) ) {

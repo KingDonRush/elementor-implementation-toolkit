@@ -16,7 +16,9 @@ class CollectionWidgetContractTest extends TestCase {
 		self::assertSame( 'checkbox', $mapped['filters'][1]['type'] );
 		self::assertSame( 'in', $mapped['filters'][1]['compare'] );
 		self::assertSame( [ 'status-id' ], $mapped['facet_field_ids'] );
+		self::assertSame( 'collection', $mapped['settings']['data_provider'] );
 		self::assertSame( 24, $mapped['settings']['per_page'] );
+		self::assertSame( 'yes', $mapped['settings']['collection_explain'] );
 		self::assertSame( 'status-id:desc', $mapped['sort_options'][2]['value'] );
 		self::assertArrayNotHasKey( 'storage_key', $mapped['filters'][0] );
 		self::assertArrayNotHasKey( 'target_selector', $mapped['settings'] );
@@ -25,6 +27,7 @@ class CollectionWidgetContractTest extends TestCase {
 	private function contract(): array {
 		return [
 			'page_size' => 24,
+			'explain_available' => true,
 			'fields' => [
 				[ 'id' => 'price-id', 'name' => 'Price', 'type' => 'decimal', 'validation' => [ 'min' => 0, 'max' => 500, 'step' => 10 ] ],
 				[ 'id' => 'status-id', 'name' => 'Status', 'type' => 'multiple_choice' ],

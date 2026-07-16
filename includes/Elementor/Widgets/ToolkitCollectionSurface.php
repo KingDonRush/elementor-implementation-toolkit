@@ -53,6 +53,12 @@ class ToolkitCollectionSurface extends Widget_Base {
 
 	protected function register_controls() {
 		$this->start_controls_section( 'connection', [ 'label' => esc_html__( 'Connection', 'elementor-implementation-toolkit' ) ] );
+		$this->add_control( 'connection_status', [
+			'type' => Controls_Manager::RAW_HTML,
+			'raw' => '<div class="eit-connector-status" data-eit-collection-pair-status role="status" aria-live="polite">'
+				. esc_html__( 'This Surface owns the Collection contract for connected filters.', 'elementor-implementation-toolkit' )
+				. '</div>',
+		] );
 		$this->add_control( 'collection_id', [
 			'label' => esc_html__( 'Published Collection', 'elementor-implementation-toolkit' ),
 			'type' => Controls_Manager::SELECT,

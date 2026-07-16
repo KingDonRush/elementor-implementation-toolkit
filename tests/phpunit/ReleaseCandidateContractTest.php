@@ -85,5 +85,9 @@ class ReleaseCandidateContractTest extends TestCase {
 		self::assertIsInt( $first_drop );
 		self::assertLessThan( $first_drop, $gate );
 		self::assertStringContainsString( 'return;', substr( $uninstall, $gate, $first_drop - $gate ) );
+		self::assertStringContainsString( "'pending_uploads'", $uninstall );
+		self::assertStringContainsString( "'storage_claims'", $uninstall );
+		self::assertStringContainsString( "wp_clear_scheduled_hook( 'eit_sweep_entry_pending_uploads' )", $uninstall );
+		self::assertStringContainsString( 'eit-private-upload-storage-v1', $uninstall );
 	}
 }

@@ -28,6 +28,7 @@ class NodeTypeRegistry {
 		'entity_fields'       => [ 'entity', 'field_group', true ],
 		'relation_source'     => [ 'entity', 'relation', false ],
 		'relation_target'     => [ 'relation', 'entity', false ],
+		'relation_options'    => [ 'relation', 'collection', true ],
 		'entry_for'           => [ 'entity', 'entry_surface', true ],
 		'collection_for'      => [ 'entity', 'collection', true ],
 		'filters'             => [ 'collection', 'filter_surface', true ],

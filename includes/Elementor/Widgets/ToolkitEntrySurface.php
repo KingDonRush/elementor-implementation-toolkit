@@ -94,7 +94,7 @@ class ToolkitEntrySurface extends Widget_Base {
 		$settings = $this->get_settings_for_display();
 		$surface_id = (string) ( $settings['surface_id'] ?? '' );
 		$item_id = $this->item_id( $settings['item_source'] ?? 'new' );
-		echo ( new EntryRenderer() )->render( $surface_id, $item_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- EntryRenderer escapes its complete markup.
+		echo ( new EntryRenderer() )->render( $surface_id, $item_id, $this->get_id() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- EntryRenderer escapes its complete markup.
 	}
 
 	private function item_id( $source ) {

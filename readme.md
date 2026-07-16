@@ -1,5 +1,20 @@
 # Elementor Implementation Toolkit
 
+V1.0.0-rc.1 adds checksum-bound shadow import and comparison for legacy CPT, CCT, filter
+presets and Elementor documents; concrete Impact Maps; a redacted Flight
+Recorder; reproducible QA scenarios; factual handoff notes; and a conservative,
+deterministic release package. The local dogfood pilot contains one `__imoveis`
+record, six `projects` records and three active Elementor documents. The five
+imported Blueprint drafts remain unpublished and currently pass fresh count,
+status, data, HTML and query-budget comparisons.
+
+This is an internal release-candidate build, not a public-ready declaration or
+final visual approval.
+WooCommerce remains absent from the dogfood runtime, the wider compatibility
+matrix still needs its live canaries, and Guilherme's browser approval remains a
+separate release gate. See `docs/compatibility.md`, `docs/upgrade-guide.md` and
+`docs/uninstall.md` before promotion.
+
 V0.9.0 turns the compiled contracts into native Elementor implementation
 surfaces. Elementor Free now exposes five connector widgets: Toolkit Field,
 Collection Surface, Filter Surface, Entry Surface and Action. Their controls
@@ -79,11 +94,12 @@ and requires no manual listing selector.
 
 - canonical `eit.dev/v1 Blueprint` documents with position-independent checksums;
 - four executable lanes and typed node/connection validation;
-- 27 semantic field primitives with validation, exposure, storage, indexing,
+- 28 semantic field primitives with validation, exposure, storage, indexing,
   entry-component, Elementor-category and query-capability contracts;
 - explainable CPT/CCT/adapter recommendation with reasoned override gating;
 - deterministic artifacts for definitions, storage, capabilities, fields,
-  relations, entries, Collections, filters, presentations, routes and policies;
+  relations, entries, Collections, filters, presentations, literal routes and
+  policies; parameterized per-item routes remain gated;
 - stable Field ID bindings with legacy raw-key aliases;
 - immutable versions, confirmable change sets, expiring locks, redacted runs,
   reconciliation proofs and non-destructive rollback;
@@ -120,7 +136,7 @@ and requires no manual listing selector.
 - derived controls for semantic fields, media previews, inline validation,
   conditional visibility, custom steps, repeaters and safe calculated values;
 - authenticated autosave and durable idempotency for content mutations;
-- redirect, email, notification and SSRF-guarded webhook actions isolated into
+- redirect, email and SSRF-guarded webhook actions isolated into
   retryable Run jobs so external failure cannot duplicate content;
 - moderated guest creation with signed time trap, honeypot, rate limit and
   opt-in constrained uploads; guest edit and privileged lifecycle operations
@@ -165,8 +181,8 @@ projected into the existing registrars without writing back into legacy options.
   gallery and color values
 - Legacy CCT Dynamic Tags retained during the 1.x migration window
 - Existing Elementor documents as explicit Collection presentation contracts
-- WooCommerce product catalog, query and governed Entry adapter through public
-  Woo APIs
+- WooCommerce product catalog, query and governed Entry adapter contracts
+  through public Woo APIs; the installed live canary remains open
 - Server-side CCT filtering and pagination through the Filter Controller
 - Published Collection filtering through the Field-ID REST contract
 - Provider/runtime configuration summary for the current filtering surface

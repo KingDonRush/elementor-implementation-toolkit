@@ -45,6 +45,7 @@
       filters,
       facets: Array.from(new Set(runtime.collectionFacetIds || []))
     };
+    if (runtime.collectionExplain) payload.explain = true;
     const sort = collectionSort(state.sort);
     if (sort) payload.sort = sort;
     return payload;
@@ -184,11 +185,11 @@
     });
     return result;
   }
-  function formatActiveValue(filter, value, labels) {
+  function formatActiveValue(filter, value, labels2) {
     if ("date" === filter.type) {
-      if (value.from && value.to) return `${labels.from || "From"} ${value.from} ${labels.to || "to"} ${value.to}`;
-      if (value.from) return `${labels.from || "From"} ${value.from}`;
-      if (value.to) return `${labels.to || "To"} ${value.to}`;
+      if (value.from && value.to) return `${labels2.from || "From"} ${value.from} ${labels2.to || "to"} ${value.to}`;
+      if (value.from) return `${labels2.from || "From"} ${value.from}`;
+      if (value.to) return `${labels2.to || "To"} ${value.to}`;
       return "";
     }
     return Object.keys(value).map((key) => value[key]).filter(Boolean).join(" - ");
@@ -210,6 +211,10 @@
       this.requestSequence = 0;
       this.searchTimer = null;
       this.statusTimer = null;
+      this.targetObserver = null;
+      this.targetWaitTimer = null;
+      this.pendingApply = null;
+      this.destroyed = false;
       this.init();
     }
     init() {
@@ -222,13 +227,13 @@
       this.apply(false, false);
     }
     bind() {
-      this.$root.on("submit", ".eit-filter-controller__form", (event) => {
+      this.$root.on("submit.eitFilterController", ".eit-filter-controller__form", (event) => {
         event.preventDefault();
         this.clearSearchTimer();
         this.page = 1;
         this.apply(true, true);
       });
-      this.$root.on("input change", "[data-eit-control], [data-eit-sort]", (event) => {
+      this.$root.on("input.eitFilterController change.eitFilterController", "[data-eit-control], [data-eit-sort]", (event) => {
         this.updateOptionStates();
         this.syncRangeInputs(event.currentTarget);
         this.syncDateRanges($(event.currentTarget).closest(".eit-date-range"));
@@ -238,7 +243,7 @@
           this.scheduleAutoApply(event.currentTarget, event.type);
         }
       });
-      this.$root.on("click", "[data-eit-search-clear]", (event) => {
+      this.$root.on("click.eitFilterController", "[data-eit-search-clear]", (event) => {
         const input = $(event.currentTarget).closest("[data-eit-search-field]").find("[data-eit-search-input]").get(0);
         if (!input) return;
         input.value = "";
@@ -249,19 +254,19 @@
         this.clearSearchTimer();
         if (this.config.autoApply) this.apply(true, false, true);
       });
-      this.$root.on("click", "[data-eit-date-clear]", (event) => {
+      this.$root.on("click.eitFilterController", "[data-eit-date-clear]", (event) => {
         this.resetDate($(event.currentTarget).closest(".eit-date-range"));
         this.page = 1;
         this.clearSearchTimer();
         if (this.config.autoApply) this.apply(true, false, true);
       });
-      this.$root.on("click", "[data-eit-reset]", () => this.reset());
-      this.$root.on("click", "[data-eit-page]", (event) => {
+      this.$root.on("click.eitFilterController", "[data-eit-reset]", () => this.reset());
+      this.$root.on("click.eitFilterController", "[data-eit-page]", (event) => {
         this.clearSearchTimer();
         this.page = parseInt($(event.currentTarget).attr("data-eit-page"), 10) || 1;
         this.apply(true, true);
       });
-      this.$root.on("click", "[data-eit-remove-filter]", (event) => {
+      this.$root.on("click.eitFilterController", "[data-eit-remove-filter]", (event) => {
         this.clearSearchTimer();
         this.clearFilter($(event.currentTarget).attr("data-eit-remove-filter"));
         this.page = 1;
@@ -272,6 +277,37 @@
       this.target = this.findTarget();
       this.itemMap = {};
       this.items = this.indexItems();
+    }
+    waitForCollectionTarget(shouldSyncUrl, shouldFocusResults, shouldFocusError) {
+      if (this.destroyed) return;
+      this.pendingApply = [shouldSyncUrl, shouldFocusResults, shouldFocusError];
+      if (this.targetObserver) return;
+      const resume = () => {
+        if (!this.targetObserver) return;
+        if (!this.findTarget()) return;
+        const pending = this.pendingApply || [false, false, false];
+        this.stopWaitingForTarget();
+        this.apply(...pending);
+      };
+      this.clearError();
+      this.setLoading(true);
+      this.targetObserver = new MutationObserver(resume);
+      this.targetObserver.observe(document.body, { childList: true, subtree: true });
+      this.targetWaitTimer = window.setTimeout(() => {
+        const pending = this.pendingApply || [false, false, false];
+        this.stopWaitingForTarget();
+        this.setLoading(false);
+        this.renderError(i18n.targetMissing || "The connected listing could not be found.", pending[2]);
+      }, 2e3);
+      window.queueMicrotask(resume);
+    }
+    stopWaitingForTarget() {
+      var _a;
+      (_a = this.targetObserver) == null ? void 0 : _a.disconnect();
+      this.targetObserver = null;
+      window.clearTimeout(this.targetWaitTimer);
+      this.targetWaitTimer = null;
+      this.pendingApply = null;
     }
     findTarget() {
       if ("collection" === this.config.provider) {
@@ -315,10 +351,15 @@
       return items.sort((left, right) => left.originalIndex - right.originalIndex);
     }
     apply(shouldSyncUrl, shouldFocusResults, shouldFocusError = shouldFocusResults) {
+      if (this.destroyed) return;
       this.refreshTarget();
       const sequence = ++this.requestSequence;
       if (this.request && 4 !== this.request.readyState) this.request.abort();
       if (!this.target) {
+        if ("collection" === this.config.provider && this.config.collectionTarget) {
+          this.waitForCollectionTarget(shouldSyncUrl, shouldFocusResults, shouldFocusError);
+          return;
+        }
         this.request = null;
         this.setLoading(false);
         this.renderError(i18n.targetMissing || "The connected listing could not be found.", shouldFocusError);
@@ -379,6 +420,22 @@
         this.request = null;
         this.setLoading(false);
       });
+    }
+    destroy() {
+      if (this.destroyed) return;
+      this.destroyed = true;
+      this.requestSequence += 1;
+      this.$root.off(".eitFilterController");
+      this.clearSearchTimer();
+      window.clearTimeout(this.statusTimer);
+      this.statusTimer = null;
+      this.stopWaitingForTarget();
+      if (this.request && 4 !== this.request.readyState) this.request.abort();
+      this.request = null;
+      this.setLoading(false);
+      this.target = null;
+      this.items = [];
+      this.itemMap = {};
     }
   };
 
@@ -805,6 +862,121 @@
     $("<span/>", { class: "eit-page-ellipsis", text: "\u2026", "aria-hidden": "true" }).appendTo($container);
   }
 
+  // assets/src/frontend/connector-actions.js
+  var instances = /* @__PURE__ */ new WeakMap();
+  var ActionConnector = class {
+    constructor(button) {
+      var _a;
+      this.button = button;
+      this.surfaceId = button.getAttribute("data-eit-action-surface") || "";
+      this.intent = button.getAttribute("data-eit-action-intent") || "default";
+      this.status = (_a = button.closest("[data-eit-toolkit-action]")) == null ? void 0 : _a.querySelector("[data-eit-action-status]");
+      this.onClick = (event) => this.activate(event);
+      this.onEntryState = (event) => {
+        var _a2;
+        if (((_a2 = event.detail) == null ? void 0 : _a2.surfaceId) !== this.surfaceId) return;
+        if ("eit:entry-removed" === event.type) {
+          this.setMissing();
+          return;
+        }
+        this.syncConnection();
+        if ("eit:entry-busy" === event.type) this.setBusy(event.detail.busy);
+      };
+      this.button.addEventListener("click", this.onClick);
+      document.addEventListener("eit:entry-ready", this.onEntryState);
+      document.addEventListener("eit:entry-busy", this.onEntryState);
+      document.addEventListener("eit:entry-removed", this.onEntryState);
+      this.syncConnection();
+    }
+    workspace() {
+      return document.querySelector(
+        `[data-eit-entry-workspace][data-surface-id="${cssEscape(this.surfaceId)}"]`
+      );
+    }
+    syncConnection() {
+      const workspace = this.workspace();
+      if (!workspace) {
+        this.setMissing();
+        return null;
+      }
+      this.button.setAttribute("aria-controls", workspace.id);
+      this.button.setAttribute("aria-invalid", "false");
+      this.button.dataset.eitActionState = "ready";
+      this.showStatus("", "");
+      this.setBusy("true" === workspace.getAttribute("aria-busy"));
+      return workspace;
+    }
+    setMissing() {
+      var _a, _b;
+      this.button.removeAttribute("aria-controls");
+      this.button.setAttribute("aria-invalid", "true");
+      this.button.dataset.eitActionState = "missing";
+      this.showStatus(
+        ((_b = (_a = window.eitConfig) == null ? void 0 : _a.i18n) == null ? void 0 : _b.entrySurfaceMissing) || "The connected Entry Surface is not present on this page.",
+        "error"
+      );
+      this.setBusy(false);
+    }
+    activate(event) {
+      var _a, _b;
+      event.preventDefault();
+      if ("true" === this.button.getAttribute("aria-disabled")) return;
+      const workspace = this.syncConnection();
+      if (!workspace) return;
+      const form = workspace == null ? void 0 : workspace.querySelector("[data-eit-entry-form]");
+      const submitter = workspace == null ? void 0 : workspace.querySelector(
+        `[data-eit-intent="${cssEscape(this.intent)}"]`
+      );
+      if (!form || !submitter) {
+        this.button.setAttribute("aria-invalid", "true");
+        this.button.dataset.eitActionState = "unavailable";
+        this.showStatus(
+          ((_b = (_a = window.eitConfig) == null ? void 0 : _a.i18n) == null ? void 0 : _b.entryActionUnavailable) || "This action is not available in the current item state.",
+          "error"
+        );
+        return;
+      }
+      if ("function" === typeof form.requestSubmit) form.requestSubmit(submitter);
+      else submitter.click();
+    }
+    setBusy(busy) {
+      this.button.classList.toggle("is-busy", Boolean(busy));
+      this.button.setAttribute("aria-busy", String(Boolean(busy)));
+      if (busy) this.button.setAttribute("aria-disabled", "true");
+      else this.button.removeAttribute("aria-disabled");
+    }
+    showStatus(message, state) {
+      if (!this.status) return;
+      this.status.hidden = !message;
+      this.status.textContent = message;
+      this.status.dataset.state = state;
+    }
+    destroy() {
+      this.button.removeEventListener("click", this.onClick);
+      document.removeEventListener("eit:entry-ready", this.onEntryState);
+      document.removeEventListener("eit:entry-busy", this.onEntryState);
+      document.removeEventListener("eit:entry-removed", this.onEntryState);
+      this.setBusy(false);
+    }
+  };
+  function initializeAction(button) {
+    if (!button) return null;
+    const current = instances.get(button);
+    if (current) return current;
+    const instance = new ActionConnector(button);
+    instances.set(button, instance);
+    return instance;
+  }
+  function destroyAction(button) {
+    const instance = button ? instances.get(button) : null;
+    instance == null ? void 0 : instance.destroy();
+    if (button) instances.delete(button);
+  }
+  function installConnectorActions(scope = document) {
+    var _a;
+    (_a = scope.querySelectorAll) == null ? void 0 : _a.call(scope, "[data-eit-action-surface]").forEach(initializeAction);
+  }
+
   // assets/src/frontend/entry-expression.js
   function evaluateEntryExpression(expression, values) {
     const tokens = tokenize(expression);
@@ -818,8 +990,9 @@
       } else if (token.field) {
         const raw = values[token.field];
         const value = raw && "object" === typeof raw && !Array.isArray(raw) ? raw.amount : raw;
-        if (!Number.isFinite(Number(value))) return null;
-        stack.push(Number(value));
+        const number = expressionNumber(value);
+        if (null === number) return null;
+        stack.push(number);
       } else {
         const right = stack.pop();
         const left = stack.pop();
@@ -829,6 +1002,12 @@
       }
     }
     return 1 === stack.length && Number.isFinite(stack[0]) ? stack[0] : null;
+  }
+  function expressionNumber(value) {
+    if (null == value || "boolean" === typeof value || "string" === typeof value && "" === value.trim())
+      return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
   }
   function tokenize(expression) {
     const source = String(expression || "").trim();
@@ -894,55 +1073,128 @@
     return left / right;
   }
 
+  // assets/src/frontend/entry-condition.js
+  function matchesEntryCondition(actual, operator, expected) {
+    if ("empty" === operator || "not_empty" === operator) {
+      const empty = null == actual || "" === actual || Array.isArray(actual) && 0 === actual.length;
+      return "empty" === operator ? empty : !empty;
+    }
+    if ("in" === operator || "not_in" === operator) {
+      const actualList = (Array.isArray(actual) ? actual : [actual]).map(
+        conditionString
+      );
+      const expectedList = (Array.isArray(expected) ? expected : [expected]).map(
+        conditionString
+      );
+      const found = actualList.some((value) => expectedList.includes(value));
+      return "in" === operator ? found : !found;
+    }
+    if (["gt", "gte", "lt", "lte"].includes(operator)) {
+      const left = conditionNumber(actual);
+      const right = conditionNumber(expected);
+      if (null === left || null === right) return false;
+      return {
+        gt: left > right,
+        gte: left >= right,
+        lt: left < right,
+        lte: left <= right
+      }[operator];
+    }
+    const equal = conditionString(actual) === conditionString(expected);
+    return "not_equals" === operator ? !equal : equal;
+  }
+  function conditionScalar(value) {
+    if (value && "object" === typeof value && !Array.isArray(value)) {
+      if (Object.hasOwn(value, "id")) return value.id;
+      if (Object.hasOwn(value, "amount")) return value.amount;
+    }
+    return value;
+  }
+  function conditionString(value) {
+    const scalar = conditionScalar(value);
+    return null == scalar ? "" : String(scalar);
+  }
+  function conditionNumber(value) {
+    const scalar = conditionScalar(value);
+    if (null == scalar || "boolean" === typeof scalar || "string" === typeof scalar && "" === scalar.trim())
+      return null;
+    const number = Number(scalar);
+    return Number.isFinite(number) ? number : null;
+  }
+
   // assets/src/frontend/entry-media-client.js
-  function previewFiles(preview, files) {
-    preview.innerHTML = "";
+  var previewObjectUrls = /* @__PURE__ */ new WeakMap();
+  function preparePreview(files) {
+    const fragment = document.createDocumentFragment();
+    const urls = [];
     [...files].forEach((file) => {
       var _a;
       const item = document.createElement("span");
       if (file.type.startsWith("image/")) {
-        item.innerHTML = `<img src="${URL.createObjectURL(file)}" alt=""><small></small>`;
+        const url = URL.createObjectURL(file);
+        urls.push(url);
+        item.innerHTML = `<img src="${url}" alt=""><small></small>`;
       }
       (_a = item.querySelector("small")) == null ? void 0 : _a.append(document.createTextNode(file.name));
-      preview.append(item);
+      fragment.append(item);
     });
+    return { fragment, urls };
+  }
+  function discardPreview(prepared) {
+    prepared.urls.forEach((url) => URL.revokeObjectURL(url));
+  }
+  function commitPreview(preview, prepared) {
+    (previewObjectUrls.get(preview) || []).forEach(
+      (url) => URL.revokeObjectURL(url)
+    );
+    preview.replaceChildren(prepared.fragment);
+    previewObjectUrls.set(preview, prepared.urls);
   }
   async function uploadEntryMedia({
     input,
     root,
     contract,
     restUrl,
-    nonceHeaders
+    nonceHeaders,
+    signal
   }) {
     var _a, _b, _c;
     if (!((_a = input.files) == null ? void 0 : _a.length)) return null;
     const wrapper = input.closest("[data-eit-entry-field]");
-    previewFiles(wrapper.querySelector("[data-eit-media-preview]"), input.files);
+    const preview = wrapper.querySelector("[data-eit-media-preview]");
+    const preparedPreview = preparePreview(input.files);
     const uploaded = [];
-    for (const file of input.files) {
-      const data = new FormData();
-      data.append("file", file);
-      data.append("surface_id", contract.surface_id);
-      data.append("field_id", wrapper.dataset.eitEntryField);
-      data.append("item_id", root.dataset.itemId || "0");
-      data.append(
-        "form_token",
-        ((_b = root.querySelector("[data-eit-form-token]")) == null ? void 0 : _b.value) || ""
-      );
-      data.append(
-        "company_website",
-        ((_c = root.querySelector("[data-eit-honeypot]")) == null ? void 0 : _c.value) || ""
-      );
-      const response = await fetch(`${restUrl}/entry-media`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: nonceHeaders,
-        body: data
-      });
-      const result = await response.json();
-      if (!response.ok) throw result;
-      uploaded.push(result);
+    try {
+      for (const file of input.files) {
+        const data = new FormData();
+        data.append("file", file);
+        data.append("surface_id", contract.surface_id);
+        data.append("field_id", wrapper.dataset.eitEntryField);
+        data.append("item_id", root.dataset.itemId || "0");
+        data.append(
+          "form_token",
+          ((_b = root.querySelector("[data-eit-form-token]")) == null ? void 0 : _b.value) || ""
+        );
+        data.append(
+          "company_website",
+          ((_c = root.querySelector("[data-eit-honeypot]")) == null ? void 0 : _c.value) || ""
+        );
+        const response = await fetch(`${restUrl}/entry-media`, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: nonceHeaders,
+          body: data,
+          signal
+        });
+        const result = await response.json();
+        if (!response.ok) throw result;
+        uploaded.push(result);
+      }
+    } catch (error) {
+      discardPreview(preparedPreview);
+      throw error;
     }
+    commitPreview(preview, preparedPreview);
     return {
       wrapper,
       value: "gallery" === wrapper.dataset.fieldType ? uploaded : uploaded[0]
@@ -1009,7 +1261,10 @@
       return [...wrapper.querySelectorAll("[data-eit-repeater-row]")].filter((row) => !row.closest("template")).map(
         (row) => Object.fromEntries(
           [...row.querySelectorAll("[data-eit-repeater-child]")].map(
-            (input) => [input.dataset.eitRepeaterChild, input.value]
+            (input) => [
+              input.dataset.eitRepeaterChild,
+              "checkbox" === input.type ? input.checked : input.value
+            ]
           )
         )
       );
@@ -1035,6 +1290,334 @@
     return values;
   }
 
+  // assets/src/frontend/entry-repeater.js
+  function syncEntryRepeater(repeater) {
+    var _a;
+    if (!repeater) return;
+    const rows = [
+      ...repeater.querySelectorAll(":scope > [data-eit-repeater-row]")
+    ];
+    const minimum = Math.max(0, Number(repeater.dataset.eitMinRows) || 0);
+    const maximum = Math.max(1, Number(repeater.dataset.eitMaxRows) || 100);
+    (_a = repeater.querySelector("[data-eit-add-row]")) == null ? void 0 : _a.toggleAttribute("disabled", rows.length >= maximum);
+    rows.forEach(
+      (row) => {
+        var _a2;
+        return (_a2 = row.querySelector("[data-eit-remove-row]")) == null ? void 0 : _a2.toggleAttribute("disabled", rows.length <= minimum);
+      }
+    );
+  }
+  function addEntryRepeaterRow(repeater) {
+    var _a, _b, _c;
+    const maximum = Math.max(
+      1,
+      Number(repeater == null ? void 0 : repeater.dataset.eitMaxRows) || 100
+    );
+    const rows = (repeater == null ? void 0 : repeater.querySelectorAll(":scope > [data-eit-repeater-row]")) || [];
+    if (!repeater || rows.length >= maximum) return false;
+    const fragment = (_a = repeater.querySelector("[data-eit-repeater-template]")) == null ? void 0 : _a.content.cloneNode(true);
+    if (!fragment) return false;
+    repeater.insertBefore(
+      fragment,
+      repeater.querySelector("[data-eit-repeater-template]")
+    );
+    syncEntryRepeater(repeater);
+    (_c = (_b = [...repeater.querySelectorAll(":scope > [data-eit-repeater-row]")].at(-1)) == null ? void 0 : _b.querySelector("input, select, textarea")) == null ? void 0 : _c.focus();
+    return true;
+  }
+
+  // assets/src/frontend/entry-validation.js
+  function fieldControls(wrapper) {
+    return [
+      ...wrapper.querySelectorAll("input:not([type='hidden']), textarea, select")
+    ];
+  }
+  function syncChoiceGroup(wrapper, required, message) {
+    const fieldset = wrapper.querySelector("[data-eit-choice-group]");
+    const choices = fieldControls(wrapper).filter(
+      (control) => "checkbox" === control.type
+    );
+    if (!fieldset || !choices.length) return;
+    const missing = required && !choices.some((choice) => choice.checked);
+    fieldset.setAttribute("aria-required", String(required));
+    choices[0].setCustomValidity(missing ? message : "");
+  }
+  function setEntryFieldInvalid(wrapper, message = "") {
+    var _a;
+    wrapper.classList.add("has-error");
+    fieldControls(wrapper).forEach(
+      (control) => control.setAttribute("aria-invalid", "true")
+    );
+    (_a = wrapper.querySelector("[data-eit-choice-group]")) == null ? void 0 : _a.setAttribute("aria-invalid", "true");
+    const error = wrapper.querySelector("[data-eit-field-error]");
+    if (error) error.textContent = message;
+  }
+  function clearEntryFieldInvalid(wrapper) {
+    var _a;
+    wrapper.classList.remove("has-error");
+    fieldControls(wrapper).forEach(
+      (control) => control.setAttribute("aria-invalid", "false")
+    );
+    (_a = wrapper.querySelector("[data-eit-choice-group]")) == null ? void 0 : _a.setAttribute("aria-invalid", "false");
+    const error = wrapper.querySelector("[data-eit-field-error]");
+    if (error) error.textContent = "";
+  }
+  function exposeClientValidity(scope) {
+    var _a;
+    let firstInvalid = null;
+    const wrappers = ((_a = scope.matches) == null ? void 0 : _a.call(scope, "[data-eit-entry-field]")) ? [scope] : [...scope.querySelectorAll("[data-eit-entry-field]")];
+    wrappers.forEach((wrapper) => {
+      if (wrapper.hidden) return;
+      const invalid = fieldControls(wrapper).find(
+        (control) => !control.disabled && !control.validity.valid
+      );
+      if (invalid) {
+        setEntryFieldInvalid(wrapper, invalid.validationMessage);
+        firstInvalid || (firstInvalid = invalid);
+      } else if (wrapper.classList.contains("has-error")) {
+        clearEntryFieldInvalid(wrapper);
+      }
+    });
+    return firstInvalid;
+  }
+
+  // assets/src/frontend/entry-relation-picker.js
+  var instances2 = /* @__PURE__ */ new WeakMap();
+  function labels() {
+    var _a;
+    return ((_a = window.eitConfig) == null ? void 0 : _a.i18n) || {};
+  }
+  function config2() {
+    return window.eitConfig || {};
+  }
+  var EntryRelationPicker = class {
+    constructor(root) {
+      var _a, _b;
+      this.root = root;
+      this.select = root.querySelector("[data-eit-relation-select]");
+      this.search = root.querySelector("[data-eit-relation-search]");
+      this.status = root.querySelector("[data-eit-relation-status]");
+      this.more = root.querySelector("[data-eit-relation-more]");
+      this.collectionId = root.dataset.collectionId;
+      this.page = 0;
+      this.pages = 1;
+      this.query = "";
+      this.destroyed = false;
+      this.abortController = null;
+      this.searchTimer = null;
+      this.onSearch = () => {
+        window.clearTimeout(this.searchTimer);
+        this.searchTimer = window.setTimeout(() => {
+          var _a2;
+          this.query = ((_a2 = this.search) == null ? void 0 : _a2.value.trim()) || "";
+          this.load(1, true);
+        }, 250);
+      };
+      this.onMore = () => this.load(this.page + 1, false);
+      (_a = this.search) == null ? void 0 : _a.addEventListener("input", this.onSearch);
+      (_b = this.more) == null ? void 0 : _b.addEventListener("click", this.onMore);
+      this.load(1, true);
+    }
+    async load(page, reset) {
+      var _a, _b, _c, _d;
+      if (this.destroyed || !this.select || !this.collectionId) return;
+      (_a = this.abortController) == null ? void 0 : _a.abort();
+      const controller = new AbortController();
+      this.abortController = controller;
+      this.root.setAttribute("aria-busy", "true");
+      this.message(labels().entryRelationLoading || "Loading options\u2026", "loading");
+      if (this.more) this.more.hidden = true;
+      const runtime = config2();
+      const base = String(
+        runtime.collectionRestUrl || `${String(runtime.entryRestUrl || "/wp-json/eit/v1").replace(/\/$/, "")}/collections`
+      ).replace(/\/$/, "");
+      const payload = {
+        page: Math.max(1, Number(page) || 1),
+        per_page: 24,
+        filters: [],
+        facets: []
+      };
+      if (this.query) payload.search = this.query;
+      try {
+        const response = await fetch(
+          `${base}/${encodeURIComponent(this.collectionId)}/query`,
+          {
+            method: "POST",
+            credentials: "same-origin",
+            headers: __spreadValues({
+              "Content-Type": "application/json"
+            }, runtime.nonce ? { "X-WP-Nonce": runtime.nonce } : {}),
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          }
+        );
+        const result = await response.json();
+        if (!response.ok) throw result;
+        if (this.destroyed || this.abortController !== controller) return;
+        this.render(result.items || [], reset);
+        this.page = Number((_b = result.pagination) == null ? void 0 : _b.page) || payload.page;
+        this.pages = Math.max(1, Number((_c = result.pagination) == null ? void 0 : _c.pages) || 1);
+        const total = Math.max(0, Number((_d = result.pagination) == null ? void 0 : _d.total) || 0);
+        this.message(
+          total ? String(labels().entryRelationCount || "%d options available.").replace(
+            "%d",
+            String(total)
+          ) : labels().entryRelationEmpty || "No available options.",
+          total ? "ready" : "empty"
+        );
+        if (this.more) this.more.hidden = this.page >= this.pages;
+      } catch (error) {
+        if ("AbortError" !== (error == null ? void 0 : error.name)) {
+          this.message(
+            (error == null ? void 0 : error.message) || labels().entryRelationError || "Options could not be loaded. Existing selections were preserved.",
+            "error"
+          );
+        }
+      } finally {
+        if (this.abortController === controller) {
+          this.abortController = null;
+          if (!this.destroyed) this.root.setAttribute("aria-busy", "false");
+        }
+      }
+    }
+    render(items, reset) {
+      const selected = new Map(
+        [...this.select.selectedOptions].filter((option) => option.value).map((option) => [option.value, option.textContent])
+      );
+      const options = reset ? new Map(selected) : new Map(
+        [...this.select.options].filter((option) => option.value).map((option) => [option.value, option.textContent])
+      );
+      items.forEach((item) => {
+        var _a;
+        const id = String((_a = item.id) != null ? _a : "");
+        if (id) options.set(id, String(item.title || id));
+      });
+      const fragment = document.createDocumentFragment();
+      if (!this.select.multiple) {
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = labels().entryRelationChoose || "Choose an option";
+        fragment.append(placeholder);
+      }
+      options.forEach((label, value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        option.selected = selected.has(value);
+        fragment.append(option);
+      });
+      this.select.replaceChildren(fragment);
+    }
+    message(value, state = "ready") {
+      this.root.dataset.state = state;
+      if (this.status) this.status.textContent = value;
+      if (this.status) this.status.dataset.state = state;
+    }
+    destroy() {
+      var _a, _b, _c;
+      if (this.destroyed) return;
+      this.destroyed = true;
+      window.clearTimeout(this.searchTimer);
+      (_a = this.abortController) == null ? void 0 : _a.abort();
+      (_b = this.search) == null ? void 0 : _b.removeEventListener("input", this.onSearch);
+      (_c = this.more) == null ? void 0 : _c.removeEventListener("click", this.onMore);
+      this.root.setAttribute("aria-busy", "false");
+      this.root.dataset.state = "idle";
+    }
+  };
+  function initializeEntryRelations(scope) {
+    return [...scope.querySelectorAll("[data-eit-relation-picker]")].map((root) => {
+      const current = instances2.get(root);
+      if (current) return current;
+      const instance = new EntryRelationPicker(root);
+      instances2.set(root, instance);
+      return instance;
+    });
+  }
+  function destroyEntryRelations(instancesToDestroy = []) {
+    instancesToDestroy.forEach((instance) => {
+      instance.destroy();
+      instances2.delete(instance.root);
+    });
+  }
+
+  // assets/src/frontend/entry-lifecycle.js
+  function bindEntryWorkspace(workspace) {
+    var _a, _b;
+    workspace.relationPickers = initializeEntryRelations(workspace.root);
+    workspace.root.querySelectorAll("[data-eit-repeater]").forEach((repeater) => workspace.syncRepeater(repeater));
+    workspace.onInput = (event) => {
+      var _a2, _b2;
+      if (event.target.matches("[data-eit-relation-search]")) return;
+      workspace.dirty = true;
+      workspace.applyConditions();
+      const wrapper = (_b2 = (_a2 = event.target).closest) == null ? void 0 : _b2.call(_a2, "[data-eit-entry-field]");
+      if (wrapper == null ? void 0 : wrapper.classList.contains("has-error")) exposeClientValidity(wrapper);
+    };
+    workspace.onChange = (event) => {
+      if (event.target.matches("[data-eit-relation-search]")) return;
+      workspace.dirty = true;
+      workspace.applyConditions();
+      if (event.target.matches("[data-eit-media-input]")) {
+        workspace.uploadMedia(event.target);
+      }
+    };
+    workspace.onSubmit = (event) => workspace.submit(event);
+    workspace.onNext = () => workspace.nextStep();
+    workspace.onPrevious = () => workspace.previousStep();
+    workspace.onRootClick = (event) => {
+      var _a2;
+      const add = event.target.closest("[data-eit-add-row]");
+      const remove = event.target.closest("[data-eit-remove-row]");
+      if (add) {
+        workspace.addRepeaterRow(add.closest("[data-eit-repeater]"));
+      } else if (remove) {
+        const repeater = remove.closest("[data-eit-repeater]");
+        const minimum = Math.max(
+          0,
+          Number(repeater == null ? void 0 : repeater.dataset.eitMinRows) || 0
+        );
+        const rows = (repeater == null ? void 0 : repeater.querySelectorAll(":scope > [data-eit-repeater-row]")) || [];
+        if (rows.length > minimum) {
+          (_a2 = remove.closest("[data-eit-repeater-row]")) == null ? void 0 : _a2.remove();
+          workspace.syncRepeater(repeater);
+          workspace.dirty = true;
+        }
+      }
+    };
+    workspace.form.addEventListener("input", workspace.onInput);
+    workspace.form.addEventListener("change", workspace.onChange);
+    workspace.form.addEventListener("submit", workspace.onSubmit);
+    (_a = workspace.root.querySelector("[data-eit-next]")) == null ? void 0 : _a.addEventListener("click", workspace.onNext);
+    (_b = workspace.root.querySelector("[data-eit-previous]")) == null ? void 0 : _b.addEventListener("click", workspace.onPrevious);
+    workspace.root.addEventListener("click", workspace.onRootClick);
+  }
+  function destroyEntryWorkspace(workspace) {
+    var _a, _b, _c, _d;
+    destroyEntryRelations(workspace.relationPickers);
+    workspace.relationPickers = [];
+    workspace.form.removeEventListener("input", workspace.onInput);
+    workspace.form.removeEventListener("change", workspace.onChange);
+    workspace.form.removeEventListener("submit", workspace.onSubmit);
+    (_a = workspace.root.querySelector("[data-eit-next]")) == null ? void 0 : _a.removeEventListener("click", workspace.onNext);
+    (_b = workspace.root.querySelector("[data-eit-previous]")) == null ? void 0 : _b.removeEventListener("click", workspace.onPrevious);
+    workspace.root.removeEventListener("click", workspace.onRootClick);
+    window.clearInterval(workspace.autosaveTimer);
+    workspace.autosaveTimer = null;
+    (_c = workspace.abortController) == null ? void 0 : _c.abort();
+    workspace.abortController = null;
+    (_d = workspace.mediaAbortController) == null ? void 0 : _d.abort();
+    workspace.mediaAbortController = null;
+    workspace.busy = false;
+    workspace.root.setAttribute("aria-busy", "false");
+    workspace.root.dispatchEvent(
+      new CustomEvent("eit:entry-busy", {
+        bubbles: true,
+        detail: { surfaceId: workspace.contract.surface_id, busy: false }
+      })
+    );
+  }
+
   // assets/src/frontend/entry-workspace.js
   var EntryWorkspace = class {
     constructor(root) {
@@ -1046,41 +1629,25 @@
       this.step = 0;
       this.dirty = false;
       this.busy = false;
+      this.destroyed = false;
       this.abortController = null;
+      this.mediaAbortController = null;
+      this.autosaveTimer = null;
       this.key = uniqueEntryKey();
       this.root.setAttribute("aria-busy", "false");
       this.bind();
       this.applyConditions();
       this.updateStep();
       this.installAutosave();
+      this.root.dispatchEvent(
+        new CustomEvent("eit:entry-ready", {
+          bubbles: true,
+          detail: { surfaceId: this.contract.surface_id }
+        })
+      );
     }
     bind() {
-      var _a, _b;
-      this.form.addEventListener("input", () => {
-        this.dirty = true;
-        this.applyConditions();
-      });
-      this.form.addEventListener("change", (event) => {
-        this.dirty = true;
-        this.applyConditions();
-        if (event.target.matches("[data-eit-media-input]")) {
-          this.uploadMedia(event.target);
-        }
-      });
-      this.form.addEventListener("submit", (event) => this.submit(event));
-      (_a = this.root.querySelector("[data-eit-next]")) == null ? void 0 : _a.addEventListener("click", () => this.nextStep());
-      (_b = this.root.querySelector("[data-eit-previous]")) == null ? void 0 : _b.addEventListener("click", () => this.previousStep());
-      this.root.addEventListener("click", (event) => {
-        var _a2;
-        const add = event.target.closest("[data-eit-add-row]");
-        const remove = event.target.closest("[data-eit-remove-row]");
-        if (add) {
-          this.addRepeaterRow(add.closest("[data-eit-repeater]"));
-        } else if (remove) {
-          (_a2 = remove.closest("[data-eit-repeater-row]")) == null ? void 0 : _a2.remove();
-          this.dirty = true;
-        }
-      });
+      bindEntryWorkspace(this);
     }
     values() {
       return readEntryValues(this.root);
@@ -1100,7 +1667,7 @@
       );
       for (const condition of this.contract.conditions || []) {
         if (!state[condition.target_field_id]) continue;
-        const matched = this.matches(
+        const matched = matchesEntryCondition(
           values[condition.source_field_id],
           condition.operator,
           condition.value
@@ -1128,7 +1695,17 @@
           const hasMedia = ["image", "gallery", "file"].includes(wrapper.dataset.fieldType) && Boolean(
             (_c = (_b = wrapper.querySelector("[data-eit-media-value]")) == null ? void 0 : _b.value) == null ? void 0 : _c.replace(/\[\]|null/, "")
           );
-          control.required = fieldState.visible && fieldState.required && !hasMedia;
+          const required = fieldState.visible && fieldState.required && !hasMedia;
+          if ("multiple_choice" === wrapper.dataset.fieldType) {
+            control.required = false;
+            syncChoiceGroup(
+              wrapper,
+              required,
+              window.eitConfig.i18n.entryChoiceRequired || "Choose at least one option."
+            );
+          } else {
+            control.required = required;
+          }
         }
       }
     }
@@ -1149,36 +1726,10 @@
         output.textContent = null === result ? window.eitConfig.i18n.entryCalculationWaiting : String(result);
       }
     }
-    matches(actual, operator, expected) {
-      if ("empty" === operator || "not_empty" === operator) {
-        const empty = null == actual || "" === actual || Array.isArray(actual) && 0 === actual.length;
-        return "empty" === operator ? empty : !empty;
-      }
-      if ("in" === operator || "not_in" === operator) {
-        const actualList = Array.isArray(actual) ? actual.map(String) : [String(actual)];
-        const expectedList = (Array.isArray(expected) ? expected : [expected]).map(String);
-        const found = actualList.some((value) => expectedList.includes(value));
-        return "in" === operator ? found : !found;
-      }
-      if (["gt", "gte", "lt", "lte"].includes(operator)) {
-        const left = Number(actual);
-        const right = Number(expected);
-        if (!Number.isFinite(left) || !Number.isFinite(right)) return false;
-        return {
-          gt: left > right,
-          gte: left >= right,
-          lt: left < right,
-          lte: left <= right
-        }[operator];
-      }
-      const equal = String(actual) === String(expected);
-      return "not_equals" === operator ? !equal : equal;
-    }
     nextStep() {
       const current = this.steps()[this.step];
-      const invalid = [
-        ...current.querySelectorAll("input, textarea, select")
-      ].find((input) => !input.disabled && !input.checkValidity());
+      this.applyConditions();
+      const invalid = exposeClientValidity(current);
       if (invalid) {
         invalid.reportValidity();
         invalid.focus();
@@ -1211,13 +1762,18 @@
       var _a;
       event.preventDefault();
       const intent = ((_a = event.submitter) == null ? void 0 : _a.dataset.eitIntent) || "default";
-      if (!["archive", "restore"].includes(intent) && !this.form.reportValidity())
+      this.applyConditions();
+      const invalid = !["archive", "restore"].includes(intent) ? exposeClientValidity(this.form) : null;
+      if (invalid) {
+        invalid.reportValidity();
+        invalid.focus();
         return;
+      }
       await this.send(intent);
     }
     async send(intent) {
       var _a, _b, _c, _d, _e, _f, _g;
-      if (this.busy) return;
+      if (this.busy || this.destroyed) return;
       (_a = this.abortController) == null ? void 0 : _a.abort();
       this.abortController = new AbortController();
       this.setBusy(true, window.eitConfig.i18n.entrySaving);
@@ -1245,6 +1801,7 @@
         );
         const result = await response.json();
         if (!response.ok) throw result;
+        if (this.destroyed) return;
         this.root.dataset.itemId = result.item_id;
         this.contract.item = __spreadProps(__spreadValues({}, this.contract.item || {}), {
           id: result.item_id,
@@ -1267,15 +1824,23 @@
         if (redirect) window.location.assign(redirect);
       } catch (error) {
         if ("AbortError" === (error == null ? void 0 : error.name)) return;
-        this.key = uniqueEntryKey();
+        if ([
+          "eit_entry_idempotency_failed",
+          "eit_entry_idempotency_mismatch"
+        ].includes(error == null ? void 0 : error.code)) {
+          this.key = uniqueEntryKey();
+        }
         this.showErrors(error);
       } finally {
-        this.setBusy(false);
+        if (!this.destroyed) this.setBusy(false);
       }
     }
     async uploadMedia(input) {
-      var _a;
-      if (!((_a = input.files) == null ? void 0 : _a.length)) return;
+      var _a, _b;
+      if (!((_a = input.files) == null ? void 0 : _a.length) || this.destroyed) return;
+      (_b = this.mediaAbortController) == null ? void 0 : _b.abort();
+      const mediaAbortController = new AbortController();
+      this.mediaAbortController = mediaAbortController;
       this.setBusy(true, window.eitConfig.i18n.entryUploading);
       try {
         const uploaded = await uploadEntryMedia({
@@ -1283,7 +1848,8 @@
           root: this.root,
           contract: this.contract,
           restUrl: window.eitConfig.entryRestUrl,
-          nonceHeaders: this.nonceHeaders()
+          nonceHeaders: this.nonceHeaders(),
+          signal: mediaAbortController.signal
         });
         if (!uploaded) return;
         const { wrapper, value } = uploaded;
@@ -1292,11 +1858,13 @@
         this.dirty = true;
         this.message(window.eitConfig.i18n.entrySaved, "success");
       } catch (error) {
-        const wrapper = input.closest("[data-eit-entry-field]");
-        wrapper.querySelector("[data-eit-media-value]").value = "";
+        if ("AbortError" === (error == null ? void 0 : error.name)) return;
         this.showErrors(error);
       } finally {
-        this.setBusy(false);
+        if (this.mediaAbortController === mediaAbortController) {
+          this.mediaAbortController = null;
+          if (!this.destroyed) this.setBusy(false);
+        }
       }
     }
     installAutosave() {
@@ -1311,14 +1879,10 @@
       }, interval);
     }
     addRepeaterRow(repeater) {
-      var _a;
-      const fragment = (_a = repeater.querySelector("[data-eit-repeater-template]")) == null ? void 0 : _a.content.cloneNode(true);
-      if (fragment)
-        repeater.insertBefore(
-          fragment,
-          repeater.querySelector("[data-eit-repeater-template]")
-        );
-      this.dirty = true;
+      if (addEntryRepeaterRow(repeater)) this.dirty = true;
+    }
+    syncRepeater(repeater) {
+      syncEntryRepeater(repeater);
     }
     showErrors(error) {
       var _a, _b;
@@ -1330,8 +1894,7 @@
           `[data-eit-entry-field="${fieldId}"]`
         );
         if (!wrapper) continue;
-        wrapper.classList.add("has-error");
-        wrapper.querySelector("[data-eit-field-error]").textContent = message;
+        setEntryFieldInvalid(wrapper, message);
         firstInvalid || (firstInvalid = wrapper);
       }
       if (firstInvalid) {
@@ -1344,8 +1907,7 @@
       }
     }
     clearErrors() {
-      this.root.querySelectorAll(".has-error").forEach((field) => field.classList.remove("has-error"));
-      this.root.querySelectorAll("[data-eit-field-error]").forEach((error) => error.textContent = "");
+      this.root.querySelectorAll("[data-eit-entry-field]").forEach(clearEntryFieldInvalid);
     }
     setBusy(busy, message = "") {
       var _a, _b;
@@ -1356,6 +1918,12 @@
       this.busy = busy;
       this.root.setAttribute("aria-busy", String(busy));
       setEntryButtonsBusy(this.root, busy, this.busyFocus);
+      this.root.dispatchEvent(
+        new CustomEvent("eit:entry-busy", {
+          bubbles: true,
+          detail: { surfaceId: this.contract.surface_id, busy }
+        })
+      );
       if (!busy && ((_b = this.busyFocus) == null ? void 0 : _b.isConnected)) {
         this.busyFocus.focus({ preventScroll: true });
         this.busyFocus = null;
@@ -1364,6 +1932,7 @@
     }
     message(text, type) {
       const region = this.root.querySelector("[data-eit-form-message]");
+      if (!region) return;
       region.textContent = text;
       region.dataset.state = type;
     }
@@ -1376,36 +1945,121 @@
     steps() {
       return [...this.root.querySelectorAll("[data-eit-entry-step]")];
     }
+    destroy() {
+      if (this.destroyed) return;
+      this.destroyed = true;
+      destroyEntryWorkspace(this);
+      this.root.dispatchEvent(
+        new CustomEvent("eit:entry-removed", {
+          bubbles: true,
+          detail: { surfaceId: this.contract.surface_id }
+        })
+      );
+    }
   };
 
-  // assets/src/frontend/connector-actions.js
-  function installConnectorActions() {
-    $(document).on("click.eitToolkitAction", "[data-eit-action-surface]", (event) => {
-      var _a, _b, _c;
-      const action = event.currentTarget;
-      const surfaceId = action.getAttribute("data-eit-action-surface") || "";
-      const intent = action.getAttribute("data-eit-action-intent") || "default";
-      const workspace = document.querySelector(`[data-eit-entry-workspace][data-surface-id="${cssEscape(surfaceId)}"]`);
-      const form = workspace == null ? void 0 : workspace.querySelector("[data-eit-entry-form]");
-      const submitter = workspace == null ? void 0 : workspace.querySelector(`[data-eit-intent="${cssEscape(intent)}"]`);
-      if (!form || !submitter) {
-        (_c = workspace == null ? void 0 : workspace.querySelector("[data-eit-form-message]")) == null ? void 0 : _c.replaceChildren(
-          document.createTextNode(((_b = (_a = window.eitConfig) == null ? void 0 : _a.i18n) == null ? void 0 : _b.entryActionUnavailable) || "This action is not available in the current item state.")
-        );
-        return;
+  // assets/src/frontend/elementor-lifecycle.js
+  var filterInstances = /* @__PURE__ */ new WeakMap();
+  var entryInstances = /* @__PURE__ */ new WeakMap();
+  var handlersInstalled = false;
+  function elementFromScope(scope) {
+    var _a;
+    return ((_a = scope == null ? void 0 : scope.get) == null ? void 0 : _a.call(scope, 0)) || (scope == null ? void 0 : scope[0]) || scope || null;
+  }
+  function findRoot(scope, selector) {
+    var _a;
+    const element = elementFromScope(scope);
+    if (!element) return null;
+    return ((_a = element.matches) == null ? void 0 : _a.call(element, selector)) ? element : element.querySelector(selector);
+  }
+  function initializeFilter(root) {
+    if (!root) return null;
+    const current = filterInstances.get(root);
+    if (current) return current;
+    const instance = new Controller(root);
+    filterInstances.set(root, instance);
+    return instance;
+  }
+  function destroyFilter(root) {
+    const instance = root ? filterInstances.get(root) : null;
+    instance == null ? void 0 : instance.destroy();
+    if (root) filterInstances.delete(root);
+  }
+  function initializeEntry(root) {
+    if (!root) return null;
+    const current = entryInstances.get(root);
+    if (current) return current;
+    const instance = new EntryWorkspace(root);
+    entryInstances.set(root, instance);
+    return instance;
+  }
+  function destroyEntry(root) {
+    const instance = root ? entryInstances.get(root) : null;
+    instance == null ? void 0 : instance.destroy();
+    if (root) entryInstances.delete(root);
+  }
+  function handler(Base, selector, initialize, destroy) {
+    return class ToolkitElementorHandler extends Base {
+      onInit(...args) {
+        super.onInit(...args);
+        this.toolkitRoot = findRoot(this.$element, selector);
+        this.toolkitInstance = initialize(this.toolkitRoot);
       }
-      if ("function" === typeof form.requestSubmit) form.requestSubmit(submitter);
-      else submitter.click();
-    });
+      onDestroy(...args) {
+        destroy(this.toolkitRoot);
+        this.toolkitRoot = null;
+        this.toolkitInstance = null;
+        super.onDestroy(...args);
+      }
+    };
+  }
+  function registerHandlers() {
+    var _a, _b, _c, _d;
+    if (handlersInstalled) return true;
+    const frontend = window.elementorFrontend;
+    const Base = (_c = (_b = (_a = window.elementorModules) == null ? void 0 : _a.frontend) == null ? void 0 : _b.handlers) == null ? void 0 : _c.Base;
+    if (!((_d = frontend == null ? void 0 : frontend.elementsHandler) == null ? void 0 : _d.attachHandler) || !Base) return false;
+    const FilterHandler = handler(
+      Base,
+      ".eit-filter-controller",
+      initializeFilter,
+      destroyFilter
+    );
+    const EntryHandler = handler(
+      Base,
+      "[data-eit-entry-workspace]",
+      initializeEntry,
+      destroyEntry
+    );
+    const ActionHandler = handler(
+      Base,
+      "[data-eit-action-surface]",
+      initializeAction,
+      destroyAction
+    );
+    frontend.elementsHandler.attachHandler("eit-filter-controller", FilterHandler);
+    frontend.elementsHandler.attachHandler("eit-toolkit-filter-surface", FilterHandler);
+    frontend.elementsHandler.attachHandler("eit-toolkit-entry-surface", EntryHandler);
+    frontend.elementsHandler.attachHandler("eit-toolkit-action", ActionHandler);
+    handlersInstalled = true;
+    return true;
+  }
+  function installElementorLifecycle() {
+    $(window).off("elementor/frontend/init.eitToolkit").on("elementor/frontend/init.eitToolkit", registerHandlers);
+    registerHandlers();
+  }
+  function initializeFrontendFallbacks(scope = document) {
+    scope.querySelectorAll(".eit-filter-controller").forEach(initializeFilter);
+    scope.querySelectorAll("[data-eit-entry-workspace]").forEach(initializeEntry);
+    installConnectorActions(scope);
   }
 
   // assets/src/frontend/index.js
   installControls(Controller);
   installFacets(Controller);
   installView(Controller);
-  installConnectorActions();
+  installElementorLifecycle();
   $(() => {
-    $(".eit-filter-controller").each((index, element) => new Controller(element));
-    document.querySelectorAll("[data-eit-entry-workspace]").forEach((element) => new EntryWorkspace(element));
+    initializeFrontendFallbacks(document);
   });
 })();

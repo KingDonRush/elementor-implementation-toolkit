@@ -29,6 +29,7 @@ class FieldContractFactory {
 			'id'           => (string) $id,
 			'name'         => trim( (string) $name ),
 			'type'         => (string) $type,
+			'primitive'    => [ 'id' => (string) $primitive->get_id(), 'version' => (string) $primitive->get_version() ],
 			'shape'        => $definition['shape'],
 			'validation'   => [ 'required' => false ],
 			'exposure'     => [ 'public' => false, 'roles' => [] ],

@@ -21,6 +21,8 @@ let syncTimer = null;
 let followupTimer = null;
 let hooksBound = false;
 let panelObserver = null;
+let panelObserverTimer = null;
+let legacyPanelHook = null;
 
 function hasType(types, type) {
   return types.includes(type);
@@ -150,21 +152,35 @@ export function scheduleFilterTypeSync() {
 function bindElementorHooks(onPanelChange) {
   if (hooksBound || !window.elementor?.hooks?.addAction) return;
   hooksBound = true;
-  window.elementor.hooks.addAction('panel/open_editor/widget/eit-filter-controller', () => {
+  legacyPanelHook = () => {
     onPanelChange();
     scheduleFilterTypeSync();
-  });
+    window.queueMicrotask(() => bindPanelObserver(onPanelChange));
+  };
+  window.elementor.hooks.addAction('panel/open_editor/widget/eit-filter-controller', legacyPanelHook);
+}
+
+function disconnectPanelObserver() {
+  panelObserver?.disconnect();
+  panelObserver = null;
+  window.clearTimeout(panelObserverTimer);
+  panelObserverTimer = null;
 }
 
 function bindPanelObserver(onPanelChange) {
-  if (panelObserver || !window.MutationObserver) return;
-  const panel = document.querySelector('#elementor-panel');
+  if (panelObserver || !window.MutationObserver || !getEditedFilterControllerContainer()) return;
+  const panel = document.querySelector('#elementor-panel-content-wrapper');
   if (!panel) return;
 
-  let observerTimer = null;
   panelObserver = new MutationObserver(() => {
-    window.clearTimeout(observerTimer);
-    observerTimer = window.setTimeout(() => {
+    window.clearTimeout(panelObserverTimer);
+    panelObserverTimer = window.setTimeout(() => {
+      panelObserverTimer = null;
+      if (!getEditedFilterControllerContainer()) {
+        disconnectPanelObserver();
+        clearStylePanelCadence();
+        return;
+      }
       onPanelChange();
       scheduleFilterTypeSync();
     }, 80);
@@ -173,19 +189,38 @@ function bindPanelObserver(onPanelChange) {
 }
 
 export function installCadence(onPanelChange) {
+  uninstallCadence();
   const refresh = () => {
     bindElementorHooks(onPanelChange);
-    bindPanelObserver(onPanelChange);
+    if (getEditedFilterControllerContainer()) bindPanelObserver(onPanelChange);
+    else disconnectPanelObserver();
     onPanelChange();
     scheduleFilterTypeSync();
   };
 
-  $(document).on('input change click', '.elementor-control-filters', scheduleFilterTypeSync);
+  $(document).on('input.eitCadence change.eitCadence click.eitCadence', '.elementor-control-filters', scheduleFilterTypeSync);
   $(document).on(
-    'click',
+    'click.eitCadence',
     '.elementor-panel-navigation-tab, .elementor-tab-control-content, .elementor-tab-control-style, .elementor-tab-control-advanced',
     scheduleFilterTypeSync,
   );
-  $(window).on('elementor:init', refresh);
+  $(window).on('elementor:init.eitCadence', refresh);
   $(refresh);
+  return uninstallCadence;
+}
+
+export function uninstallCadence() {
+  window.clearTimeout(syncTimer);
+  window.clearTimeout(followupTimer);
+  syncTimer = null;
+  followupTimer = null;
+  disconnectPanelObserver();
+  $(document).off('.eitCadence');
+  $(window).off('.eitCadence');
+  if (hooksBound && legacyPanelHook && window.elementor?.hooks?.removeAction) {
+    window.elementor.hooks.removeAction('panel/open_editor/widget/eit-filter-controller', legacyPanelHook);
+  }
+  hooksBound = false;
+  legacyPanelHook = null;
+  clearStylePanelCadence();
 }

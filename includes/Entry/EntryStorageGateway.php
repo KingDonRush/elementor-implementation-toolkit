@@ -8,6 +8,7 @@ namespace EIT\Entry;
 use EIT\CCT\Repository as CctRepository;
 use EIT\Infrastructure\NormalizedValueStore;
 use EIT\Infrastructure\Transaction;
+use EIT\Support\CptMultivalueMeta;
 use EIT\Woo\WooValueGateway;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -76,6 +77,8 @@ class EntryStorageGateway {
 				$values[ $field_id ] = array_column( $rows, 'value' );
 			} elseif ( 'taxonomy' === $field['type'] && 'cpt' === $strategy ) {
 				$values[ $field_id ] = wp_get_object_terms( $item_id, $field['taxonomy']['slug'] ?? $field['storage']['key'], [ 'fields' => 'ids' ] );
+			} elseif ( 'multiple_choice' === $field['type'] && 'cpt' === $strategy ) {
+				$values[ $field_id ] = CptMultivalueMeta::read( $item_id, $field['storage']['key'] );
 			} else {
 				$stored = $product
 					? $this->woo->read( $product, $field['storage']['key'] )
@@ -137,6 +140,11 @@ class EntryStorageGateway {
 				if ( is_wp_error( $terms ) ) {
 					return $terms;
 				}
+			} elseif ( 'multiple_choice' === $field['type'] ) {
+				$stored = CptMultivalueMeta::replace( $id, $field['storage']['key'], (array) $values[ $field['id'] ] );
+				if ( is_wp_error( $stored ) ) {
+					return $stored;
+				}
 			} else {
 				update_post_meta( $id, $field['storage']['key'], $values[ $field['id'] ] );
 			}
@@ -176,7 +184,8 @@ class EntryStorageGateway {
 				continue;
 			}
 			if ( 'relation' === $field['type'] ) {
-				$result = $this->normalized->replace_relation_targets( $contract['blueprint_id'], $field['id'], $item_id, $values[ $field['id'] ] );
+				$target_unique = in_array( $field['relation']['cardinality'] ?? '', [ 'one_to_one', 'one_to_many' ], true );
+				$result = $this->normalized->replace_relation_targets( $contract['blueprint_id'], $field['id'], $item_id, $values[ $field['id'] ], $target_unique );
 			} elseif ( 'repeatable_group' === $field['type'] ) {
 				$result = $this->normalized->replace_multivalue_rows( $contract['blueprint_id'], $field['id'], $item_id, $values[ $field['id'] ] );
 			} else {
@@ -217,7 +226,7 @@ class EntryStorageGateway {
 					continue;
 				}
 				if ( 'cpt' === ( $contract['entity']['strategy'] ?? '' ) || $this->is_woo( $contract ) ) {
-					wp_update_post( [ 'ID' => $attachment_id, 'post_parent' => $item_id ] );
+					wp_update_post( [ 'ID' => $attachment_id, 'post_parent' => $item_id, 'post_status' => 'inherit' ] );
 				} else {
 					update_post_meta( $attachment_id, '_eit_entry_cct_owner', $contract['entity_id'] . ':' . $item_id );
 				}

@@ -39,7 +39,7 @@ $sources = [
 
 try {
 	$assert( SchemaManager::VERSION === get_option( SchemaManager::VERSION_OPTION ), 'Installed Blueprint schema version is stale.' );
-	$assert( true === SchemaManager::verify() && 16 === count( Tables::keys() ), 'Release-candidate infrastructure is incomplete.' );
+	$assert( true === SchemaManager::verify() && 18 === count( Tables::keys() ), 'Release-candidate infrastructure is incomplete.' );
 
 	$service = new MigrationService();
 	$inventory = $service->inventory();
@@ -84,6 +84,7 @@ try {
 
 		$fresh = $comparator->compare( $expected['type'], $expected['key'], $document );
 		$assert( 'verified' === $fresh['status'], 'Fresh shadow comparison drifted: ' . $identity );
+		$assert( 'compiled_projection' === ( $fresh['verification_scope'] ?? '' ) && false === ( $fresh['runtime_switched'] ?? true ), 'Shadow evidence must identify its compiled projection scope without implying a runtime switch: ' . $identity );
 		$impact = $impacts->build( $document, [ 'affected_node_ids' => array_column( $document['nodes'], 'id' ) ] );
 		$assert( $expected['fields'] === $impact['summary']['fields'], 'Impact Map field count drifted: ' . $identity );
 		$assert( $expected['records'] === $impact['summary']['records'], 'Impact Map record count drifted: ' . $identity );

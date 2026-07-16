@@ -41,7 +41,10 @@ function fieldValue(wrapper) {
       .map((row) =>
         Object.fromEntries(
           [...row.querySelectorAll("[data-eit-repeater-child]")].map(
-            (input) => [input.dataset.eitRepeaterChild, input.value],
+            (input) => [
+              input.dataset.eitRepeaterChild,
+              "checkbox" === input.type ? input.checked : input.value,
+            ],
           ),
         ),
       );

@@ -1,3 +1,32 @@
+#elementor-panel .elementor-control-collection_id .elementor-control-field-description,
+#elementor-panel .elementor-control-field_id .elementor-control-field-description,
+#elementor-panel .elementor-control-surface_id .elementor-control-field-description {
+    color: #4f5964;
+}
+
+.eit-connector-status {
+    padding: 9px 10px;
+    border: 1px solid #c3c4c7;
+    border-left-width: 4px;
+    border-radius: 4px;
+    background: #f6f7f7;
+    color: #3c434a;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.eit-connector-status.is-success {
+    border-color: #00a32a;
+    background: #edfaef;
+    color: #075c1e;
+}
+
+.eit-connector-status.is-error {
+    border-color: #d63638;
+    background: #fcf0f1;
+    color: #8a2424;
+}
+
 .eit-editor-targets {
     margin-top: 10px;
     padding: 10px;

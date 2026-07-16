@@ -30,7 +30,7 @@ class EntryRenderer {
 		return $this->render( $attributes['id'], absint( $attributes['item_id'] ) );
 	}
 
-	public function render( $surface_id, $item_id = 0 ) {
+	public function render( $surface_id, $item_id = 0, $instance_id = '' ) {
 		$contract = $this->resolver->get( $surface_id );
 		if ( ! $contract ) {
 			return $this->notice( __( 'This Entry Surface is unavailable.', 'elementor-implementation-toolkit' ), 'error' );
@@ -47,17 +47,18 @@ class EntryRenderer {
 		$public = $this->presenter->present( $contract, $loaded );
 		wp_enqueue_script( 'eit-frontend' );
 		wp_enqueue_style( 'eit-frontend' );
+		$instance_id = $this->instance_id( $surface_id, $instance_id );
 
 		ob_start();
-		$this->markup( $public );
+		$this->markup( $public, $instance_id );
 		return ob_get_clean();
 	}
 
-	private function markup( array $contract ) {
+	private function markup( array $contract, $instance_id ) {
 		$fields = array_column( $contract['fields'], null, 'id' );
 		$steps = $contract['steps'];
 		?>
-		<section id="eit-entry-<?php echo esc_attr( $contract['surface_id'] ); ?>" class="eit-entry-workspace" data-eit-entry-workspace data-surface-id="<?php echo esc_attr( $contract['surface_id'] ); ?>" data-item-id="<?php echo esc_attr( $contract['item']['id'] ?? 0 ); ?>">
+		<section id="eit-entry-<?php echo esc_attr( $instance_id ); ?>" class="eit-entry-workspace" data-eit-entry-workspace data-surface-id="<?php echo esc_attr( $contract['surface_id'] ); ?>" data-eit-entry-instance="<?php echo esc_attr( $instance_id ); ?>" data-item-id="<?php echo esc_attr( $contract['item']['id'] ?? 0 ); ?>">
 			<header class="eit-entry-header">
 				<p class="eit-entry-eyebrow"><?php echo esc_html( $contract['entity']['name'] ); ?></p>
 				<h2><?php echo esc_html( $contract['name'] ); ?></h2>
@@ -73,11 +74,11 @@ class EntryRenderer {
 						<h3 tabindex="-1"><?php echo esc_html( $step['name'] ); ?></h3>
 						<?php foreach ( $step['field_ids'] ?? [] as $field_id ) : ?>
 							<?php if ( isset( $fields[ $field_id ] ) ) : ?>
-								<?php $this->fields->render( $fields[ $field_id ], $contract['values'][ $field_id ] ?? null ); ?>
+								<?php $this->fields->render( $fields[ $field_id ], $contract['values'][ $field_id ] ?? null, $instance_id ); ?>
 							<?php endif; ?>
 						<?php endforeach; ?>
 						<?php if ( 0 === $index && in_array( $contract['entity']['mode'], [ 'editorial', 'hybrid' ], true ) ) : ?>
-							<div class="eit-entry-field" data-eit-editorial-field><label for="eit-entry-content-<?php echo esc_attr( $contract['surface_id'] ); ?>"><?php esc_html_e( 'Editorial content', 'elementor-implementation-toolkit' ); ?></label><textarea id="eit-entry-content-<?php echo esc_attr( $contract['surface_id'] ); ?>" rows="10" data-eit-editorial-content><?php echo esc_textarea( $contract['content'] ); ?></textarea></div>
+							<div class="eit-entry-field" data-eit-editorial-field><label for="eit-entry-content-<?php echo esc_attr( $instance_id ); ?>"><?php esc_html_e( 'Editorial content', 'elementor-implementation-toolkit' ); ?></label><textarea id="eit-entry-content-<?php echo esc_attr( $instance_id ); ?>" rows="10" data-eit-editorial-content><?php echo esc_textarea( $contract['content'] ); ?></textarea></div>
 						<?php endif; ?>
 					</section>
 				<?php endforeach; ?>
@@ -92,6 +93,15 @@ class EntryRenderer {
 			<script type="application/json" data-eit-entry-contract><?php echo wp_json_encode( $contract, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></script>
 		</section>
 		<?php
+	}
+
+	private function instance_id( $surface_id, $instance_id ) {
+		$surface = sanitize_html_class( (string) $surface_id );
+		$instance = sanitize_html_class( (string) $instance_id );
+		if ( '' === $instance ) {
+			$instance = sanitize_html_class( wp_unique_id( 'shortcode-' ) );
+		}
+		return trim( $surface . '-' . $instance, '-' );
 	}
 
 	private function submit_buttons( array $contract ) {

@@ -27,7 +27,7 @@ class CollectionExplainer {
 					'operator' => $filter['operator'],
 					'expected' => $filter['value'],
 					'actual' => $actual,
-					'result' => $this->matches( $actual, $filter['value'], $filter['operator'] ),
+					'result' => $this->matches( $actual, $filter['value'], $filter['operator'], $fields[ $field_id ] ),
 				];
 			}
 			$result[] = [
@@ -40,18 +40,22 @@ class CollectionExplainer {
 		return $result;
 	}
 
-	private function matches( $actual, $expected, $operator ) {
+	private function matches( $actual, $expected, $operator, array $field ) {
 		$actual_values = $this->values( $actual );
 		$expected_values = $this->values( $expected );
 		if ( 'between' === $operator ) {
-			$number = $this->number( $actual );
-			$minimum = $this->number( $expected['min'] ?? null );
-			$maximum = $this->number( $expected['max'] ?? null );
-			return ( '' === (string) ( $expected['min'] ?? '' ) || $number >= $minimum )
-				&& ( '' === (string) ( $expected['max'] ?? '' ) || $number <= $maximum );
+			$value = $this->ordered_value( $actual, $field );
+			$minimum = $this->ordered_value( $expected['min'] ?? null, $field );
+			$maximum = $this->ordered_value( $expected['max'] ?? null, $field );
+			return null !== $value
+				&& ( '' === (string) ( $expected['min'] ?? '' ) || ( null !== $minimum && $value >= $minimum ) )
+				&& ( '' === (string) ( $expected['max'] ?? '' ) || ( null !== $maximum && $value <= $maximum ) );
 		}
 		if ( in_array( $operator, [ 'gte', 'lte' ], true ) ) {
-			return 'gte' === $operator ? $this->number( $actual ) >= $this->number( $expected ) : $this->number( $actual ) <= $this->number( $expected );
+			$actual_order = $this->ordered_value( $actual, $field );
+			$expected_order = $this->ordered_value( $expected, $field );
+			return null !== $actual_order && null !== $expected_order
+				&& ( 'gte' === $operator ? $actual_order >= $expected_order : $actual_order <= $expected_order );
 		}
 		$intersects = (bool) array_intersect( $actual_values, $expected_values );
 		if ( in_array( $operator, [ 'not_equals', 'not_in' ], true ) ) {
@@ -75,11 +79,31 @@ class CollectionExplainer {
 		return [ mb_strtolower( trim( (string) $value ) ) ];
 	}
 
-	private function number( $value ) {
+	private function ordered_value( $value, array $field ) {
 		if ( is_array( $value ) ) {
 			$value = $value['amount'] ?? reset( $value );
 		}
-		return is_numeric( $value ) ? (float) $value : 0.0;
+		$type = $field['type'] ?? '';
+		if ( in_array( $type, [ 'integer', 'decimal', 'money', 'percentage', 'calculated' ], true ) ) {
+			return is_numeric( $value ) ? (float) $value : null;
+		}
+		if ( ! in_array( $type, [ 'date', 'datetime', 'time' ], true ) || '' === trim( (string) $value ) ) {
+			return null;
+		}
+		try {
+			if ( 'date' === $type ) {
+				$date = \DateTimeImmutable::createFromFormat( '!Y-m-d', (string) $value, new \DateTimeZone( 'UTC' ) );
+				return $date && $date->format( 'Y-m-d' ) === (string) $value ? $date->getTimestamp() : null;
+			}
+			if ( 'time' === $type ) {
+				$format = 2 === substr_count( (string) $value, ':' ) ? '!H:i:s' : '!H:i';
+				$time = \DateTimeImmutable::createFromFormat( $format, (string) $value, new \DateTimeZone( 'UTC' ) );
+				return $time ? $time->getTimestamp() : null;
+			}
+			return ( new \DateTimeImmutable( (string) $value, new \DateTimeZone( 'UTC' ) ) )->getTimestamp();
+		} catch ( \Throwable $error ) {
+			return null;
+		}
 	}
 
 	private function origin( $provider_id ) {

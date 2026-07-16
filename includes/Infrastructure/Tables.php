@@ -16,6 +16,7 @@ class Tables {
 	const ARTIFACTS = 'artifacts';
 	const BINDINGS = 'bindings';
 	const CHANGE_SETS = 'change_sets';
+	const STORAGE_CLAIMS = 'storage_claims';
 	const LOCKS = 'locks';
 	const RUNS = 'runs';
 	const RECONCILIATIONS = 'reconciliations';
@@ -23,6 +24,7 @@ class Tables {
 	const RELATIONS = 'relation_values';
 	const MULTIVALUES = 'multivalue_values';
 	const ENTRY_SUBMISSIONS = 'entry_submissions';
+	const PENDING_UPLOADS = 'pending_uploads';
 	const ACTION_JOBS = 'entry_action_jobs';
 	const MIGRATIONS = 'migrations';
 	const RUN_EVENTS = 'run_events';
@@ -44,6 +46,7 @@ class Tables {
 			self::ARTIFACTS,
 			self::BINDINGS,
 			self::CHANGE_SETS,
+			self::STORAGE_CLAIMS,
 			self::LOCKS,
 			self::RUNS,
 			self::RECONCILIATIONS,
@@ -51,6 +54,7 @@ class Tables {
 			self::RELATIONS,
 			self::MULTIVALUES,
 			self::ENTRY_SUBMISSIONS,
+			self::PENDING_UPLOADS,
 			self::ACTION_JOBS,
 			self::MIGRATIONS,
 			self::RUN_EVENTS,

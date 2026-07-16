@@ -5,6 +5,7 @@
   var config = window.eitEditorConfig || {};
   var i18n = config.i18n || {};
   var filterTypeDefinitions = config.filterTypes || {};
+  var dynamicTagCatalog = window.eitDynamicTagCatalog || { contextEntityId: "", entities: {} };
   function isTruthy(value) {
     return value === true || value === 1 || ["1", "yes", "on", "true"].includes(value);
   }
@@ -173,6 +174,8 @@
   var followupTimer = null;
   var hooksBound = false;
   var panelObserver = null;
+  var panelObserverTimer = null;
+  var legacyPanelHook = null;
   function hasType(types, type) {
     return types.includes(type);
   }
@@ -286,19 +289,32 @@
     var _a, _b;
     if (hooksBound || !((_b = (_a = window.elementor) == null ? void 0 : _a.hooks) == null ? void 0 : _b.addAction)) return;
     hooksBound = true;
-    window.elementor.hooks.addAction("panel/open_editor/widget/eit-filter-controller", () => {
+    legacyPanelHook = () => {
       onPanelChange();
       scheduleFilterTypeSync();
-    });
+      window.queueMicrotask(() => bindPanelObserver(onPanelChange));
+    };
+    window.elementor.hooks.addAction("panel/open_editor/widget/eit-filter-controller", legacyPanelHook);
+  }
+  function disconnectPanelObserver() {
+    panelObserver == null ? void 0 : panelObserver.disconnect();
+    panelObserver = null;
+    window.clearTimeout(panelObserverTimer);
+    panelObserverTimer = null;
   }
   function bindPanelObserver(onPanelChange) {
-    if (panelObserver || !window.MutationObserver) return;
-    const panel = document.querySelector("#elementor-panel");
+    if (panelObserver || !window.MutationObserver || !getEditedFilterControllerContainer()) return;
+    const panel = document.querySelector("#elementor-panel-content-wrapper");
     if (!panel) return;
-    let observerTimer = null;
     panelObserver = new MutationObserver(() => {
-      window.clearTimeout(observerTimer);
-      observerTimer = window.setTimeout(() => {
+      window.clearTimeout(panelObserverTimer);
+      panelObserverTimer = window.setTimeout(() => {
+        panelObserverTimer = null;
+        if (!getEditedFilterControllerContainer()) {
+          disconnectPanelObserver();
+          clearStylePanelCadence();
+          return;
+        }
         onPanelChange();
         scheduleFilterTypeSync();
       }, 80);
@@ -306,20 +322,39 @@
     panelObserver.observe(panel, { childList: true, subtree: true });
   }
   function installCadence(onPanelChange) {
+    uninstallCadence();
     const refresh = () => {
       bindElementorHooks(onPanelChange);
-      bindPanelObserver(onPanelChange);
+      if (getEditedFilterControllerContainer()) bindPanelObserver(onPanelChange);
+      else disconnectPanelObserver();
       onPanelChange();
       scheduleFilterTypeSync();
     };
-    $(document).on("input change click", ".elementor-control-filters", scheduleFilterTypeSync);
+    $(document).on("input.eitCadence change.eitCadence click.eitCadence", ".elementor-control-filters", scheduleFilterTypeSync);
     $(document).on(
-      "click",
+      "click.eitCadence",
       ".elementor-panel-navigation-tab, .elementor-tab-control-content, .elementor-tab-control-style, .elementor-tab-control-advanced",
       scheduleFilterTypeSync
     );
-    $(window).on("elementor:init", refresh);
+    $(window).on("elementor:init.eitCadence", refresh);
     $(refresh);
+    return uninstallCadence;
+  }
+  function uninstallCadence() {
+    var _a, _b;
+    window.clearTimeout(syncTimer);
+    window.clearTimeout(followupTimer);
+    syncTimer = null;
+    followupTimer = null;
+    disconnectPanelObserver();
+    $(document).off(".eitCadence");
+    $(window).off(".eitCadence");
+    if (hooksBound && legacyPanelHook && ((_b = (_a = window.elementor) == null ? void 0 : _a.hooks) == null ? void 0 : _b.removeAction)) {
+      window.elementor.hooks.removeAction("panel/open_editor/widget/eit-filter-controller", legacyPanelHook);
+    }
+    hooksBound = false;
+    legacyPanelHook = null;
+    clearStylePanelCadence();
   }
 
   // assets/src/editor/presets.js
@@ -663,6 +698,231 @@
     $("<p/>", { class: "eit-editor-targets__hint", text: i18n.fallback || "Manual selector remains available for difficult cases." }).appendTo($helper);
   }
 
+  // assets/src/editor/collection-pairing.js
+  var activeWidget = "";
+  var hookBus = null;
+  var hookBindings = [];
+  var previewObserver = null;
+  var supportedWidgets = [
+    "eit-toolkit-filter-surface",
+    "eit-toolkit-collection-surface"
+  ];
+  function previewDocument() {
+    var _a;
+    return ((_a = document.querySelector("#elementor-preview-iframe")) == null ? void 0 : _a.contentDocument) || null;
+  }
+  function collectionIds(doc) {
+    return Array.from((doc == null ? void 0 : doc.querySelectorAll("[data-eit-collection-surface]")) || []).map((node) => node.getAttribute("data-eit-collection-surface") || "").filter(Boolean);
+  }
+  function hasRenderedPairingError(doc) {
+    return Boolean(doc == null ? void 0 : doc.querySelector('.elementor-widget-eit-toolkit-filter-surface .eit-connector-notice[role="alert"]'));
+  }
+  function pairingStatus(ids, override, type, ownCollectionId = "", renderedError = false) {
+    if (type === "eit-toolkit-collection-surface") {
+      if (!ownCollectionId) return { state: "error", code: "unconfigured" };
+      if (renderedError) return { state: "error", code: "mismatch" };
+      return { state: "success", code: "authority" };
+    }
+    if (!ids.length) return { state: "error", code: "missing" };
+    if (ids.length === 1) {
+      return override && override !== ids[0] ? { state: "error", code: "mismatch" } : { state: "success", code: override ? "compatible" : "automatic" };
+    }
+    const matches = ids.filter((id) => id === override);
+    return matches.length === 1 ? { state: "success", code: "disambiguated" } : { state: "error", code: override ? "mismatch" : "ambiguous" };
+  }
+  function statusMessage(code) {
+    const messages = {
+      automatic: i18n.collectionPairAutomatic || "Connected automatically to the Collection Surface on this document.",
+      compatible: i18n.collectionPairCompatible || "The saved 1.x binding matches the Collection Surface.",
+      disambiguated: i18n.collectionPairDisambiguated || "Connected to exactly one matching Collection Surface.",
+      authority: i18n.collectionPairAuthority || "This Surface owns the Collection contract for connected filters.",
+      missing: i18n.collectionPairMissing || "Add a Toolkit Collection Surface to complete this connection.",
+      unconfigured: i18n.collectionPairUnconfigured || "Select a published Collection for this Surface.",
+      ambiguous: i18n.collectionPairAmbiguous || "Several Collection Surfaces were found. Choose the specific Collection below.",
+      mismatch: i18n.collectionPairMismatch || "The Filter and Collection Surfaces do not use the same published Collection."
+    };
+    return messages[code] || messages.mismatch;
+  }
+  function renderCollectionPairStatus() {
+    if (!activeWidget) return;
+    const $status = $("[data-eit-collection-pair-status]:visible").last();
+    if (!$status.length) return;
+    const doc = previewDocument();
+    const controlValue = $(".elementor-control-collection_id:visible select").last().val() || "";
+    const status = pairingStatus(
+      collectionIds(doc),
+      activeWidget === "eit-toolkit-filter-surface" ? controlValue : "",
+      activeWidget,
+      activeWidget === "eit-toolkit-collection-surface" ? controlValue : "",
+      hasRenderedPairingError(doc)
+    );
+    $status.attr("class", `eit-connector-status is-${status.state}`).text(statusMessage(status.code));
+  }
+  function bindPreviewObserver() {
+    var _a;
+    previewObserver == null ? void 0 : previewObserver.disconnect();
+    previewObserver = null;
+    if (!activeWidget) return;
+    const body = (_a = previewDocument()) == null ? void 0 : _a.body;
+    if (!body || !window.MutationObserver) return;
+    previewObserver = new MutationObserver(renderCollectionPairStatus);
+    previewObserver.observe(body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-eit-collection-surface", "data-eit-config"]
+    });
+  }
+  function openPanel(type) {
+    activeWidget = type;
+    bindPreviewObserver();
+    window.queueMicrotask(renderCollectionPairStatus);
+  }
+  function closePanel() {
+    activeWidget = "";
+    previewObserver == null ? void 0 : previewObserver.disconnect();
+    previewObserver = null;
+  }
+  function widgetType(model, view) {
+    var _a, _b, _c;
+    return ((_a = model == null ? void 0 : model.get) == null ? void 0 : _a.call(model, "widgetType")) || ((_c = (_b = view == null ? void 0 : view.model) == null ? void 0 : _b.get) == null ? void 0 : _c.call(_b, "widgetType")) || "";
+  }
+  function addHook(name, callback) {
+    hookBus.addAction(name, callback);
+    hookBindings.push({ name, callback });
+  }
+  function unbindHooks() {
+    if (hookBus == null ? void 0 : hookBus.removeAction) {
+      hookBindings.forEach(({ name, callback }) => hookBus.removeAction(name, callback));
+    }
+    hookBindings = [];
+    hookBus = null;
+  }
+  function bindHooks() {
+    var _a, _b;
+    if (hookBus || !((_b = (_a = window.elementor) == null ? void 0 : _a.hooks) == null ? void 0 : _b.addAction)) return;
+    hookBus = window.elementor.hooks;
+    addHook("panel/open_editor/widget", (panel, model, view) => {
+      const type = widgetType(model, view);
+      if (supportedWidgets.includes(type)) {
+        openPanel(type);
+        return;
+      }
+      closePanel();
+    });
+    ["section", "column", "container"].forEach((elementType) => {
+      addHook(`panel/open_editor/${elementType}`, closePanel);
+    });
+  }
+  function rebindHooks() {
+    unbindHooks();
+    bindHooks();
+  }
+  function installCollectionPairing() {
+    uninstallCollectionPairing();
+    $(document).on("change.eitCollectionPairing", ".elementor-control-collection_id select", renderCollectionPairStatus);
+    $("#elementor-preview-iframe").on("load.eitCollectionPairing", () => {
+      bindPreviewObserver();
+      renderCollectionPairStatus();
+    });
+    $(window).on("elementor:init.eitCollectionPairing", rebindHooks);
+    bindHooks();
+    return uninstallCollectionPairing;
+  }
+  function uninstallCollectionPairing() {
+    $(document).off(".eitCollectionPairing");
+    $(window).off(".eitCollectionPairing");
+    $("#elementor-preview-iframe").off(".eitCollectionPairing");
+    unbindHooks();
+    closePanel();
+  }
+
+  // assets/src/editor/dynamic-tag-context.js
+  var panelObserver2 = null;
+  var refreshQueued = false;
+  var installed = false;
+  function compatibleFieldOptions(catalog, entityId, category) {
+    var _a, _b;
+    const fields = ((_b = (_a = catalog == null ? void 0 : catalog.entities) == null ? void 0 : _a[entityId]) == null ? void 0 : _b.fields) || {};
+    return Object.fromEntries(Object.entries(fields).filter(([, field]) => category === "all" || (field.categories || []).includes(category)).map(([fieldId, field]) => [fieldId, field.label]));
+  }
+  function visibleControl(name) {
+    return $(`.elementor-control-${name}:visible`).last();
+  }
+  function contextualControl($entityControl, name) {
+    const $stack = $entityControl.closest(".elementor-controls-stack");
+    const $control = $stack.find(`.elementor-control-${name}`).last();
+    return $control.length ? $control : $(`.elementor-control-${name}`).last();
+  }
+  function replaceFieldOptions($select, options, selectedValue, shouldReset) {
+    const currentOptions = Object.fromEntries($select.find("option").slice(1).map((index, option) => [option.value, option.textContent]).get());
+    const unchanged = JSON.stringify(currentOptions) === JSON.stringify(options);
+    if (unchanged) return;
+    $select.empty().append($("<option/>", {
+      value: "",
+      text: "Select a published Field"
+    }));
+    Object.entries(options).forEach(([value, label]) => {
+      $select.append($("<option/>", { value, text: label }));
+    });
+    const nextValue = Object.prototype.hasOwnProperty.call(options, selectedValue) ? selectedValue : "";
+    $select.val(nextValue).trigger("change.select2");
+    if (shouldReset && selectedValue && !nextValue) {
+      $select.trigger("change");
+    }
+  }
+  function syncEntityFieldControls(shouldReset = false) {
+    const $entityControl = visibleControl("entity_id");
+    const $fieldControl = contextualControl($entityControl, "field_id");
+    const $categoryControl = contextualControl($entityControl, "eit_field_category");
+    if (!$entityControl.length || !$fieldControl.length || !$categoryControl.length) return;
+    const $entity = $entityControl.find('[data-setting="entity_id"]');
+    const $field = $fieldControl.find('select[data-setting="field_id"]');
+    const category = $categoryControl.find('[data-setting="eit_field_category"]').val() || "all";
+    if (!$entity.length || !$field.length) return;
+    const entityId = $entity.val() || dynamicTagCatalog.contextEntityId || "";
+    const selectedValue = $field.val() || $field.data("eitSelectedField") || "";
+    if (selectedValue) $field.data("eitSelectedField", selectedValue);
+    const options = compatibleFieldOptions(dynamicTagCatalog, entityId, category);
+    replaceFieldOptions($field, options, selectedValue, shouldReset);
+  }
+  function queueRefresh() {
+    if (!installed || refreshQueued) return;
+    refreshQueued = true;
+    window.queueMicrotask(() => {
+      refreshQueued = false;
+      if (!installed) return;
+      syncEntityFieldControls(false);
+    });
+  }
+  function installDynamicTagContext() {
+    uninstallDynamicTagContext();
+    installed = true;
+    $(document).on("change.eitEntityContext", '.elementor-control-entity_id [data-setting="entity_id"]', () => {
+      syncEntityFieldControls(true);
+    });
+    const bindObserver = () => {
+      panelObserver2 == null ? void 0 : panelObserver2.disconnect();
+      panelObserver2 = null;
+      const panel = document.querySelector("#elementor-panel-content-wrapper");
+      if (!panel || !window.MutationObserver) return;
+      panelObserver2 = new MutationObserver(queueRefresh);
+      panelObserver2.observe(panel, { childList: true, subtree: true });
+    };
+    $(window).on("elementor:init.eitEntityContext", bindObserver);
+    bindObserver();
+    queueRefresh();
+    return uninstallDynamicTagContext;
+  }
+  function uninstallDynamicTagContext() {
+    installed = false;
+    refreshQueued = false;
+    $(document).off(".eitEntityContext");
+    $(window).off(".eitEntityContext");
+    panelObserver2 == null ? void 0 : panelObserver2.disconnect();
+    panelObserver2 = null;
+  }
+
   // assets/src/editor/index.js
   function refreshPanelTools() {
     renderPanelHelper();
@@ -671,4 +931,6 @@
   $(document).on("click", "[data-eit-save-preset]", handleSavePreset);
   $(document).on("click", "[data-eit-import-preset]", handleImportPreset);
   installCadence(refreshPanelTools);
+  installCollectionPairing();
+  installDynamicTagContext();
 })();

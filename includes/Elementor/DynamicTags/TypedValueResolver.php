@@ -26,8 +26,8 @@ class TypedValueResolver {
 		$this->normalized = new NormalizedValueStore();
 	}
 
-	public function resolve( $field_id, $category = 'text' ) {
-		$context = $this->catalog->field( $field_id );
+	public function resolve( $field_id, $category = 'text', $entity_id = '' ) {
+		$context = $this->catalog->field( $field_id, $entity_id );
 		if ( ! $context || ! $this->can_read( $context['field'] ) ) {
 			return null;
 		}

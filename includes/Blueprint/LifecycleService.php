@@ -29,6 +29,9 @@ class LifecycleService {
 	private $compiler;
 	private $impact_planner;
 	private $impact_map;
+	private $publication;
+	private $ownership;
+	private $apply_service;
 	private $preparer;
 	private $blueprints;
 	private $versions;
@@ -49,12 +52,16 @@ class LifecycleService {
 		$this->compiler = $dependencies['compiler'] ?? new Compiler();
 		$this->impact_planner = $dependencies['impact_planner'] ?? new ImpactPlanner();
 		$this->impact_map = $dependencies['impact_map'] ?? new ImpactMapBuilder();
-		$this->preparer = $dependencies['preparer'] ?? new RuntimeArtifactPreparer();
 		$this->blueprints = $dependencies['blueprints'] ?? new BlueprintStore();
 		$this->versions = $dependencies['versions'] ?? new VersionStore();
 		$this->artifacts = $dependencies['artifacts'] ?? new ArtifactStore();
 		$this->bindings = $dependencies['bindings'] ?? new BindingStore();
 		$this->change_sets = $dependencies['change_sets'] ?? new ChangeSetStore();
+		$migrations = $dependencies['migration_guard'] ?? new MigrationPublicationGuard();
+		$claims = $dependencies['claims'] ?? new \EIT\Infrastructure\StorageClaimStore();
+		$this->publication = $dependencies['publication'] ?? new PublicationAuthority( $this->blueprints, $this->change_sets, $migrations );
+		$this->ownership = $dependencies['ownership'] ?? new StorageOwnershipValidator( $this->blueprints, $this->artifacts, $migrations, $claims );
+		$this->preparer = $dependencies['preparer'] ?? new RuntimeArtifactPreparer();
 		$this->locks = $dependencies['locks'] ?? new LockStore();
 		$this->runs = $dependencies['runs'] ?? new RunStore();
 		$this->run_events = $dependencies['run_events'] ?? new RunEventStore();
@@ -62,6 +69,24 @@ class LifecycleService {
 		$this->rollbacks = $dependencies['rollbacks'] ?? new RollbackStore();
 		$this->cache = $dependencies['cache'] ?? new RuntimeCache();
 		$this->transaction = $dependencies['transaction'] ?? new Transaction();
+		$this->apply_service = $dependencies['apply_service'] ?? new BlueprintApplyService(
+			[
+				'publication' => $this->publication,
+				'ownership' => $this->ownership,
+				'claims' => $claims,
+				'preparer' => $this->preparer,
+				'blueprints' => $this->blueprints,
+				'versions' => $this->versions,
+				'artifacts' => $this->artifacts,
+				'bindings' => $this->bindings,
+				'change_sets' => $this->change_sets,
+				'locks' => $this->locks,
+				'runs' => $this->runs,
+				'run_events' => $this->run_events,
+				'cache' => $this->cache,
+				'transaction' => $this->transaction,
+			]
+		);
 	}
 
 	public function save_draft( array $document ) {
@@ -92,6 +117,11 @@ class LifecycleService {
 		$active_artifacts = $active_version_id ? $this->artifacts->for_version( $active_version_id ) : [];
 		$active_bindings = $active_version_id ? $this->bindings->for_version( $active_version_id ) : [];
 		$impact = $this->impact_planner->plan( $active_artifacts, $active_bindings, $compiled->artifacts(), $compiled->bindings() );
+		$authority_blockers = array_merge( $this->publication->blockers( $blueprint ), $this->ownership->blockers( $blueprint_id, $compiled->artifacts() ) );
+		if ( $authority_blockers ) {
+			$impact['blockers'] = array_merge( $impact['blockers'], $authority_blockers );
+			$impact['blocked'] = true;
+		}
 		$impact['map'] = $this->impact_map->build( $blueprint['draft_document'], $impact );
 		$token = bin2hex( random_bytes( 32 ) );
 		$record = $this->change_sets->create(
@@ -119,97 +149,7 @@ class LifecycleService {
 	}
 
 	public function apply( $change_set_id, $confirmation_token, $user_id = 0 ) {
-		$change_set = $this->change_sets->get( $change_set_id );
-		if ( ! $change_set || 'prepared' !== $change_set['status'] ) {
-			return new \WP_Error( 'eit_change_set_not_prepared', __( 'Blueprint change set is not prepared for publication.', 'elementor-implementation-toolkit' ) );
-		}
-		if ( ! hash_equals( $change_set['confirmation_hash'], hash( 'sha256', (string) $confirmation_token ) ) ) {
-			return new \WP_Error( 'eit_change_set_confirmation_invalid', __( 'Blueprint publication confirmation is invalid.', 'elementor-implementation-toolkit' ) );
-		}
-
-		$blueprint = $this->blueprints->get( $change_set['blueprint_id'] );
-		if ( ! $blueprint || ! hash_equals( $change_set['draft_checksum'], (string) $blueprint['draft_checksum'] ) ) {
-			return new \WP_Error( 'eit_change_set_stale', __( 'Blueprint draft changed after this impact plan was prepared.', 'elementor-implementation-toolkit' ) );
-		}
-		$resource = 'blueprint-' . $change_set['blueprint_id'];
-		$lock = $this->locks->acquire( $resource, $user_id );
-		if ( is_wp_error( $lock ) ) {
-			return $lock;
-		}
-
-		$transition = $this->change_sets->transition( $change_set_id, 'prepared', 'applying' );
-		if ( is_wp_error( $transition ) ) {
-			$this->locks->release( $resource, $lock );
-			return $transition;
-		}
-		$run = $this->runs->start( $change_set['blueprint_id'], 'apply', $change_set_id, [ 'user_id' => $user_id, 'compiler_checksum' => $change_set['compiled_artifacts']['compiler_checksum'] ] );
-		if ( is_wp_error( $run ) ) {
-			$this->change_sets->transition( $change_set_id, 'applying', 'failed' );
-			$this->locks->release( $resource, $lock );
-			return $run;
-		}
-		$recorded = $this->run_events->append(
-			$run['id'],
-			'compiled',
-			[
-				'compiler_checksum' => $change_set['compiled_artifacts']['compiler_checksum'],
-				'artifact_count' => count( $change_set['compiled_artifacts']['artifacts'] ),
-				'binding_count' => count( $change_set['compiled_artifacts']['bindings'] ),
-				'impact' => $change_set['impact']['summary'] ?? [],
-			]
-		);
-		if ( is_wp_error( $recorded ) ) {
-			$this->change_sets->transition( $change_set_id, 'applying', 'failed' );
-			$this->runs->finish( $run['id'], 'failed', $recorded );
-			$this->locks->release( $resource, $lock );
-			return $recorded;
-		}
-
-		$prepare_started = microtime( true );
-		$prepared = $this->preparer->prepare( $change_set['compiled_artifacts']['artifacts'], [ 'change_set_id' => $change_set_id ] );
-		$this->run_events->append( $run['id'], 'runtime_prepared', [ 'ok' => ! is_wp_error( $prepared ) ], ( microtime( true ) - $prepare_started ) * 1000 );
-		if ( is_wp_error( $prepared ) ) {
-			$this->change_sets->transition( $change_set_id, 'applying', 'failed' );
-			$this->runs->finish( $run['id'], 'failed', $prepared );
-			$this->locks->release( $resource, $lock );
-			return $prepared;
-		}
-
-		$result = $this->transaction->run(
-			function () use ( $blueprint, $change_set, $change_set_id ) {
-				$version = $this->versions->insert( $change_set['blueprint_id'], $blueprint['draft_document'], $change_set['draft_checksum'] );
-				if ( is_wp_error( $version ) ) {
-					return $version;
-				}
-				$stored_artifacts = $this->artifacts->insert_many( $change_set['blueprint_id'], $version['id'], $change_set['compiled_artifacts']['artifacts'] );
-				if ( is_wp_error( $stored_artifacts ) ) {
-					return $stored_artifacts;
-				}
-				$stored_bindings = $this->bindings->insert_many( $change_set['blueprint_id'], $version['id'], $change_set['compiled_artifacts']['bindings'] );
-				if ( is_wp_error( $stored_bindings ) ) {
-					return $stored_bindings;
-				}
-				$activated = $this->blueprints->set_active_version( $change_set['blueprint_id'], $version['id'] );
-				if ( is_wp_error( $activated ) ) {
-					return $activated;
-				}
-				$transitioned = $this->change_sets->transition( $change_set_id, 'applying', 'applied', [ 'applied_at' => current_time( 'mysql', true ) ] );
-				return is_wp_error( $transitioned ) ? $transitioned : $version;
-			}
-		);
-
-		if ( is_wp_error( $result ) ) {
-			$this->run_events->append( $run['id'], 'transaction_failed', [ 'error' => [ 'code' => $result->get_error_code(), 'message' => $result->get_error_message() ] ] );
-			$this->change_sets->transition( $change_set_id, 'applying', 'failed' );
-			$this->runs->finish( $run['id'], 'failed', $result );
-		} else {
-			$this->cache->set( $change_set['blueprint_id'], $result['id'], $change_set['compiled_artifacts']['artifacts'] );
-			$this->run_events->append( $run['id'], 'version_activated', [ 'version_id' => $result['id'], 'version' => $result['version'], 'checksum' => $result['checksum'] ] );
-			$this->runs->finish( $run['id'], 'succeeded' );
-			RuntimeDefinitionProvider::invalidate();
-		}
-		$this->locks->release( $resource, $lock );
-		return $result;
+		return $this->apply_service->apply( $change_set_id, $confirmation_token, $user_id );
 	}
 
 	public function reconcile( $change_set_id ) {
@@ -243,45 +183,94 @@ class LifecycleService {
 	public function rollback( $blueprint_id, $target_version_id, $reason, $user_id = 0 ) {
 		$blueprint = $this->blueprints->get( $blueprint_id );
 		$target = $this->versions->get( $target_version_id );
-		if ( ! $blueprint || ! $target || $target['blueprint_id'] !== $blueprint_id || ! $blueprint['active_version_id'] ) {
+		if ( ! $this->valid_rollback_target( $blueprint, $target, $blueprint_id ) ) {
 			return new \WP_Error( 'eit_rollback_target_invalid', __( 'Blueprint rollback target is invalid.', 'elementor-implementation-toolkit' ) );
 		}
+		$ownership_resource = 'storage-ownership';
+		$ownership_lock = $this->locks->acquire( $ownership_resource, $user_id, 900 );
+		if ( is_wp_error( $ownership_lock ) ) {
+			return $ownership_lock;
+		}
 		$resource = 'blueprint-' . $blueprint_id;
-		$lock = $this->locks->acquire( $resource, $user_id );
-		if ( is_wp_error( $lock ) ) {
-			return $lock;
-		}
-		$from_version_id = $blueprint['active_version_id'];
-		$run = $this->runs->start( $blueprint_id, 'rollback', null, [ 'from_version_id' => $from_version_id, 'to_version_id' => $target_version_id, 'reason_checksum' => hash( 'sha256', (string) $reason ) ] );
-		if ( is_wp_error( $run ) ) {
-			$this->locks->release( $resource, $lock );
-			return $run;
-		}
-		$target_artifacts = $this->artifacts->for_version( $target_version_id );
-		$prepared = $this->preparer->prepare( $target_artifacts, [ 'operation' => 'rollback' ] );
-		if ( is_wp_error( $prepared ) ) {
-			$this->runs->finish( $run['id'], 'failed', $prepared );
-			$this->locks->release( $resource, $lock );
-			return $prepared;
-		}
-		$result = $this->transaction->run(
-			function () use ( $blueprint_id, $from_version_id, $target_version_id, $reason, $user_id ) {
-				$activated = $this->blueprints->set_active_version( $blueprint_id, $target_version_id );
-				if ( is_wp_error( $activated ) ) {
-					return $activated;
-				}
-				return $this->rollbacks->record( $blueprint_id, $from_version_id, $target_version_id, $reason, $user_id );
+		$lock = null;
+		try {
+			$lock = $this->locks->acquire( $resource, $user_id, 900 );
+			if ( is_wp_error( $lock ) ) {
+				return $lock;
 			}
-		);
-		if ( ! is_wp_error( $result ) ) {
+			$blueprint = $this->blueprints->get( $blueprint_id );
+			$target = $this->versions->get( $target_version_id );
+			if ( ! $this->valid_rollback_target( $blueprint, $target, $blueprint_id ) ) {
+				return new \WP_Error( 'eit_rollback_target_invalid', __( 'Blueprint rollback target changed while acquiring its lock.', 'elementor-implementation-toolkit' ) );
+			}
+			$from_version_id = $blueprint['active_version_id'];
+			$run = $this->runs->start( $blueprint_id, 'rollback', null, [ 'from_version_id' => $from_version_id, 'to_version_id' => $target_version_id, 'reason_checksum' => hash( 'sha256', (string) $reason ) ] );
+			if ( is_wp_error( $run ) ) {
+				return $run;
+			}
+			$target_artifacts = $this->artifacts->for_version( $target_version_id );
+			$compiled = $this->compiler->compile( $target['document'] );
+			$compiled_artifacts = $compiled->artifacts();
+			$canary = $compiled->is_valid() ? $this->verify_artifact_checksums( $compiled_artifacts, $target_artifacts ) : new \WP_Error( 'eit_rollback_compile_failed', __( 'Rollback target no longer compiles against the current runtime.', 'elementor-implementation-toolkit' ), [ 'errors' => $compiled->errors() ] );
+			if ( is_wp_error( $canary ) ) {
+				return $this->fail_rollback( $run, $canary );
+			}
+			$owned = $this->ownership->validate( $blueprint_id, $target_artifacts );
+			if ( is_wp_error( $owned ) ) {
+				return $this->fail_rollback( $run, $owned );
+			}
+			$prepared = $this->preparer->prepare( $target_artifacts, [ 'operation' => 'rollback' ] );
+			if ( is_wp_error( $prepared ) ) {
+				return $this->fail_rollback( $run, $prepared );
+			}
+			$result = $this->transaction->run(
+				function () use ( $blueprint_id, $from_version_id, $target_version_id, $reason, $user_id, $compiled_artifacts ) {
+					$activated = $this->blueprints->set_active_version( $blueprint_id, $target_version_id );
+					if ( is_wp_error( $activated ) ) {
+						return $activated;
+					}
+					$verified = $this->verify_rollback_activation( $blueprint_id, $target_version_id, $compiled_artifacts );
+					return is_wp_error( $verified ) ? $verified : $this->rollbacks->record( $blueprint_id, $from_version_id, $target_version_id, $reason, $user_id );
+				}
+			);
+			if ( is_wp_error( $result ) ) {
+				return $this->fail_rollback( $run, $result );
+			}
 			$this->cache->set( $blueprint_id, $target_version_id, $target_artifacts );
 			$this->run_events->append( $run['id'], 'version_reactivated', [ 'from_version_id' => $from_version_id, 'to_version_id' => $target_version_id, 'artifact_count' => count( $target_artifacts ) ] );
 			$this->runs->finish( $run['id'], 'succeeded' );
 			RuntimeDefinitionProvider::invalidate();
-		} else {
-			$this->runs->finish( $run['id'], 'failed', $result );
+			return $result;
+		} finally {
+			if ( null !== $lock && ! is_wp_error( $lock ) ) {
+				$this->locks->release( $resource, $lock );
+			}
+			$this->locks->release( $ownership_resource, $ownership_lock );
 		}
-		$this->locks->release( $resource, $lock );
-		return $result;
+	}
+
+	private function valid_rollback_target( $blueprint, $target, $blueprint_id ) {
+		return is_array( $blueprint ) && is_array( $target ) && (string) ( $target['blueprint_id'] ?? '' ) === (string) $blueprint_id && ! empty( $blueprint['active_version_id'] ) && is_array( $target['document'] ?? null );
+	}
+
+	private function verify_rollback_activation( $blueprint_id, $target_version_id, array $expected_artifacts ) {
+		$blueprint = $this->blueprints->get( $blueprint_id );
+		if ( ! $blueprint || (int) $target_version_id !== (int) ( $blueprint['active_version_id'] ?? 0 ) ) {
+			return new \WP_Error( 'eit_rollback_activation_mismatch', __( 'Rollback did not persist the requested active version.', 'elementor-implementation-toolkit' ) );
+		}
+		return $this->verify_artifact_checksums( $expected_artifacts, $this->artifacts->for_version( $target_version_id ) );
+	}
+
+	private function verify_artifact_checksums( array $expected_artifacts, array $actual_artifacts ) {
+		$expected = array_column( $expected_artifacts, 'checksum', 'id' );
+		$actual = array_column( $actual_artifacts, 'checksum', 'id' );
+		ksort( $expected );
+		ksort( $actual );
+		return $expected === $actual ? true : new \WP_Error( 'eit_rollback_artifact_mismatch', __( 'Rollback target artifacts differ from the current compiler output.', 'elementor-implementation-toolkit' ) );
+	}
+
+	private function fail_rollback( array $run, $error ) {
+		$this->runs->finish( $run['id'], 'failed', $error );
+		return $error;
 	}
 }

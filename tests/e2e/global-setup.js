@@ -32,7 +32,7 @@ function runDocker(args, environment) {
   return result.stdout.trim();
 }
 
-function runFixture(mode, environment) {
+export function runFixture(mode, environment) {
   return runDocker(
     [
       "run",
@@ -71,13 +71,14 @@ export default async function globalSetup() {
   );
 
   process.env.EIT_E2E_USER = environment.EIT_E2E_USER;
+  process.env.EIT_E2E_EMAIL = environment.EIT_E2E_EMAIL;
   process.env.EIT_E2E_PASSWORD = environment.EIT_E2E_PASSWORD;
+  process.env.EIT_E2E_TOKEN = environment.EIT_E2E_TOKEN;
   process.env.EIT_E2E_FRONTEND_PATH = fixture.frontendPath;
-  process.env.EIT_E2E_EDITOR_PATH = fixture.editorPath;
+  process.env.EIT_E2E_LEGACY_EDITOR_PATH = fixture.legacyEditorPath;
+  process.env.EIT_E2E_CONNECTOR_EDITOR_PATH = fixture.connectorEditorPath;
+  process.env.EIT_E2E_ENTRY_EDITOR_PATH = fixture.entryEditorPath;
   process.env.EIT_E2E_ENTRY_PATH = fixture.entryPath;
   process.env.EIT_E2E_COLLECTION_PATH = fixture.collectionPath;
 
-  return async () => {
-    runFixture("cleanup", environment);
-  };
 }

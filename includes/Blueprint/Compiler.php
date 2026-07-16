@@ -6,6 +6,7 @@
 namespace EIT\Blueprint;
 
 use EIT\Contracts\FieldContractSourceInterface;
+use EIT\Registry\ExtensionContract;
 use EIT\Registry\RegistryHub;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -31,7 +32,7 @@ class Compiler {
 		$this->validator = $validator ?: new BlueprintValidator( null, $this->registries->field_primitives(), null, $this->registries );
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
 		$this->recommendation = $recommendation ?: new StorageRecommendation();
-		$this->entry_contracts = new EntryContractCompiler();
+		$this->entry_contracts = new EntryContractCompiler( $this->registries );
 		$this->collection_contracts = new CollectionContractCompiler( $this->registries );
 	}
 
@@ -73,27 +74,37 @@ class Compiler {
 				$errors[] = $this->error( 'storage_adapter_missing', 'Selected storage adapter is not registered.', $node['id'] );
 				continue;
 			}
-			$health = $adapter->health_check();
-			if ( empty( $health['ok'] ) ) {
-				$errors[] = $this->error( 'storage_adapter_unhealthy', 'Selected storage adapter failed its health check.', $node['id'] );
+			$adapter_contract = $this->adapter_contract( $adapter, $adapter_id );
+			if ( is_wp_error( $adapter_contract ) ) {
+				$errors[] = $this->error( $adapter_contract->get_error_code(), $adapter_contract->get_error_message(), $node['id'] );
 				continue;
 			}
 			if ( $adapter instanceof FieldContractSourceInterface ) {
-				$fields = $adapter->get_field_contracts(
-					$node,
-					[ 'blueprint_id' => $blueprint['id'], 'adapter_node' => $adapter_node ]
-				);
+				try {
+					$fields = $adapter->get_field_contracts(
+						$node,
+						[ 'blueprint_id' => $blueprint['id'], 'adapter_node' => $adapter_node ]
+					);
+				} catch ( \Throwable $error ) {
+					$errors[] = $this->error( 'adapter_field_contracts_failed', 'Adapter Field Contracts could not be loaded.', $node['id'] );
+					continue;
+				}
 				if ( ! is_array( $fields ) || ! array_is_list( $fields ) ) {
 					$errors[] = $this->error( 'adapter_field_contracts_invalid', 'Adapter Field Contracts must be a list.', $node['id'] );
 					continue;
 				}
 			}
 
-			$compiled = $adapter->compile(
-				$node,
-				$fields,
-				[ 'blueprint_id' => $blueprint['id'], 'slug' => $blueprint['slug'] ?? '' ]
-			);
+			try {
+				$compiled = $adapter->compile(
+					$node,
+					$fields,
+					[ 'blueprint_id' => $blueprint['id'], 'slug' => $blueprint['slug'] ?? '' ]
+				);
+			} catch ( \Throwable $error ) {
+				$errors[] = $this->error( 'storage_adapter_compile_failed', 'Storage adapter could not compile the Entity.', $node['id'] );
+				continue;
+			}
 			if ( is_wp_error( $compiled ) ) {
 				$errors[] = $this->error( $compiled->get_error_code(), $compiled->get_error_message(), $node['id'] );
 				continue;
@@ -106,13 +117,13 @@ class Compiler {
 					'name' => $node['name'],
 					'fields' => $fields,
 					'recommendation' => $recommendation,
-					'adapter' => [ 'id' => $adapter_id, 'version' => $adapter->get_version(), 'capabilities' => $adapter->get_capabilities() ],
+					'adapter' => array_merge( [ 'id' => $adapter_id ], $adapter_contract ),
 				]
 			);
 			$artifacts[] = $this->artifact( $blueprint['id'], $blueprint_checksum, 'entity_definition', $node['id'], $entity_payload );
 			$compiled_entities[ $node['id'] ] = $entity_payload;
 			$artifacts[] = $this->artifact( $blueprint['id'], $blueprint_checksum, 'storage_contract', $node['id'], [ 'strategy' => $recommendation['selected'], 'adapter' => $adapter_id, 'fields' => array_column( $fields, 'id' ) ] );
-			$artifacts[] = $this->artifact( $blueprint['id'], $blueprint_checksum, 'capability_contract', $node['id'], $this->capabilities( $fields, $adapter ) );
+			$artifacts[] = $this->artifact( $blueprint['id'], $blueprint_checksum, 'capability_contract', $node['id'], $this->capabilities( $fields, $adapter_contract['capabilities'] ) );
 
 			foreach ( $fields as $field ) {
 				$bindings[] = [
@@ -191,29 +202,59 @@ class Compiler {
 			if ( ! $adapter ) {
 				return new \WP_Error( 'eit_presentation_adapter_missing', __( 'The selected Presentation adapter is not registered.', 'elementor-implementation-toolkit' ) );
 			}
-			$health = $adapter->health_check();
-			if ( ! is_array( $health ) || empty( $health['ok'] ) ) {
-				return new \WP_Error( 'eit_presentation_adapter_unhealthy', __( 'The selected Presentation adapter is unavailable.', 'elementor-implementation-toolkit' ) );
+			$adapter_contract = ExtensionContract::snapshot( $adapter );
+			if ( is_wp_error( $adapter_contract ) || ! hash_equals( $adapter_id, (string) ( $adapter_contract['id'] ?? '' ) ) ) {
+				if ( ! is_wp_error( $adapter_contract ) ) {
+					return new \WP_Error( 'eit_presentation_adapter_incompatible', __( 'The selected Presentation adapter identity changed after registration.', 'elementor-implementation-toolkit' ) );
+				}
+				$code = 'eit_extension_unavailable' === $adapter_contract->get_error_code() ? 'eit_presentation_adapter_unhealthy' : 'eit_presentation_adapter_incompatible';
+				return new \WP_Error( $code, __( 'The selected Presentation adapter failed its runtime contract.', 'elementor-implementation-toolkit' ) );
 			}
-			$payload = $adapter->compile(
-				$node,
-				[
-					'blueprint_id' => $blueprint['id'],
-					'connections' => $this->node_connections( $node['id'], $connections ),
-					'nodes' => $nodes,
-				]
-			);
+			try {
+				$payload = $adapter->compile(
+					$node,
+					[
+						'blueprint_id' => $blueprint['id'],
+						'connections' => $this->node_connections( $node['id'], $connections ),
+						'nodes' => $nodes,
+					]
+				);
+			} catch ( \Throwable $error ) {
+				return new \WP_Error( 'eit_presentation_adapter_compile_failed', __( 'The selected Presentation adapter could not compile this node.', 'elementor-implementation-toolkit' ) );
+			}
 			if ( is_wp_error( $payload ) ) {
 				return $payload;
 			}
+			if ( ! is_array( $payload ) ) {
+				return new \WP_Error( 'eit_presentation_adapter_contract_invalid', __( 'The selected Presentation adapter returned an invalid contract.', 'elementor-implementation-toolkit' ) );
+			}
+			$payload['adapter'] = $adapter_contract;
 		}
 		if ( 'relation' === $node['type'] ) {
+			$payload['field_id'] = strtolower( (string) ( $node['config']['field_id'] ?? '' ) );
+			$payload['cardinality'] = sanitize_key( $node['config']['cardinality'] ?? '' );
 			$payload['source_entity_id'] = $this->connected_node( $node['id'], 'relation_source', 'from', $connections );
 			$payload['target_entity_id'] = $this->connected_node( $node['id'], 'relation_target', 'to', $connections );
+			$payload['options_collection_id'] = $this->connected_node( $node['id'], 'relation_options', 'to', $connections );
 			$payload['storage'] = 'normalized_relation_values';
+		}
+		if ( 'route' === $node['type'] ) {
+			$raw_path = trim( (string) ( $node['config']['path'] ?? '' ) );
+			$existing = (bool) filter_var( $raw_path, FILTER_VALIDATE_URL );
+			$payload = [
+				'route_id' => $node['id'],
+				'name' => $node['name'],
+				'presentation_id' => $this->connected_node( $node['id'], 'routes', 'from', $connections ),
+				'path' => $existing ? esc_url_raw( $raw_path ) : trim( $raw_path, '/' ),
+				'kind' => $existing ? 'existing_document' : 'virtual',
+				'exposure' => sanitize_key( $node['config']['exposure'] ?? 'public' ),
+			];
 		}
 		if ( 'field_group' === $node['type'] ) {
 			$payload['repeatable_storage'] = 'normalized_multivalue_values';
+		}
+		if ( is_wp_error( $payload ) ) {
+			return $payload;
 		}
 		return $this->artifact( $blueprint['id'], $checksum, $kinds[ $node['type'] ], $node['id'], $payload );
 	}
@@ -252,8 +293,21 @@ class Compiler {
 		return null;
 	}
 
-	private function capabilities( array $fields, $adapter ) {
-		$contract = [ 'adapter' => $adapter->get_capabilities(), 'fields' => [] ];
+	private function adapter_contract( $adapter, $expected_id ) {
+		$contract = ExtensionContract::snapshot( $adapter );
+		if ( is_wp_error( $contract ) || ! hash_equals( (string) $expected_id, (string) ( $contract['id'] ?? '' ) ) ) {
+			if ( ! is_wp_error( $contract ) ) {
+				return new \WP_Error( 'storage_adapter_incompatible', 'Selected storage adapter identity changed after registration.' );
+			}
+			$code = 'eit_extension_unavailable' === $contract->get_error_code() ? 'storage_adapter_unhealthy' : 'storage_adapter_incompatible';
+			return new \WP_Error( $code, 'Selected storage adapter failed its runtime contract.' );
+		}
+		unset( $contract['id'] );
+		return $contract;
+	}
+
+	private function capabilities( array $fields, array $adapter_capabilities ) {
+		$contract = [ 'adapter' => $adapter_capabilities, 'fields' => [] ];
 		foreach ( $fields as $field ) {
 			$contract['fields'][ $field['id'] ] = [
 				'search' => ! empty( $field['capabilities']['search'] ) && ! empty( $field['indexing']['search'] ),

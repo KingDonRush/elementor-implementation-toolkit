@@ -18,7 +18,11 @@ class CollectionContractPresenter {
 	}
 
 	public function present( array $contract ) {
-		$fields = $this->projector->fields( $contract );
+		$fields = array_column(
+			array_values( array_filter( $contract['fields'] ?? [], fn( $field ) => ! empty( $field['exposure']['public'] ) ) ),
+			null,
+			'id'
+		);
 		$allowed = array_fill_keys( array_keys( $fields ), true );
 		$surface = is_array( $contract['filter_surface'] ?? null ) ? $contract['filter_surface'] : [];
 		$controls = array_values(

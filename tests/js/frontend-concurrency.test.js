@@ -95,6 +95,25 @@ describe('frontend request state machine', () => {
     expect(controller.lastResult.total).toBe(1);
   });
 
+  it('aborts requests and removes delegated handlers when its Elementor scope is destroyed', () => {
+    const requests = [];
+    vi.spyOn($, 'ajax').mockImplementation(() => {
+      const request = deferredRequest();
+      requests.push(request);
+      return request;
+    });
+    const root = document.querySelector('.eit-filter-controller');
+    const controller = new Controller(root);
+
+    controller.destroy();
+    root.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0].abort).toHaveBeenCalledOnce();
+    expect(controller.destroyed).toBe(true);
+    expect(root.getAttribute('aria-busy')).toBe('false');
+  });
+
 	it('queries a published Collection and applies compiled facet availability', () => {
 		document.body.innerHTML = `
 			<div class="eit-filter-controller"
@@ -138,5 +157,41 @@ describe('frontend request state machine', () => {
 		expect(document.querySelector('[data-eit-collection-results]').textContent).toContain('Open item');
 		expect(document.querySelector('[value="closed"]').disabled).toBe(true);
 		expect(document.querySelector('[data-eit-result-count]').textContent).toBe('1 results');
+	});
+
+	it('waits for a split Collection Surface that Elementor mounts later', async () => {
+		document.body.innerHTML = `
+			<div class="eit-filter-controller"
+				data-eit-config='{"provider":"collection","collectionId":"collection-id","collectionTarget":"collection-id","autoApply":false,"perPage":24,"resultText":"{count} results"}'
+				data-eit-filters='[]'>
+				<form class="eit-filter-controller__form"></form>
+				<div data-eit-result-count></div><div data-eit-active-filters></div><div data-eit-empty hidden></div>
+				<div data-eit-error hidden tabindex="-1"></div><div data-eit-status></div><div data-eit-pagination></div>
+			</div>`;
+		const requests = [];
+		vi.spyOn($, 'ajax').mockImplementation(() => {
+			const request = deferredRequest();
+			requests.push(request);
+			return request;
+		});
+
+		new Controller(document.querySelector('.eit-filter-controller'));
+		expect(requests).toHaveLength(0);
+		expect(document.querySelector('.eit-filter-controller').getAttribute('aria-busy')).toBe('true');
+		expect(document.querySelector('[data-eit-error]').hidden).toBe(true);
+
+		const collection = document.createElement('section');
+		collection.setAttribute('data-eit-collection-surface', 'collection-id');
+		collection.innerHTML = '<div data-eit-collection-results></div>';
+		document.body.append(collection);
+		await vi.waitFor(() => expect(requests).toHaveLength(1));
+
+		requests[0].resolveWith({
+			html: '<div data-eit-collection-items><article>Late item</article></div>',
+			pagination: { total: 1, page: 1, pages: 1, per_page: 24 },
+		});
+		expect(collection.textContent).toContain('Late item');
+		expect(document.querySelector('[data-eit-error]').hidden).toBe(true);
+		expect(document.querySelector('.eit-filter-controller').getAttribute('aria-busy')).toBe('false');
 	});
 });

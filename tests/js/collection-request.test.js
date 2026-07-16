@@ -35,4 +35,9 @@ describe( 'Collection browser request contract', () => {
 		expect( normalizeCollectionResponse( { pagination: { total: 12, page: 2, pages: 3, per_page: 5 } } ) )
 			.toMatchObject( { total: 12, page: 2, pages: 3, perPage: 5 } );
 	} );
+
+	it( 'requests factual explanations only when the published contract enables them', () => {
+		expect( collectionPayload( { filters: [] }, { collectionExplain: true }, 1 ) ).toMatchObject( { explain: true } );
+		expect( collectionPayload( { filters: [] }, { collectionExplain: false }, 1 ) ).not.toHaveProperty( 'explain' );
+	} );
 } );

@@ -5,6 +5,9 @@
 
 namespace EIT\Blueprint;
 
+use EIT\Registry\ExtensionContract;
+use EIT\Registry\RegistryHub;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -13,8 +16,15 @@ class EntryContractCompiler {
 
 	const OPERATIONS = [ 'create', 'update', 'submit_review', 'publish', 'archive', 'restore' ];
 	const STATUSES = [ 'draft', 'review', 'publish', 'archived' ];
-	const ACTION_TYPES = [ 'redirect', 'email', 'notification', 'webhook' ];
+	const ACTION_TYPES = [ 'redirect', 'email', 'webhook' ];
 	const ACTION_EVENTS = [ 'created', 'updated', 'submitted_for_review', 'published', 'archived', 'restored' ];
+	private $registries;
+	private $collections;
+
+	public function __construct( RegistryHub $registries = null, CollectionContractCompiler $collections = null ) {
+		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
+		$this->collections = $collections ?: new CollectionContractCompiler( $this->registries );
+	}
 
 	public function compile( array $entry, array $nodes, array $connections, array $entities ) {
 		$entity_id = $this->connected_id( $entry['id'], 'entry_for', 'from', $connections );
@@ -33,6 +43,11 @@ class EntryContractCompiler {
 			];
 		}
 		$fields = $this->selected_fields( $groups, $config['field_ids'] ?? [] );
+		$fields = $this->compile_relation_targets( $fields, $entity_id, $nodes, $connections, $entities );
+		$actions = $this->actions( $config['actions'] ?? [] );
+		if ( is_wp_error( $actions ) ) {
+			return $actions;
+		}
 
 		return [
 			'node_id' => $entry['id'],
@@ -52,7 +67,7 @@ class EntryContractCompiler {
 			'conditions' => array_values( $config['conditions'] ?? [] ),
 			'calculations' => $this->calculations( $fields ),
 			'workflow' => $this->workflow( $config ),
-			'actions' => array_values( $config['actions'] ?? [] ),
+			'actions' => $actions,
 			'autosave' => [
 				'enabled' => ! empty( $config['autosave']['enabled'] ),
 				'interval_seconds' => min( 300, max( 15, absint( $config['autosave']['interval_seconds'] ?? 60 ) ) ),
@@ -106,6 +121,98 @@ class EntryContractCompiler {
 			}
 		}
 		return $result;
+	}
+
+	private function compile_relation_targets( array $fields, $entity_id, array $nodes, array $connections, array $entities ) {
+		foreach ( $fields as &$field ) {
+			if ( 'relation' !== ( $field['type'] ?? '' ) ) {
+				continue;
+			}
+			$relation = $this->relation_for_field( $field['id'], $entity_id, $nodes, $connections );
+			if ( ! $relation ) {
+				continue;
+			}
+			$target_id = $this->connection_target( $relation['id'], 'relation_target', $connections );
+			$target = $entities[ $target_id ] ?? [];
+			$config = $relation['config'] ?? [];
+			$collection_id = $this->connection_target( $relation['id'], 'relation_options', $connections );
+			$collection = isset( $nodes[ $collection_id ] )
+				? $this->collections->compile_collection( $nodes[ $collection_id ], $nodes, $connections, $entities )
+				: null;
+			$field['relation'] = [
+				'id' => $relation['id'],
+				'cardinality' => in_array( $config['cardinality'] ?? '', RelationContractValidator::CARDINALITIES, true ) ? $config['cardinality'] : 'many_to_many',
+				'target_entity_id' => $target_id,
+				'options_collection_id' => $collection_id,
+				'search_enabled' => $this->collection_supports_search( $collection ),
+				'target' => [
+					'strategy' => $target['strategy'] ?? '',
+					'definition' => $target['definition'] ?? [],
+					'adapter' => $target['adapter'] ?? [],
+				],
+				'ownership' => 'own' === ( $config['ownership'] ?? 'any' ) ? 'own' : 'any',
+				'object_scope' => 'assigned' === ( $config['object_scope'] ?? 'entity' ) ? 'assigned' : 'entity',
+			];
+		}
+		unset( $field );
+		return $fields;
+	}
+
+	private function collection_supports_search( $collection ) {
+		return is_array( $collection )
+			&& ! empty( $collection['search_field_ids'] )
+			&& in_array( 'search', $collection['provider']['capabilities'] ?? [], true );
+	}
+
+	private function actions( $actions ) {
+		$result = [];
+		foreach ( is_array( $actions ) ? $actions : [] as $action ) {
+			if ( ! is_array( $action ) ) {
+				continue;
+			}
+			$type = strtolower( trim( (string) ( $action['type'] ?? '' ) ) );
+			$extension = $this->registries->form_actions()->get( $type );
+			if ( ! $extension ) {
+				return new \WP_Error( 'entry_action_missing', __( 'Entry Surface action type is not registered.', 'elementor-implementation-toolkit' ) );
+			}
+			$contract = ExtensionContract::snapshot( $extension );
+			if ( is_wp_error( $contract ) || ! hash_equals( $type, (string) ( $contract['id'] ?? '' ) ) || ! in_array( 'durable_job', $contract['capabilities'] ?? [], true ) ) {
+				return new \WP_Error( 'entry_action_runtime_contract_invalid', __( 'Entry Surface action failed its runtime contract.', 'elementor-implementation-toolkit' ) );
+			}
+			$action['type'] = $type;
+			$action['events'] = array_values( $action['events'] ?? [] );
+			$action['config'] = is_array( $action['config'] ?? null ) ? $action['config'] : [];
+			$action['extension'] = [
+				'id' => $contract['id'],
+				'version' => $contract['version'],
+				'capabilities' => $contract['capabilities'],
+			];
+			$result[] = $action;
+		}
+		return $result;
+	}
+
+	private function relation_for_field( $field_id, $entity_id, array $nodes, array $connections ) {
+		foreach ( $nodes as $node ) {
+			if ( 'relation' !== ( $node['type'] ?? '' ) || $field_id !== ( $node['config']['field_id'] ?? '' ) ) {
+				continue;
+			}
+			foreach ( $connections as $connection ) {
+				if ( 'relation_source' === ( $connection['type'] ?? '' ) && $entity_id === ( $connection['from'] ?? '' ) && $node['id'] === ( $connection['to'] ?? '' ) ) {
+					return $node;
+				}
+			}
+		}
+		return null;
+	}
+
+	private function connection_target( $node_id, $type, array $connections ) {
+		foreach ( $connections as $connection ) {
+			if ( $type === ( $connection['type'] ?? '' ) && $node_id === ( $connection['from'] ?? '' ) ) {
+				return $connection['to'] ?? '';
+			}
+		}
+		return '';
 	}
 
 	private function title_field_id( array $fields, $configured ) {

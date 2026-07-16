@@ -15,7 +15,7 @@ class CollectionProjector {
 		$projection = array_fill_keys( $contract['projection_field_ids'] ?? [], true );
 		$fields = [];
 		foreach ( $contract['fields'] ?? [] as $field ) {
-			if ( isset( $projection[ $field['id'] ] ) && $this->can_expose( $field, $contract ) ) {
+			if ( isset( $projection[ $field['id'] ] ) && $this->can_expose( $field ) ) {
 				$fields[ $field['id'] ] = $field;
 			}
 		}
@@ -24,12 +24,13 @@ class CollectionProjector {
 
 	public function items( array $items, array $fields ) {
 		$this->prime_media( $items, $fields );
+		$taxonomy_terms = $this->prime_taxonomies( $items, $fields );
 		$result = [];
 		foreach ( $items as $item ) {
 			$values = [];
 			foreach ( $fields as $field_id => $field ) {
 				if ( array_key_exists( $field_id, $item['values'] ?? [] ) ) {
-					$values[ $field_id ] = $this->value( $item['values'][ $field_id ], $field );
+					$values[ $field_id ] = $this->value( $item['values'][ $field_id ], $field, $taxonomy_terms );
 				}
 			}
 			$result[] = [
@@ -57,20 +58,11 @@ class CollectionProjector {
 		return $result;
 	}
 
-	private function can_expose( array $field, array $contract ) {
-		$exposure = $field['exposure'] ?? [];
-		if ( 'public' === ( $contract['access'] ?? '' ) ) {
-			return ! empty( $exposure['public'] );
-		}
-		$roles = array_values( array_filter( array_map( 'sanitize_key', $exposure['roles'] ?? [] ) ) );
-		if ( ! $roles ) {
-			return true;
-		}
-		$user = wp_get_current_user();
-		return (bool) array_intersect( $roles, is_array( $user->roles ?? null ) ? $user->roles : [] );
+	private function can_expose( array $field ) {
+		return ! empty( $field['exposure']['public'] );
 	}
 
-	private function value( $value, array $field ) {
+	private function value( $value, array $field, array $taxonomy_terms = [] ) {
 		$type = $field['type'] ?? '';
 		if ( in_array( $type, [ 'integer', 'decimal', 'percentage', 'calculated' ], true ) ) {
 			return is_numeric( $value ) ? (float) $value : null;
@@ -81,6 +73,9 @@ class CollectionProjector {
 		}
 		if ( 'boolean' === $type ) {
 			return (bool) $value;
+		}
+		if ( 'taxonomy' === $type ) {
+			return $this->taxonomy( $value, $field, $taxonomy_terms );
 		}
 		if ( in_array( $type, [ 'image', 'file' ], true ) ) {
 			return $this->media( $value );
@@ -95,6 +90,89 @@ class CollectionProjector {
 			return wp_kses_post( (string) $value );
 		}
 		return $this->safe_value( $value );
+	}
+
+	private function taxonomy( $value, array $field, array $terms ) {
+		$taxonomy = $this->taxonomy_name( $field );
+		$result = [];
+		foreach ( $this->term_ids( $value ) as $term_id ) {
+			if ( isset( $terms[ $taxonomy ][ $term_id ] ) ) {
+				$result[] = $terms[ $taxonomy ][ $term_id ];
+			}
+		}
+		return $result;
+	}
+
+	private function prime_taxonomies( array $items, array $fields ) {
+		$field_taxonomies = [];
+		$term_ids = [];
+		foreach ( $fields as $field_id => $field ) {
+			if ( 'taxonomy' !== ( $field['type'] ?? '' ) ) {
+				continue;
+			}
+			$taxonomy = $this->taxonomy_name( $field );
+			if ( '' !== $taxonomy ) {
+				$field_taxonomies[ $field_id ] = $taxonomy;
+			}
+		}
+		foreach ( $items as $item ) {
+			foreach ( $field_taxonomies as $field_id => $taxonomy ) {
+				foreach ( $this->term_ids( $item['values'][ $field_id ] ?? [] ) as $term_id ) {
+					$term_ids[ $taxonomy ][ $term_id ] = $term_id;
+				}
+			}
+		}
+		$result = [];
+		foreach ( $term_ids as $taxonomy => $ids ) {
+			$terms = get_terms(
+				[
+					'taxonomy' => $taxonomy,
+					'include' => array_values( $ids ),
+					'hide_empty' => false,
+					'orderby' => 'include',
+					'number' => count( $ids ),
+				]
+			);
+			foreach ( is_wp_error( $terms ) ? [] : $terms as $term ) {
+				$term_id = absint( $term->term_id ?? 0 );
+				if ( ! $term_id || ! isset( $ids[ $term_id ] ) ) {
+					continue;
+				}
+				$url = get_term_link( $term, $taxonomy );
+				$result[ $taxonomy ][ $term_id ] = [
+					'id' => $term_id,
+					'name' => sanitize_text_field( (string) ( $term->name ?? '' ) ),
+					'slug' => sanitize_title( (string) ( $term->slug ?? '' ) ),
+					'url' => esc_url_raw( is_wp_error( $url ) ? '' : (string) $url ),
+				];
+			}
+		}
+		return $result;
+	}
+
+	private function taxonomy_name( array $field ) {
+		return sanitize_key( (string) ( $field['taxonomy']['slug'] ?? $field['storage']['key'] ?? '' ) );
+	}
+
+	private function term_ids( $value ) {
+		if ( is_array( $value ) && ( isset( $value['id'] ) || isset( $value['term_id'] ) ) ) {
+			$value = [ $value ];
+		} elseif ( ! is_array( $value ) ) {
+			$value = [ $value ];
+		}
+		$result = [];
+		foreach ( array_slice( $value, 0, 100 ) as $term ) {
+			if ( is_array( $term ) ) {
+				$term = $term['id'] ?? $term['term_id'] ?? 0;
+			} elseif ( is_object( $term ) ) {
+				$term = $term->term_id ?? $term->id ?? 0;
+			}
+			$term_id = absint( $term );
+			if ( $term_id ) {
+				$result[ $term_id ] = $term_id;
+			}
+		}
+		return array_values( $result );
 	}
 
 	private function media( $value ) {

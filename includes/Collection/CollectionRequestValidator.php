@@ -16,6 +16,7 @@ class CollectionRequestValidator {
 	const MAX_FACETS = 10;
 	const MAX_PER_PAGE = 48;
 	const MAX_DOM_ITEMS = 200;
+	const MAX_PROVIDER_SCAN = 2000;
 	const MAX_COST = 10000;
 
 	private $semantics;
@@ -46,7 +47,8 @@ class CollectionRequestValidator {
 			return $facets;
 		}
 		$search = mb_substr( sanitize_text_field( $payload['search'] ?? '' ), 0, 200 );
-		if ( '' !== $search && empty( $contract['search_field_ids'] ) ) {
+		$public_search = array_values( array_filter( $contract['search_field_ids'] ?? [], fn( $field_id ) => $this->public_field( $fields[ $field_id ] ?? null ) ) );
+		if ( '' !== $search && ! $public_search ) {
 			return $this->error( 'eit_collection_search_not_allowed', __( 'This Collection does not expose searchable fields.', 'elementor-implementation-toolkit' ), 400 );
 		}
 		$per_page = isset( $payload['per_page'] ) ? absint( $payload['per_page'] ) : absint( $contract['page_size'] ?? 24 );
@@ -75,15 +77,23 @@ class CollectionRequestValidator {
 
 	public function cost( array $request, array $contract ) {
 		$provider = $contract['provider']['id'] ?? '';
-		$subjects = 'legacy_dom' === $provider ? max( 1, count( $request['legacy_snapshot'] ?? [] ) ) : 100;
+		$subjects = $this->cost_subjects( $provider, $request );
 		$leaves = 0;
 		foreach ( $request['filters'] ?? [] as $filter ) {
 			$leaves += $this->leaf_count( $filter['value'] ?? null );
 		}
 		$operations = max( 1, count( $request['filters'] ?? [] ) + $leaves );
-		$facet_cost = count( $request['facets'] ?? [] ) * 100;
+		$facet_cost = count( $request['facets'] ?? [] ) * $subjects;
 		$sort_cost = empty( $request['sort']['field_id'] ) ? 0 : $subjects;
-		return ( $subjects * $operations ) + $sort_cost + $facet_cost + ( absint( $request['per_page'] ?? 24 ) * 4 );
+		$search_cost = '' === ( $request['search'] ?? '' ) ? 0 : $subjects;
+		return ( $subjects * $operations ) + $sort_cost + $facet_cost + $search_cost + ( absint( $request['per_page'] ?? 24 ) * 4 );
+	}
+
+	private function cost_subjects( $provider, array $request ) {
+		if ( 'legacy_dom' === $provider ) {
+			return max( 1, count( $request['legacy_snapshot'] ?? [] ) );
+		}
+		return in_array( $provider, [ 'wp_query', 'woocommerce' ], true ) ? 1200 : 100;
 	}
 
 	private function filters( $filters, array $contract, array $fields ) {
@@ -98,7 +108,7 @@ class CollectionRequestValidator {
 			$field_id = (string) ( $filter['field_id'] ?? '' );
 			$field = $fields[ $field_id ] ?? null;
 			$operator = sanitize_key( $filter['operator'] ?? '' );
-			if ( ! $field || ! in_array( $field_id, $contract['filter_field_ids'] ?? [], true ) || ! in_array( $operator, $this->semantics->operators( $field ), true ) ) {
+			if ( ! $this->public_field( $field ) || ! in_array( $field_id, $contract['filter_field_ids'] ?? [], true ) || ! in_array( $operator, $this->semantics->operators( $field ), true ) ) {
 				return $this->error( 'eit_collection_filter_not_allowed', __( 'A filter is not allowed by this Collection Field contract.', 'elementor-implementation-toolkit' ), 400 );
 			}
 			$value = $this->value( $filter['value'] ?? null, $field, $operator );
@@ -120,19 +130,24 @@ class CollectionRequestValidator {
 		if ( '' === $field_id ) {
 			return [ 'field_id' => '', 'direction' => 'asc' ];
 		}
-		if ( ! isset( $fields[ $field_id ] ) || ! in_array( $field_id, $contract['sort_field_ids'] ?? [], true ) || ! in_array( $direction, [ 'asc', 'desc' ], true ) ) {
+		if ( ! $this->public_field( $fields[ $field_id ] ?? null ) || ! in_array( $field_id, $contract['sort_field_ids'] ?? [], true ) || ! in_array( $direction, [ 'asc', 'desc' ], true ) ) {
 			return $this->error( 'eit_collection_sort_not_allowed', __( 'The requested sort is not allowed by this Collection.', 'elementor-implementation-toolkit' ), 400 );
 		}
 		return [ 'field_id' => $field_id, 'direction' => $direction ];
 	}
 
 	private function facets( $facets, array $contract ) {
-		$allowed = $contract['filter_surface']['facet_field_ids'] ?? [];
+		$fields = array_column( $contract['fields'] ?? [], null, 'id' );
+		$allowed = array_values( array_filter( $contract['filter_surface']['facet_field_ids'] ?? [], fn( $field_id ) => $this->public_field( $fields[ $field_id ] ?? null ) ) );
 		$facets = null === $facets ? $allowed : $facets;
 		if ( ! is_array( $facets ) || ! array_is_list( $facets ) || count( $facets ) > self::MAX_FACETS || array_diff( $facets, $allowed ) ) {
 			return $this->error( 'eit_collection_facets_not_allowed', __( 'Requested facets are not part of this Filter Surface.', 'elementor-implementation-toolkit' ), 400 );
 		}
 		return array_values( array_unique( array_map( 'strval', $facets ) ) );
+	}
+
+	private function public_field( $field ) {
+		return is_array( $field ) && ! empty( $field['exposure']['public'] );
 	}
 
 	private function snapshot( $snapshot, array $contract ) {

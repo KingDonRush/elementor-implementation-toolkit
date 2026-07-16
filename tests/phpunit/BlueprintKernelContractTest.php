@@ -10,8 +10,11 @@ use EIT\Blueprint\FieldContractFactory;
 use EIT\Blueprint\FieldPrimitiveRegistry;
 use EIT\Blueprint\ImpactPlanner;
 use EIT\Blueprint\ReadOnlyLegacyStorageAdapter;
+use EIT\Blueprint\StorageOwnershipValidator;
 use EIT\Blueprint\StorageRecommendation;
 use EIT\Blueprint\Uuid;
+use EIT\Infrastructure\ArtifactStore;
+use EIT\Infrastructure\BlueprintStore;
 use EIT\Registry\RegistryHub;
 use PHPUnit\Framework\TestCase;
 
@@ -86,6 +89,18 @@ class BlueprintKernelContractTest extends TestCase {
 		self::assertContains( 'dependency_cycle', $codes );
 	}
 
+	public function test_relation_field_requires_one_governing_relation_contract(): void {
+		$blueprint = $this->valid_blueprint();
+		$blueprint['nodes'][1]['config']['fields'][] = ( new FieldContractFactory( new FieldPrimitiveRegistry() ) )->make(
+			Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:unbound-relation' ),
+			'Agent',
+			'relation'
+		);
+
+		$codes = $this->error_codes( ( new BlueprintValidator() )->validate( $blueprint )->errors() );
+		self::assertContains( 'relation_field_unbound', $codes );
+	}
+
 	public function test_unsupported_field_indexing_is_blocked(): void {
 		$blueprint = $this->valid_blueprint();
 		$blueprint['nodes'][1]['config']['fields'][0]['type'] = 'gallery';
@@ -128,6 +143,66 @@ class BlueprintKernelContractTest extends TestCase {
 		self::assertTrue( $impact['blocked'] );
 		self::assertSame( 'published_storage_key_locked', $impact['blockers'][0]['code'] );
 		self::assertSame( 'storage_key_changed', $impact['bindings'][0]['change'] );
+	}
+
+	public function test_impact_planner_blocks_published_field_semantic_changes_before_storage_prepare(): void {
+		$field_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:locked-type' );
+		$node_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'entity:locked-type' );
+		$active = [ $this->entity_artifact( $node_id, 'cct', 'locked_items', $field_id, 'decimal', 'scalar' ) ];
+		$next = [ $this->entity_artifact( $node_id, 'cct', 'locked_items', $field_id, 'short_text', 'scalar' ) ];
+
+		$impact = ( new ImpactPlanner() )->plan( $active, [], $next, [] );
+
+		self::assertTrue( $impact['blocked'] );
+		self::assertSame( 'published_field_semantics_locked', $impact['blockers'][0]['code'] );
+		self::assertSame( $field_id, $impact['blockers'][0]['field_id'] );
+	}
+
+	public function test_impact_planner_blocks_published_entity_storage_identity_changes(): void {
+		$field_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:locked-entity' );
+		$node_id = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'entity:locked-entity' );
+		$active = [ $this->entity_artifact( $node_id, 'cct', 'locked_items', $field_id, 'decimal', 'scalar' ) ];
+		$next = [ $this->entity_artifact( $node_id, 'cct', 'renamed_items', $field_id, 'decimal', 'scalar' ) ];
+
+		$impact = ( new ImpactPlanner() )->plan( $active, [], $next, [] );
+
+		self::assertTrue( $impact['blocked'] );
+		self::assertSame( 'published_entity_storage_locked', $impact['blockers'][0]['code'] );
+		self::assertSame( 'locked_items', $impact['blockers'][0]['from']['slug'] );
+	}
+
+	public function test_impact_planner_blocks_uuid_replacement_that_reuses_published_storage(): void {
+		$old_entity = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'entity:old-storage-owner' );
+		$new_entity = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'entity:new-storage-owner' );
+		$old_field = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:old-storage-owner' );
+		$new_field = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:new-storage-owner' );
+		$active = [ $this->entity_artifact( $old_entity, 'cct', 'locked_items', $old_field, 'decimal', 'scalar' ) ];
+		$next = [ $this->entity_artifact( $new_entity, 'cct', 'locked_items', $new_field, 'short_text', 'scalar' ) ];
+		$active_bindings = [ [ 'entity_id' => $old_entity, 'field_id' => $old_field, 'storage_key' => 'locked_value' ] ];
+		$next_bindings = [ [ 'entity_id' => $new_entity, 'field_id' => $new_field, 'storage_key' => 'locked_value' ] ];
+
+		$impact = ( new ImpactPlanner() )->plan( $active, $active_bindings, $next, $next_bindings );
+		$codes = array_column( $impact['blockers'], 'code' );
+
+		self::assertTrue( $impact['blocked'] );
+		self::assertContains( 'published_entity_identity_rebound', $codes );
+		self::assertContains( 'published_storage_identity_rebound', $codes );
+	}
+
+	public function test_global_ownership_blocks_storage_and_field_uuid_collisions_between_blueprints(): void {
+		$owner_blueprint = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'blueprint:storage-owner' );
+		$next_blueprint = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'blueprint:storage-contender' );
+		$entity = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'entity:storage-owner' );
+		$field = Uuid::v5( Uuid::LEGACY_NAMESPACE, 'field:storage-owner' );
+		$artifact = $this->entity_artifact( $entity, 'cpt', 'owned_records', $field, 'short_text', 'scalar' );
+		$blueprints = new BlueprintKernelOwnershipStore( [ [ 'id' => $owner_blueprint, 'active_version_id' => 7 ] ] );
+		$artifacts = new BlueprintKernelOwnershipArtifacts( [ 7 => [ $artifact ] ] );
+
+		$blockers = ( new StorageOwnershipValidator( $blueprints, $artifacts ) )->blockers( $next_blueprint, [ $artifact ] );
+		$codes = array_column( $blockers, 'code' );
+
+		self::assertContains( 'storage_identity_owned', $codes );
+		self::assertContains( 'field_identity_owned', $codes );
 	}
 
 	public function test_validator_rejects_ambiguous_storage_bindings(): void {
@@ -262,5 +337,45 @@ class BlueprintKernelContractTest extends TestCase {
 
 	private function error_codes( array $errors ): array {
 		return array_column( $errors, 'code' );
+	}
+
+	private function entity_artifact( string $node_id, string $strategy, string $slug, string $field_id, string $type, string $shape ): array {
+		return [
+			'kind' => 'entity_definition',
+			'node_id' => $node_id,
+			'checksum' => hash( 'sha256', $strategy . $slug . $type . $shape ),
+			'payload' => [
+				'entity_id' => $node_id,
+				'strategy' => $strategy,
+				'adapter' => [ 'id' => $strategy ],
+				'definition' => [ 'slug' => $slug ],
+				'fields' => [ [ 'id' => $field_id, 'type' => $type, 'shape' => $shape ] ],
+			],
+		];
+	}
+}
+
+class BlueprintKernelOwnershipStore extends BlueprintStore {
+	private $records;
+
+	public function __construct( array $records ) {
+		$this->records = $records;
+	}
+
+	public function all() {
+		return $this->records;
+	}
+}
+
+class BlueprintKernelOwnershipArtifacts extends ArtifactStore {
+	private $records;
+
+	public function __construct( array $records ) {
+		$this->records = $records;
+	}
+
+	public function for_version( $version_id, $kind = null ) {
+		$records = $this->records[ $version_id ] ?? [];
+		return $kind ? array_values( array_filter( $records, fn( $artifact ) => $kind === ( $artifact['kind'] ?? '' ) ) ) : $records;
 	}
 }

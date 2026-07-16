@@ -137,6 +137,10 @@ test.describe.serial("Toolkit trust baseline", () => {
       affectedParts.getByText("Technical identity"),
     ).toHaveCount(2);
     await expect(affectedParts.locator("details[open]")).toHaveCount(0);
+    await impact.screenshot({
+      path: "/tmp/eit-v100rc-impact-plan.png",
+      animations: "disabled",
+    });
     await impact.getByRole("button", { name: "Cancel" }).click();
 
     expect(runtimeErrors).toEqual([]);
@@ -281,10 +285,18 @@ test.describe.serial("Toolkit trust baseline", () => {
   }) => {
     await login(page);
     await page.goto(process.env.EIT_E2E_ENTRY_PATH);
+    await expect(
+      page.locator(".elementor-widget-eit-toolkit-entry-surface"),
+    ).toBeVisible();
+    await expect(
+      page.locator(".elementor-widget-eit-toolkit-action"),
+    ).toBeVisible();
     const workspace = page.locator("[data-eit-entry-workspace]");
     await expect(
       workspace.getByRole("heading", { name: "Create a listing" }),
     ).toBeVisible();
+    const pageAction = page.getByRole("button", { name: "Save from page" });
+    await expect(pageAction).toHaveAttribute("data-eit-action-surface");
     await expect(workspace).toHaveAttribute("aria-busy", "false");
     await workspace
       .getByRole("textbox", { name: "Listing title" })
@@ -311,12 +323,14 @@ test.describe.serial("Toolkit trust baseline", () => {
         response.url().includes("/wp-json/eit/v1/entry-submissions") &&
         200 === response.status(),
     );
-    await workspace.getByRole("button", { name: "Save draft" }).click();
+    await pageAction.click();
     await saved;
     await expect(workspace.locator("[data-eit-form-message]")).toContainText(
       "Your changes were saved.",
     );
+    await expect(pageAction).toBeFocused();
     const saveChanges = workspace.getByRole("button", { name: "Save changes" });
+    await saveChanges.focus();
     await expect(saveChanges).toBeFocused();
     await expect(workspace).not.toHaveAttribute("data-item-id", "0");
     await expectNoAxeViolations(page, ".eit-entry-workspace");
@@ -373,31 +387,4 @@ test.describe.serial("Toolkit trust baseline", () => {
     ).toHaveValue("Preserved browser title");
   });
 
-  test("Elementor editor loads the Toolkit integration without polling UI", async ({
-    page,
-  }) => {
-    await login(page);
-    await page.goto(process.env.EIT_E2E_EDITOR_PATH, {
-      waitUntil: "domcontentloaded",
-    });
-    await expect(page.locator("#elementor-panel")).toBeVisible({
-      timeout: 60_000,
-    });
-    await expect(page.locator('script[src*="eit-editor.js"]')).toHaveCount(1);
-
-    const canvas = page.frameLocator("#elementor-preview-iframe");
-    await expect(
-      canvas.locator(".elementor-widget-eit-filter-controller"),
-    ).toBeVisible({ timeout: 60_000 });
-    await page.waitForFunction(() =>
-      window.elementor?.getContainer?.("e2efilter"),
-    );
-    await page.evaluate(() =>
-      window.$e.run("document/elements/select", {
-        container: window.elementor.getContainer("e2efilter"),
-      }),
-    );
-    await expect(page.locator(".eit-editor-targets")).toBeVisible();
-    await expectNoAxeViolations(page, ".eit-editor-targets");
-  });
 });

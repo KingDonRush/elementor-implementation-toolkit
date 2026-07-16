@@ -4,12 +4,13 @@
  */
 
 use EIT\Blueprint\BlueprintValidator;
-use EIT\Blueprint\CoreRegistryFactory;
 use EIT\Blueprint\EntryContractCompiler;
 use EIT\Blueprint\Uuid;
 use EIT\Collection\CollectionRequestValidator;
 use EIT\Collection\WooCollectionProvider;
+use EIT\Registry\RegistryHub;
 use EIT\Woo\WooFieldContractCatalog;
+use EIT\Woo\WooStorageAdapter;
 use EIT\Woo\WooValueGateway;
 use PHPUnit\Framework\TestCase;
 
@@ -86,7 +87,7 @@ class ElementorWooBridgeContractTest extends TestCase {
 	public function test_adapter_catalog_fields_are_valid_blueprint_query_references(): void {
 		$catalog = $this->fields_by_storage( ( new WooFieldContractCatalog() )->all() );
 		$blueprint = $this->woo_blueprint( $catalog['category']['id'], $catalog['name']['id'] );
-		$registries = ( new CoreRegistryFactory() )->create();
+		$registries = $this->healthy_woo_registries();
 		$result = ( new BlueprintValidator( null, null, null, $registries ) )->validate( $blueprint );
 
 		self::assertTrue( $result->is_valid(), wp_json_encode( $result->errors() ) );
@@ -141,7 +142,7 @@ class ElementorWooBridgeContractTest extends TestCase {
 		self::assertSame( 1, $result['facets'][ $field['id'] ]['instock'] );
 		self::assertSame( 1, $result['facets'][ $field['id'] ]['outofstock'] );
 		self::assertCount( 2, $queries );
-		self::assertSame( -1, $queries[1]['limit'] );
+		self::assertSame( CollectionRequestValidator::MAX_PROVIDER_SCAN + 1, $queries[1]['limit'] );
 		self::assertFalse( $queries[1]['paginate'] );
 	}
 
@@ -195,7 +196,7 @@ class ElementorWooBridgeContractTest extends TestCase {
 		$blueprint['nodes'][] = [ 'id' => $policy_id, 'type' => 'policy', 'lane' => 'governance', 'name' => 'Product editors', 'config' => [ 'capability' => 'edit_products', 'ownership' => 'any' ] ];
 		$blueprint['connections'][] = [ 'id' => $this->id( 'woo:edge:entry' ), 'type' => 'entry_for', 'from' => $entity_id, 'to' => $entry_id ];
 		$blueprint['connections'][] = [ 'id' => $this->id( 'woo:edge:entry-policy' ), 'type' => 'governs_entry', 'from' => $policy_id, 'to' => $entry_id ];
-		$validator = new BlueprintValidator();
+		$validator = new BlueprintValidator( null, null, null, $this->healthy_woo_registries() );
 
 		self::assertTrue( $validator->validate( $blueprint )->is_valid() );
 		$blueprint['nodes'][4]['config']['guest'] = [ 'enabled' => true, 'moderation_status' => 'draft' ];
@@ -238,6 +239,19 @@ class ElementorWooBridgeContractTest extends TestCase {
 			$result[ $field['storage']['key'] ] = $field;
 		}
 		return $result;
+	}
+
+	private function healthy_woo_registries(): RegistryHub {
+		$registries = new RegistryHub();
+		$registries->storage_adapters()->register( new WooStorageAdapter() );
+		$registries->collection_providers()->register(
+			new class() extends WooCollectionProvider {
+				public function health_check() {
+					return [ 'ok' => true, 'version' => $this->get_version(), 'fixture' => true ];
+				}
+			}
+		);
+		return $registries;
 	}
 
 	private function product( $id, $name, $status ) {

@@ -9,6 +9,7 @@ use Elementor\Controls_Manager;
 use Elementor\Group_Control_Typography;
 use Elementor\Widget_Base;
 use EIT\Elementor\ElementorIntegration;
+use EIT\Elementor\FilterController\CollectionSurfacePairing;
 use EIT\Elementor\FilterController\CollectionWidgetBridge;
 use EIT\Elementor\FilterController\Renderers\ActionButtonsRenderer;
 use EIT\Elementor\FilterController\Renderers\FilterRenderer;
@@ -56,11 +57,17 @@ class ToolkitFilterSurface extends Widget_Base {
 
 	protected function register_controls() {
 		$this->start_controls_section( 'connection', [ 'label' => esc_html__( 'Connection', 'elementor-implementation-toolkit' ) ] );
+		$this->add_control( 'connection_status', [
+			'type' => Controls_Manager::RAW_HTML,
+			'raw' => '<div class="eit-connector-status" data-eit-collection-pair-status role="status" aria-live="polite">'
+				. esc_html__( 'The Collection Surface on this document owns the connection.', 'elementor-implementation-toolkit' )
+				. '</div>',
+		] );
 		$this->add_control( 'collection_id', [
-			'label' => esc_html__( 'Published Collection', 'elementor-implementation-toolkit' ),
+			'label' => esc_html__( 'Specific Collection', 'elementor-implementation-toolkit' ),
 			'type' => Controls_Manager::SELECT,
 			'options' => CollectionWidgetBridge::options(),
-			'description' => esc_html__( 'Place the matching Toolkit Collection Surface anywhere on this page. No selector is required.', 'elementor-implementation-toolkit' ),
+			'description' => esc_html__( 'Leave empty when this document has one Collection Surface. Select only to disambiguate several surfaces or preserve a 1.x binding.', 'elementor-implementation-toolkit' ),
 		] );
 		$this->add_control( 'show_result_count', [
 			'label' => esc_html__( 'Show result count', 'elementor-implementation-toolkit' ),
@@ -114,7 +121,12 @@ class ToolkitFilterSurface extends Widget_Base {
 
 	protected function render() {
 		$display = $this->get_settings_for_display();
-		$collection_id = (string) ( $display['collection_id'] ?? '' );
+		$pairing = ( new CollectionSurfacePairing() )->resolve_current( $display['collection_id'] ?? '' );
+		if ( is_wp_error( $pairing ) ) {
+			$this->render_error( $pairing->get_error_message() );
+			return;
+		}
+		$collection_id = $pairing['collection_id'];
 		$contract = CollectionWidgetBridge::resolve( $collection_id );
 		if ( is_wp_error( $contract ) ) {
 			$this->render_error( $contract->get_error_message() );
@@ -135,6 +147,8 @@ class ToolkitFilterSurface extends Widget_Base {
 		$this->add_render_attribute( 'wrapper', [
 			'class' => 'eit-filter-controller eit-toolkit-filter-surface',
 			'data-eit-instance' => $this->get_id(),
+			'data-eit-connection-mode' => $pairing['mode'],
+			'data-eit-collection-widget' => $pairing['widget_id'],
 			'data-eit-config' => wp_json_encode( $config ),
 			'data-eit-filters' => wp_json_encode( $contract['filters'] ),
 		] );
@@ -153,6 +167,6 @@ class ToolkitFilterSurface extends Widget_Base {
 	}
 
 	private function render_error( $message ) {
-		printf( '<div class="eit-connector-notice" role="status">%s</div>', esc_html( $message ) );
+		printf( '<div class="eit-connector-notice" role="alert">%s</div>', esc_html( $message ) );
 	}
 }

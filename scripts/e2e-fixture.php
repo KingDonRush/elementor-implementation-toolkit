@@ -42,9 +42,9 @@ function eit_e2e_create_entry_blueprint( $token, $user_id ) {
 	$slug = substr( 'eit_e2e_entry_' . $token, 0, 32 );
 	$factory = new \EIT\Blueprint\FieldContractFactory( new \EIT\Blueprint\FieldPrimitiveRegistry() );
 	$fields = [
-		$factory->make( $ids['title'], 'Listing title', 'short_text', [ 'validation' => [ 'required' => true ] ] ),
-		$factory->make( $ids['tier'], 'Service tier', 'single_choice', [ 'validation' => [ 'required' => true, 'options' => [ [ 'value' => 'basic', 'label' => 'Basic' ], [ 'value' => 'premium', 'label' => 'Premium' ] ] ], 'indexing' => [ 'filter' => true ] ] ),
-		$factory->make( $ids['quantity'], 'Quantity', 'integer', [ 'validation' => [ 'required' => true, 'min' => 0 ], 'indexing' => [ 'filter' => true, 'sort' => true ] ] ),
+		$factory->make( $ids['title'], 'Listing title', 'short_text', [ 'validation' => [ 'required' => true ], 'exposure' => [ 'public' => true ] ] ),
+		$factory->make( $ids['tier'], 'Service tier', 'single_choice', [ 'validation' => [ 'required' => true, 'options' => [ [ 'value' => 'basic', 'label' => 'Basic' ], [ 'value' => 'premium', 'label' => 'Premium' ] ] ], 'exposure' => [ 'public' => true ], 'indexing' => [ 'filter' => true ] ] ),
+		$factory->make( $ids['quantity'], 'Quantity', 'integer', [ 'validation' => [ 'required' => true, 'min' => 0 ], 'exposure' => [ 'public' => true ], 'indexing' => [ 'filter' => true, 'sort' => true ] ] ),
 		$factory->make( $ids['note'], 'Premium instructions', 'long_text' ),
 		$factory->make( $ids['repeater'], 'Delivery rows', 'repeatable_group', [ 'validation' => [ 'children' => [ [ 'id' => $ids['child'], 'name' => 'Row label', 'type' => 'short_text' ] ] ] ] ),
 		$factory->make( $ids['total'], 'Calculated total', 'calculated', [ 'validation' => [ 'expression' => '{' . $ids['quantity'] . '} * 2' ] ] ),
@@ -72,14 +72,17 @@ function eit_e2e_create_entry_blueprint( $token, $user_id ) {
 	$lifecycle = \EIT\Blueprint\BlueprintModule::lifecycle();
 	$saved = $lifecycle->save_draft( $document );
 	if ( is_wp_error( $saved ) ) {
+		eit_e2e_cleanup_entry_blueprint( $ids['blueprint'], $slug );
 		return $saved;
 	}
 	$prepared = $lifecycle->prepare( $ids['blueprint'], $user_id );
 	if ( is_wp_error( $prepared ) ) {
+		eit_e2e_cleanup_entry_blueprint( $ids['blueprint'], $slug );
 		return $prepared;
 	}
 	$published = $lifecycle->apply( $prepared['id'], $prepared['confirmation_token'], $user_id );
 	if ( is_wp_error( $published ) ) {
+		eit_e2e_cleanup_entry_blueprint( $ids['blueprint'], $slug );
 		return $published;
 	}
 	$repository = new \EIT\CCT\Repository();
@@ -204,12 +207,15 @@ update_post_meta( $page_id, '_elementor_data', wp_slash( wp_json_encode( $elemen
 
 $entry_fixture = eit_e2e_create_entry_blueprint( $token, $user_id );
 if ( is_wp_error( $entry_fixture ) ) {
-	WP_CLI::error( $entry_fixture->get_error_message() );
+	wp_delete_post( $page_id, true );
+	require_once ABSPATH . 'wp-admin/includes/user.php';
+	wp_delete_user( $user_id );
+	WP_CLI::error( $entry_fixture->get_error_message() . ' ' . wp_json_encode( $entry_fixture->get_error_data() ) );
 }
 $entry_page_id = wp_insert_post(
 	[
 		'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'EIT Entry fixture ' . $token,
-		'post_content' => '[eit_entry_surface id="' . $entry_fixture['surface_id'] . '"]', 'post_author' => $user_id,
+		'post_content' => '', 'post_author' => $user_id,
 	],
 	true
 );
@@ -219,6 +225,31 @@ if ( is_wp_error( $entry_page_id ) ) {
 update_post_meta( $entry_page_id, $fixture_key, $token );
 update_post_meta( $entry_page_id, '_eit_e2e_blueprint_id', $entry_fixture['blueprint_id'] );
 update_post_meta( $entry_page_id, '_eit_e2e_entry_slug', $entry_fixture['slug'] );
+update_post_meta( $entry_page_id, '_elementor_edit_mode', 'builder' );
+update_post_meta( $entry_page_id, '_elementor_template_type', 'wp-page' );
+update_post_meta(
+	$entry_page_id,
+	'_elementor_data',
+	wp_slash(
+		wp_json_encode(
+			[
+				[
+					'id' => 'e2eentrywrap', 'elType' => 'container', 'settings' => [ 'container_type' => 'flex', 'flex_direction' => 'column' ],
+					'elements' => [
+						[
+							'id' => 'e2eentry', 'elType' => 'widget', 'widgetType' => 'eit-toolkit-entry-surface',
+							'settings' => [ 'surface_id' => $entry_fixture['surface_id'], 'item_source' => 'new' ], 'elements' => [],
+						],
+						[
+							'id' => 'e2eaction', 'elType' => 'widget', 'widgetType' => 'eit-toolkit-action',
+							'settings' => [ 'surface_id' => $entry_fixture['surface_id'], 'operation' => 'create', 'label' => 'Save from page' ], 'elements' => [],
+						],
+					],
+				],
+			]
+		)
+	)
+);
 
 $collection_page_id = wp_insert_post(
 	[
@@ -235,12 +266,16 @@ $collection_elementor_data = [
 		'id' => 'e2ecollectionwrap', 'elType' => 'container', 'settings' => [ 'container_type' => 'flex', 'flex_direction' => 'column' ],
 		'elements' => [
 			[
-				'id' => 'e2ecollection', 'elType' => 'widget', 'widgetType' => 'eit-filter-controller',
+				'id' => 'e2etoolkitfilter', 'elType' => 'widget', 'widgetType' => 'eit-toolkit-filter-surface',
 				'settings' => [
-					'data_provider' => 'collection', 'collection_id' => $entry_fixture['collection_id'], 'show_result_count' => 'yes',
-					'result_count_text' => '{count} results', 'pagination_type' => 'numbers', 'empty_text' => 'No matching listings.',
+					'collection_id' => $entry_fixture['collection_id'], 'show_result_count' => 'yes', 'show_reset' => 'yes',
+					'pagination_type' => 'numbers',
 				],
 				'elements' => [],
+			],
+			[
+				'id' => 'e2etoolkitcollection', 'elType' => 'widget', 'widgetType' => 'eit-toolkit-collection-surface',
+				'settings' => [ 'collection_id' => $entry_fixture['collection_id'], 'columns' => 1 ], 'elements' => [],
 			],
 		],
 	],
@@ -258,7 +293,9 @@ WP_CLI::line(
 	wp_json_encode(
 		[
 			'frontendPath' => wp_parse_url( get_permalink( $page_id ), PHP_URL_PATH ),
-			'editorPath'   => '/wp-admin/post.php?post=' . $page_id . '&action=elementor',
+			'legacyEditorPath' => '/wp-admin/post.php?post=' . $page_id . '&action=elementor',
+			'connectorEditorPath' => '/wp-admin/post.php?post=' . $collection_page_id . '&action=elementor',
+			'entryEditorPath' => '/wp-admin/post.php?post=' . $entry_page_id . '&action=elementor',
 			'entryPath'    => wp_parse_url( get_permalink( $entry_page_id ), PHP_URL_PATH ),
 			'collectionPath' => wp_parse_url( get_permalink( $collection_page_id ), PHP_URL_PATH ),
 		]

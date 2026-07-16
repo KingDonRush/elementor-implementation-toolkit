@@ -85,16 +85,16 @@ class ArtifactStore {
 
 		$artifacts = Tables::name( Tables::ARTIFACTS );
 		$blueprints = Tables::name( Tables::BLUEPRINTS );
-		$row = $wpdb->get_row(
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Both table names resolve from the internal table registry.
-				"SELECT a.* FROM `{$artifacts}` a INNER JOIN `{$blueprints}` b ON b.active_version_id = a.version_id WHERE a.node_id = %s AND a.kind = %s LIMIT 1",
+				"SELECT a.* FROM `{$artifacts}` a INNER JOIN `{$blueprints}` b ON b.active_version_id = a.version_id WHERE a.node_id = %s AND a.kind = %s ORDER BY a.blueprint_id LIMIT 2",
 				(string) $node_id,
 				sanitize_key( $kind )
 			),
 			ARRAY_A
 		);
-		return $row ? $this->hydrate( $row ) : null;
+		return 1 === count( $rows ?: [] ) ? $this->hydrate( $rows[0] ) : null;
 	}
 
 	private function hydrate( array $row ) {

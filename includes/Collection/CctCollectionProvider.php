@@ -37,6 +37,7 @@ class CctCollectionProvider extends BaseCollectionProvider {
 		}
 		$fields = $this->fields( $contract );
 		$request = $this->relations->apply( $contract, $request );
+		$request = $this->apply_policy_scope( $contract, $request, $context );
 		$args = $this->query_args( $contract, $request, $fields );
 		$result = $this->repository->query_public( $type, $args );
 		$items = [];
@@ -58,14 +59,24 @@ class CctCollectionProvider extends BaseCollectionProvider {
 	}
 
 	private function query_args( array $contract, array $request, array $fields ) {
+		$include = $request['_relation_include'] ?? [];
+		if ( array_key_exists( '_policy_include', $request ) ) {
+			$include = $this->intersect_ids( $include, $request['_policy_include'] );
+		}
+		if ( ! empty( $request['_policy_deny'] ) ) {
+			$include = [ 0 ];
+		}
 		$args = [
 			'page' => max( 1, absint( $request['page'] ?? 1 ) ),
 			'per_page' => max( 1, min( 48, absint( $request['per_page'] ?? 24 ) ) ),
 			'status' => [ 'publish' ],
 			'filters' => $this->filters( $request['filters'] ?? [], $fields ),
-			'include' => $request['_relation_include'] ?? [],
+			'include' => $include,
 			'exclude' => $request['_relation_exclude'] ?? [],
 		];
+		if ( ! empty( $request['_policy_author_id'] ) ) {
+			$args['author_id'] = absint( $request['_policy_author_id'] );
+		}
 		if ( '' !== ( $request['search'] ?? '' ) ) {
 			$args['search'] = (string) $request['search'];
 			$args['search_fields'] = $this->storage_keys( $contract['search_field_ids'] ?? [], $fields );

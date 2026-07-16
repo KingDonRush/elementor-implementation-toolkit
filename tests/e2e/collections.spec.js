@@ -115,10 +115,11 @@ test.describe.serial("Toolkit Collection surfaces", () => {
     expect(payload).not.toHaveProperty("storage_key");
     expect(payload).not.toHaveProperty("targetSelector");
 
-    const controller = page.locator(".eit-filter-controller");
+    const controller = page.locator(".eit-toolkit-filter-surface");
+    const collection = page.locator(".eit-toolkit-collection");
     await expect(controller).toHaveAttribute("aria-busy", "false");
     await expect(controller.getByRole("combobox", { name: "Service tier" })).toBeVisible();
-    await expect(controller.locator("[data-eit-collection-item]")).toHaveCount(2);
+    await expect(collection.locator("[data-eit-collection-item]")).toHaveCount(2);
     await expect(controller.locator("[data-eit-result-count]")).toContainText("2 results");
     const filtered = page.waitForResponse(
       (candidate) =>
@@ -128,10 +129,12 @@ test.describe.serial("Toolkit Collection surfaces", () => {
     );
     await controller.getByRole("combobox", { name: "Service tier" }).selectOption("basic");
     await filtered;
-    await expect(controller.locator("[data-eit-collection-item]")).toHaveCount(1);
-    await expect(controller).toContainText("Basic listing");
-    await expect(controller).not.toContainText("Premium listing");
+    await expect(collection.locator("[data-eit-collection-item]")).toHaveCount(1);
+    await expect(collection).toContainText("Basic listing");
+    await expect(collection).not.toContainText("Premium listing");
     await expectNoAxeViolations(page, ".eit-filter-controller");
-    await controller.screenshot({ path: "/tmp/eit-v080-collection-surface.png" });
+    await page.locator(".elementor-element-e2ecollectionwrap").screenshot({
+      path: "/tmp/eit-v100rc-connector-surfaces.png",
+    });
   });
 });
