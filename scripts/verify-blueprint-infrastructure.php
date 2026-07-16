@@ -13,11 +13,14 @@ use EIT\Infrastructure\BindingStore;
 use EIT\Infrastructure\BlueprintStore;
 use EIT\Infrastructure\ChangeSetStore;
 use EIT\Infrastructure\LockStore;
+use EIT\Infrastructure\MigrationStore;
 use EIT\Infrastructure\NormalizedValueStore;
 use EIT\Infrastructure\ReconciliationStore;
 use EIT\Infrastructure\RollbackStore;
+use EIT\Infrastructure\RunEventStore;
 use EIT\Infrastructure\RunStore;
 use EIT\Infrastructure\RuntimeCache;
+use EIT\Infrastructure\ScenarioStore;
 use EIT\Infrastructure\SchemaManager;
 use EIT\Infrastructure\Tables;
 use EIT\Infrastructure\Transaction;
@@ -41,6 +44,13 @@ $assert = function ( $condition, $message ) use ( &$assertions ) {
 $cleanup = function () use ( $blueprint_id, $transaction_blueprint_id ) {
 	global $wpdb;
 
+	$run_table = Tables::name( Tables::RUNS );
+	$event_table = Tables::name( Tables::RUN_EVENTS );
+	$run_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM `{$run_table}` WHERE blueprint_id IN (%s,%s)", $blueprint_id, $transaction_blueprint_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	foreach ( $run_ids ?: [] as $run_id ) {
+		$wpdb->delete( $event_table, [ 'run_id' => $run_id ] );
+	}
+
 	foreach ( Tables::keys() as $table_key ) {
 		$table = Tables::name( $table_key );
 		if ( Tables::LOCKS === $table_key ) {
@@ -60,7 +70,7 @@ try {
 	$cleanup();
 	$assert( true === SchemaManager::install(), 'Infrastructure installation failed.' );
 	$assert( true === SchemaManager::verify(), 'Infrastructure verification failed.' );
-	$assert( count( Tables::keys() ) === 13, 'Dedicated infrastructure table count drifted.' );
+	$assert( count( Tables::keys() ) === 16, 'Dedicated infrastructure table count drifted.' );
 
 	$document = [
 		'api_version' => 'eit.dev/v1',
@@ -140,7 +150,21 @@ try {
 	$runs = new RunStore();
 	$run = $runs->start( $blueprint_id, 'compile', $change_set_id, [ 'token' => 'never-store-me', 'count' => 2 ] );
 	$assert( ! is_wp_error( $run ) && '[redacted]' === $run['context']['token'], 'Run context redaction failed.' );
+	$event = ( new RunEventStore() )->append( $run['id'], 'query_plan', [ 'authorization' => 'never-store-me', 'content' => 'private payload', 'queries' => 2 ], 4.25 );
+	$run_with_events = $runs->with_events( $run['id'] );
+	$assert( ! is_wp_error( $event ) && '[redacted]' === $run_with_events['events'][0]['payload']['authorization'], 'Flight Recorder event redaction failed.' );
+	$assert( true === $run_with_events['events'][0]['payload']['content']['redacted'] && 4.25 === $run_with_events['events'][0]['duration_ms'], 'Flight Recorder content summary or timing failed.' );
 	$assert( 'succeeded' === $runs->finish( $run['id'], 'succeeded' )['status'], 'Run completion failed.' );
+
+	$migration = ( new MigrationStore() )->save( [ 'source_type' => 'qa', 'source_key' => $blueprint_id, 'blueprint_id' => $blueprint_id, 'source_checksum' => $checksum, 'draft_checksum' => $checksum, 'status' => 'verified', 'comparison' => [ 'checks' => [ 'count' => [ 'match' => true ] ] ] ] );
+	$assert( ! is_wp_error( $migration ) && 'verified' === $migration['status'], 'Migration evidence store failed.' );
+	$scenario_store = new ScenarioStore();
+	$scenario = $scenario_store->save( [ 'blueprint_id' => $blueprint_id, 'name' => 'Infrastructure replay', 'kind' => 'migration_shadow', 'request' => [ 'source_type' => 'qa', 'source_key' => $blueprint_id ], 'expected' => [ 'status' => 'verified' ] ] );
+	$assert( ! is_wp_error( $scenario ) && 'never_run' === $scenario['status'], 'QA Scenario store failed.' );
+	$scenario = $scenario_store->record_result( $scenario['id'], 'passed', [ 'passed' => true ] );
+	$assert( 'passed' === $scenario['status'] && true === $scenario['last_result']['passed'], 'QA Scenario result persistence failed.' );
+	$scenario = $scenario_store->save( [ 'id' => $scenario['id'], 'blueprint_id' => $blueprint_id, 'name' => 'Infrastructure replay', 'kind' => 'migration_shadow', 'request' => [ 'source_type' => 'qa', 'source_key' => $blueprint_id ], 'expected' => [ 'status' => 'mismatch' ] ] );
+	$assert( 'never_run' === $scenario['status'] && null === $scenario['last_result'], 'Changed QA Scenario retained stale passing evidence.' );
 
 	$normalized = new NormalizedValueStore();
 	$relation_id = Uuid::v4();
@@ -182,7 +206,7 @@ try {
 
 	WP_CLI::success( sprintf( 'Blueprint infrastructure verified with %d assertions.', $assertions ) );
 } catch ( Throwable $error ) {
-	WP_CLI::error( $error->getMessage() );
+	WP_CLI::error( sprintf( '%s (%s:%d)', $error->getMessage(), basename( $error->getFile() ), $error->getLine() ) );
 } finally {
 	$cleanup();
 }

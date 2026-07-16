@@ -128,6 +128,15 @@ test.describe.serial("Toolkit trust baseline", () => {
     await expect(
       impact.getByRole("button", { name: "Publish version 1" }),
     ).toBeVisible();
+    const affectedParts = impact.getByRole("list", {
+      name: "Affected system parts",
+    });
+    await expect(affectedParts).toContainText("Content");
+    await expect(affectedParts).toContainText("Content fields");
+    await expect(
+      affectedParts.getByText("Technical identity"),
+    ).toHaveCount(2);
+    await expect(affectedParts.locator("details[open]")).toHaveCount(0);
     await impact.getByRole("button", { name: "Cancel" }).click();
 
     expect(runtimeErrors).toEqual([]);
@@ -137,6 +146,7 @@ test.describe.serial("Toolkit trust baseline", () => {
     page,
   }) => {
     await login(page);
+    await dismissWordPressPointer(page);
     await page.goto("/wp-admin/admin.php?page=eit-runs");
     await expect(
       page.getByRole("heading", { level: 1, name: "Runs" }),
@@ -151,12 +161,62 @@ test.describe.serial("Toolkit trust baseline", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Diagnostics" }),
     ).toBeVisible();
+    await dismissWordPressPointer(page);
     await expect(
       page.getByRole("heading", { name: "Blueprint infrastructure" }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Elementor runtime" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Legacy shadow migration" }),
+    ).toBeVisible();
+    await expect(page.getByText(/Pilot: __imoveis 1\/1 records; projects 6\/6 records/)).toBeVisible();
+    await expect(page.locator("[data-eit-migration-source]:checked")).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "QA Scenario Runner" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Factual handoff notes" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Generated factual handoff notes" }),
+    ).toHaveValue(/Human browser approval is external evidence/);
+    await expect(page.locator('script[src*="eit-diagnostics.js"]')).toHaveCount(1);
+
+    for (const [type, key] of [
+      ["cpt", "__imoveis"],
+      ["cct", "projects"],
+      ["elementor_document", "301"],
+      ["elementor_document", "340"],
+      ["elementor_document", "479"],
+    ]) {
+      await page
+        .locator(
+          `[data-eit-migration-source][data-source-type="${type}"][data-source-key="${key}"]`,
+        )
+        .check();
+    }
+    await expect(page.locator("[data-eit-migration-source]:checked")).toHaveCount(5);
+    await page.getByRole("button", { name: "Prepare selected drafts" }).click();
+    const confirmation = page.locator("[data-eit-migration-confirm]");
+    await expect(
+      confirmation.getByRole("heading", { name: "Confirm shadow import" }),
+    ).toBeVisible();
+    await expect(confirmation).toContainText("5 draft candidates are ready");
+    await expect(
+      confirmation.getByRole("button", { name: "Create drafts and compare" }),
+    ).toBeFocused();
+    await expectNoAxeViolations(page, ".eit-admin");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator(".eit-admin").screenshot({
+      path: "/tmp/eit-v100rc-diagnostics.png",
+      animations: "disabled",
+    });
+    await confirmation.getByRole("button", { name: "Cancel" }).click();
+    await expect(
+      page.getByRole("button", { name: "Prepare selected drafts" }),
+    ).toBeFocused();
 
     await page
       .locator(".eit-native-tabs")
