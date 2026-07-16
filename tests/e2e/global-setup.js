@@ -75,7 +75,7 @@ export default async function globalSetup() {
   process.env.EIT_E2E_FRONTEND_PATH = fixture.frontendPath;
   process.env.EIT_E2E_EDITOR_PATH = fixture.editorPath;
   process.env.EIT_E2E_ENTRY_PATH = fixture.entryPath;
-	process.env.EIT_E2E_COLLECTION_PATH = fixture.collectionPath;
+  process.env.EIT_E2E_COLLECTION_PATH = fixture.collectionPath;
 
   return async () => {
     runFixture("cleanup", environment);

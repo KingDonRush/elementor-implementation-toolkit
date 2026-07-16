@@ -40,10 +40,11 @@ class BlueprintKernelContractTest extends TestCase {
 	public function test_builtin_registry_exposes_the_complete_initial_primitive_set(): void {
 		$registry = new FieldPrimitiveRegistry();
 
-		self::assertCount( 27, $registry->all() );
+		self::assertCount( 28, $registry->all() );
 		self::assertTrue( $registry->has( 'money' ) );
 		self::assertSame( 'list', $registry->get( 'repeatable_group' )->get_definition()['shape'] );
 		self::assertFalse( $registry->get( 'gallery' )->get_definition()['capabilities']['filter'] );
+		self::assertContains( 'color', $registry->get( 'color' )->get_definition()['elementor'] );
 	}
 
 	public function test_valid_blueprint_passes_typed_contract_validation(): void {

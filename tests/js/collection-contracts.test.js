@@ -25,6 +25,18 @@ describe( 'Collection map decisions', () => {
 		expect( queryFields( document, document.nodes[2], 'sort' ).map( ( field ) => field.id ) ).toEqual( [ 'price' ] );
 	} );
 
+	it( 'uses a connected adapter closed catalog instead of raw Field Groups', () => {
+		const adapted = {
+			...document,
+			nodes: [ ...document.nodes, { id: 'adapter', type: 'adapter', config: { adapter_id: 'woocommerce' } } ],
+			connections: [ ...document.connections, { type: 'adapts', from: 'adapter', to: 'entity' } ],
+		};
+		const schema = { adapters: { woocommerce: { fields: [
+			{ id: 'woo-category', name: 'Product categories', capabilities: { filter: true }, indexing: { filter: true } },
+		] } } };
+		expect( queryFields( adapted, adapted.nodes[3], 'filter', schema ).map( ( field ) => field.id ) ).toEqual( [ 'woo-category' ] );
+	} );
+
 	it( 'uses all fields by default and categorical facets without raw mappings', () => {
 		const fields = queryFields( document, document.nodes[3], 'filter' );
 		const selected = selectedFilterIds( document.nodes[3], fields );
