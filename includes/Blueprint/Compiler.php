@@ -18,6 +18,7 @@ class Compiler {
 	private $recommendation;
 	private $registries;
 	private $entry_contracts;
+	private $collection_contracts;
 
 	public function __construct(
 		BlueprintValidator $validator = null,
@@ -30,6 +31,7 @@ class Compiler {
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
 		$this->recommendation = $recommendation ?: new StorageRecommendation();
 		$this->entry_contracts = new EntryContractCompiler();
+		$this->collection_contracts = new CollectionContractCompiler( $this->registries );
 	}
 
 	public function compile( array $blueprint ) {
@@ -114,6 +116,10 @@ class Compiler {
 
 		foreach ( $nodes as $node ) {
 			$artifact = $this->compile_non_entity( $blueprint, $blueprint_checksum, $node, $nodes, $connections, $compiled_entities );
+			if ( is_wp_error( $artifact ) ) {
+				$errors[] = $this->error( $artifact->get_error_code(), $artifact->get_error_message(), $node['id'] );
+				continue;
+			}
 			if ( $artifact ) {
 				$artifacts[] = $artifact;
 			}
@@ -160,6 +166,12 @@ class Compiler {
 		];
 		if ( 'entry_surface' === $node['type'] ) {
 			$payload = $this->entry_contracts->compile( $node, $nodes, $connections, $compiled_entities );
+		}
+		if ( 'collection' === $node['type'] ) {
+			$payload = $this->collection_contracts->compile_collection( $node, $nodes, $connections, $compiled_entities );
+		}
+		if ( 'filter_surface' === $node['type'] ) {
+			$payload = $this->collection_contracts->compile_filter( $node, $nodes, $connections, $compiled_entities );
 		}
 		if ( 'relation' === $node['type'] ) {
 			$payload['source_entity_id'] = $this->connected_node( $node['id'], 'relation_source', 'from', $connections );

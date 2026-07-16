@@ -5,6 +5,10 @@
 
 namespace EIT\Blueprint;
 
+use EIT\Collection\CctCollectionProvider;
+use EIT\Collection\CptCollectionProvider;
+use EIT\Collection\LegacyDomCollectionProvider;
+use EIT\Collection\WooCollectionProvider;
 use EIT\Entry\CoreFormAction;
 use EIT\Registry\RegistryHub;
 
@@ -19,6 +23,10 @@ class CoreRegistryFactory {
 		$hub->storage_adapters()->register( new CoreStorageAdapter( 'cpt' ) );
 		$hub->storage_adapters()->register( new CoreStorageAdapter( 'cct' ) );
 		$hub->storage_adapters()->register( new ReadOnlyLegacyStorageAdapter() );
+		$hub->collection_providers()->register( new CptCollectionProvider() );
+		$hub->collection_providers()->register( new CctCollectionProvider() );
+		$hub->collection_providers()->register( new WooCollectionProvider() );
+		$hub->collection_providers()->register( new LegacyDomCollectionProvider() );
 		foreach ( [ 'redirect', 'email', 'notification', 'webhook' ] as $action_type ) {
 			$hub->form_actions()->register( new CoreFormAction( $action_type ) );
 		}

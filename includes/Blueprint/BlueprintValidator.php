@@ -21,6 +21,7 @@ class BlueprintValidator {
 	private $primitives;
 	private $canonicalizer;
 	private $entry_contracts;
+	private $collection_contracts;
 
 	public function __construct(
 		NodeTypeRegistry $nodes = null,
@@ -31,6 +32,7 @@ class BlueprintValidator {
 		$this->primitives = $primitives ?: new FieldPrimitiveRegistry();
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
 		$this->entry_contracts = new EntryContractValidator();
+		$this->collection_contracts = new CollectionContractValidator();
 	}
 
 	public function validate( array $blueprint ) {
@@ -42,6 +44,7 @@ class BlueprintValidator {
 		$this->validate_cardinality( $node_index, $connections, $errors );
 		$this->validate_storage_bindings( $node_index, $connections, $errors );
 		$errors = array_merge( $errors, $this->entry_contracts->validate( $node_index, $connections ) );
+		$errors = array_merge( $errors, $this->collection_contracts->validate( $node_index, $connections ) );
 		$this->validate_cycles( $node_index, $connections, $errors );
 
 		if ( isset( $blueprint['checksum'] ) && ! hash_equals( (string) $blueprint['checksum'], $this->canonicalizer->checksum( $blueprint ) ) ) {
