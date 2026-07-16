@@ -1,6 +1,27 @@
 # Elementor Implementation Toolkit
 
-V0.8.0 makes Collection the single published query contract. Field capabilities
+V0.9.0 turns the compiled contracts into native Elementor implementation
+surfaces. Elementor Free now exposes five connector widgets: Toolkit Field,
+Collection Surface, Filter Surface, Entry Surface and Action. Their controls
+select published contracts by stable UUID and stay limited to presentation and
+placement; schema, query, authorization and workflow remain owned by the
+Blueprint runtime.
+
+The optional Elementor Pro adapter adds typed text, number, URL, image, gallery
+and color Dynamic Tags through one `TypedValueResolver`. Compatible fields are
+derived from the current entity context and never require a typed meta key.
+Collection presentations render existing Elementor documents through public
+Core document managers; creating a draft template is an explicit action, and a
+read path never mutates Elementor metadata.
+
+The WooCommerce adapter publishes product Field Contracts and executes reads
+and permitted Entry mutations through WooCommerce query and CRUD APIs. Product
+price, inventory, media and taxonomies remain Woo-owned; cart, checkout, orders,
+payments and transactional behavior remain outside the Toolkit. When
+WooCommerce is unavailable, the catalog stays inspectable but its health check
+is explicitly unhealthy rather than pretending the runtime exists.
+
+V0.8.0 made Collection the single published query contract. Field capabilities
 compile into bounded filters, sort, facets and projection; CPT, indexed CCT,
 WooCommerce and limited legacy DOM providers execute behind the same Field-ID
 request grammar. Responses include semantic HTML, pagination, readable applied
@@ -43,9 +64,9 @@ loading/error behavior remain enforced.
 
 V0.3.0 added table-backed Custom Content Types for implementation data that does
 not need WordPress singles. CCT records can be queried by the Filter Controller
-and exposed through CCT Dynamic Tags. Elementor Loop Grid/Carousel rendering is
-available only when the local Elementor Pro / Loop Builder runtime exposes the
-required Loop APIs.
+and remain available through legacy CCT Dynamic Tags during the 1.x migration
+window. New presentation flows use published Field IDs and existing Elementor
+documents instead of extending internal Elementor Pro Loop classes.
 
 The legacy DOM mode remains intentionally parasitic: it detects an existing
 listing and filters its cards through bounded AJAX. Published Collection mode
@@ -107,8 +128,8 @@ and requires no manual listing selector.
 - a hidden wp-admin recovery screen for operators, while the primary editorial
   workspace remains on the frontend;
 - shortcode `[eit_entry_surface id="SURFACE-UUID"]` as the initial presentation
-  bridge; Elementor placement and styling arrive through the connector widget
-  in V0.9.
+  bridge; Elementor placement and styling use the Toolkit Entry Surface
+  connector widget.
 
 ### Compiled Collections and Filter Surfaces
 
@@ -133,13 +154,19 @@ surfaces during the 1.x migration window. Active compiled Entity artifacts are
 projected into the existing registrars without writing back into legacy options.
 
 - Elementor widget category: `Elementor Implementation Toolkit`
-- Widget: `Filter Controller`
+- Connector widgets: `Toolkit Field`, `Toolkit Collection Surface`, `Toolkit
+  Filter Surface`, `Toolkit Entry Surface` and `Toolkit Action`
+- Legacy compatibility widget: `Filter Controller`
 - Admin navigation: `Systems`, `Runs`, `Diagnostics`, `Settings`
 - Filter preset manager with Elementor filter-control template handoff
 - Lightweight Post Types manager for custom post types, taxonomies, and typed fields
 - Custom Content Types stored in dedicated tables
-- Optional Toolkit CCT skin for Elementor Pro Loop Grid and Loop Carousel
-- CCT Dynamic Tags for text, URL, image, and gallery values
+- Optional typed Elementor Pro Dynamic Tags for text, number, URL, image,
+  gallery and color values
+- Legacy CCT Dynamic Tags retained during the 1.x migration window
+- Existing Elementor documents as explicit Collection presentation contracts
+- WooCommerce product catalog, query and governed Entry adapter through public
+  Woo APIs
 - Server-side CCT filtering and pagination through the Filter Controller
 - Published Collection filtering through the Field-ID REST contract
 - Provider/runtime configuration summary for the current filtering surface
@@ -222,8 +249,8 @@ portfolio projects, directories, catalogs, and comparison entries:
 - explicit permanent deletion available only for archived definitions;
 - verified columns and indexes before a definition becomes the active runtime;
 - public queries restricted to published rows;
-- normal Elementor Loop Item templates populated through CCT Dynamic Tags when
-  Elementor Pro / Loop Builder support is present.
+- published Collection presentations can render an explicitly selected existing
+  Elementor document through the public Core document manager.
 
 Removing a field from a definition marks it inactive. Its database column and
 stored values remain available for a future restoration or migration.
@@ -235,11 +262,13 @@ that a page-level Elementor layout has been QA'd.
 
 - bounded DOM provider for existing Elementor, WooCommerce, JetEngine, and
   generic listings when usable item data is already present in the snapshot;
-- CCT provider for direct table queries and Loop Item rendering when the local
-  Elementor runtime supports it.
+- compiled CPT and CCT providers plus an optional WooCommerce product provider;
+- Elementor presentation adapter health based on the public Core document
+  manager, with an explicit compatibility canary for Loop/Theme manager access.
 
-Deep adapters remain future work until a real project needs them. The admin no
-longer offers a custom adapter mode as a normal setup path.
+Additional adapters remain extension points until a real implementation needs
+them. The admin does not expose a custom adapter mode or raw provider inputs as a
+normal setup path.
 
 ## Data Contract
 

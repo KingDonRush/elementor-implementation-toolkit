@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Elementor Implementation Toolkit
  * Description: Contract-driven implementation helpers for structured WordPress data and Elementor presentation.
- * Version: 0.8.0
+ * Version: 0.9.0
  * Author: Guilherme Silva
  * Text Domain: elementor-implementation-toolkit
  * Domain Path: /languages
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EIT_VERSION', '0.8.0' );
+define( 'EIT_VERSION', '0.9.0' );
 define( 'EIT_FILE', __FILE__ );
 define( 'EIT_PATH', plugin_dir_path( __FILE__ ) );
 define( 'EIT_URL', plugin_dir_url( __FILE__ ) );
