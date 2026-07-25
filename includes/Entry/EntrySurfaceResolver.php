@@ -17,7 +17,7 @@ class EntrySurfaceResolver {
 	private $blueprints;
 	private $artifacts;
 
-	public function __construct( BlueprintStore $blueprints = null, ArtifactStore $artifacts = null ) {
+	public function __construct( ?BlueprintStore $blueprints = null, ?ArtifactStore $artifacts = null ) {
 		$this->blueprints = $blueprints ?: new BlueprintStore();
 		$this->artifacts = $artifacts ?: new ArtifactStore();
 	}

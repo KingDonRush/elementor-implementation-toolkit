@@ -80,7 +80,7 @@ for ( $index = 0; $index < $verify->numFiles; ++$index ) {
 	$names[] = $verify->getNameIndex( $index );
 }
 $verify->close();
-$required = array_map( fn( $file ) => $slug . '/' . $file, array_merge( $root_files, [ 'templates/route.php' ] ) );
+$required = array_map( fn( $file ) => $slug . '/' . $file, array_merge( $root_files, $public_docs, [ 'templates/route.php' ] ) );
 $forbidden = [ '/tests/', '/scripts/', '/assets/src/', '/assets/design/', '/vendor/', '/node_modules/', '/.git/', '.map' ];
 $errors = array_diff( $required, $names );
 foreach ( $names as $name ) {

@@ -62,15 +62,42 @@ class ArtifactStore {
 	}
 
 	public function for_version( $version_id, $kind = null ) {
+		$result = $this->read_version( $version_id, $kind, false );
+		return is_wp_error( $result ) ? [] : $result;
+	}
+
+	/**
+	 * Runtime authority reader that preserves database and JSON failures.
+	 */
+	public function for_version_checked( $version_id, $kind = null ) {
+		return $this->read_version( $version_id, $kind, true );
+	}
+
+	private function read_version( $version_id, $kind, $strict ) {
 		global $wpdb;
 
 		$table = Tables::name( Tables::ARTIFACTS );
+		$wpdb->last_error = '';
 		if ( null === $kind ) {
 			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$table}` WHERE version_id = %d ORDER BY kind,id", absint( $version_id ) ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		} else {
 			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$table}` WHERE version_id = %d AND kind = %s ORDER BY id", absint( $version_id ), sanitize_key( $kind ) ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
-		return array_map( [ $this, 'hydrate' ], $rows ?: [] );
+		if ( '' !== $wpdb->last_error ) {
+			return new \WP_Error( 'eit_artifact_runtime_read_failed', __( 'Compiled runtime artifacts could not be read safely.', 'elementor-implementation-toolkit' ), [ 'database_error' => sanitize_text_field( $wpdb->last_error ) ] );
+		}
+		$artifacts = [];
+		foreach ( $rows ?: [] as $row ) {
+			if ( $strict && ! is_array( JsonCodec::decode( $row['payload'] ?? null, null ) ) ) {
+				return new \WP_Error( 'eit_artifact_runtime_record_invalid', __( 'Compiled runtime authority contains an invalid artifact.', 'elementor-implementation-toolkit' ) );
+			}
+			$artifact = $this->hydrate( $row );
+			if ( $strict && ! preg_match( '/^[a-f0-9]{64}$/', (string) ( $artifact['checksum'] ?? '' ) ) ) {
+				return new \WP_Error( 'eit_artifact_runtime_record_invalid', __( 'Compiled runtime authority contains an invalid artifact.', 'elementor-implementation-toolkit' ) );
+			}
+			$artifacts[] = $artifact;
+		}
+		return $artifacts;
 	}
 
 	public function active_for_blueprint( $blueprint_id, $kind = null ) {

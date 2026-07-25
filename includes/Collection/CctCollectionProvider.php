@@ -17,7 +17,7 @@ class CctCollectionProvider extends BaseCollectionProvider {
 	private $repository;
 	private $relations;
 
-	public function __construct( Repository $repository = null, CollectionRelationConstraints $relations = null ) {
+	public function __construct( ?Repository $repository = null, ?CollectionRelationConstraints $relations = null ) {
 		$this->repository = $repository ?: new Repository();
 		$this->relations = $relations ?: new CollectionRelationConstraints();
 	}

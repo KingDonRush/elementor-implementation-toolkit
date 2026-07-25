@@ -15,13 +15,13 @@ class EntryContractPresenter {
 	private $guard;
 	private $relations;
 
-	public function __construct( EntryPolicyEngine $policy = null, GuestIntakeGuard $guard = null, RelationLabelResolver $relations = null ) {
+	public function __construct( ?EntryPolicyEngine $policy = null, ?GuestIntakeGuard $guard = null, ?RelationLabelResolver $relations = null ) {
 		$this->policy = $policy ?: new EntryPolicyEngine();
 		$this->guard = $guard ?: new GuestIntakeGuard();
 		$this->relations = $relations ?: new RelationLabelResolver();
 	}
 
-	public function present( array $contract, array $loaded = null ) {
+	public function present( array $contract, ?array $loaded = null ) {
 		$item_id = (int) ( $loaded['item']['id'] ?? 0 );
 		$values = $loaded['values'] ?? [];
 		$fields = [];

@@ -18,7 +18,7 @@ class ElementorPresentationAdapter implements PresentationAdapterInterface {
 
 	private $templates;
 
-	public function __construct( ElementorTemplateCatalog $templates = null ) {
+	public function __construct( ?ElementorTemplateCatalog $templates = null ) {
 		$this->templates = $templates ?: new ElementorTemplateCatalog();
 	}
 

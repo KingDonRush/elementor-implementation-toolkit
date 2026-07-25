@@ -7,6 +7,7 @@ namespace EIT\Admin;
 
 use EIT\Blueprint\BlueprintValidator;
 use EIT\Blueprint\BlueprintModule;
+use EIT\Blueprint\LegacyRollbackService;
 use EIT\Blueprint\NodeTypeRegistry;
 use EIT\Infrastructure\BlueprintStore;
 use EIT\Infrastructure\RunStore;
@@ -29,12 +30,14 @@ class BlueprintAdminPresenter {
 	private $versions;
 	private $runs;
 	private $validator;
+	private $legacy_rollback;
 
 	public function __construct() {
 		$this->blueprints = new BlueprintStore();
 		$this->versions = new VersionStore();
 		$this->runs = new RunStore();
 		$this->validator = new BlueprintValidator();
+		$this->legacy_rollback = new LegacyRollbackService();
 	}
 
 	public function systems() {
@@ -67,6 +70,7 @@ class BlueprintAdminPresenter {
 				'validation' => $validation,
 				'active_version' => $active ? $this->version_summary( $active ) : null,
 				'versions' => array_map( [ $this, 'version_summary' ], $versions ),
+				'rollback_targets' => $this->rollback_targets( $record, $versions, $active ),
 			]
 		);
 	}
@@ -141,7 +145,7 @@ class BlueprintAdminPresenter {
 		];
 	}
 
-	private function system_summary( array $record, array $active = null ) {
+	private function system_summary( array $record, ?array $active = null ) {
 		if ( null === $active && ! empty( $record['active_version_id'] ) ) {
 			$active = $this->versions->get( $record['active_version_id'] );
 		}
@@ -174,6 +178,29 @@ class BlueprintAdminPresenter {
 			'checksum' => $version['checksum'],
 			'published_at' => $version['published_at'],
 		];
+	}
+
+	private function rollback_targets( array $record, array $versions, ?array $active = null ) {
+		$targets = [];
+		if ( ! $active ) {
+			return $targets;
+		}
+		$legacy = $this->legacy_rollback->availability( $record['id'] );
+		if ( ! is_wp_error( $legacy ) ) {
+			$targets[] = $legacy;
+		}
+		foreach ( $versions as $version ) {
+			if ( (int) $active['id'] === (int) $version['id'] ) {
+				continue;
+			}
+			$targets[] = [
+				'kind' => 'version',
+				'target' => (string) $version['id'],
+				'version_id' => (int) $version['id'],
+				'label' => sprintf( __( 'Version %d', 'elementor-implementation-toolkit' ), (int) $version['version'] ),
+			];
+		}
+		return $targets;
 	}
 
 	private function extension_metadata( array $extensions ) {

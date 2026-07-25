@@ -23,10 +23,10 @@ class Compiler {
 	private $collection_contracts;
 
 	public function __construct(
-		BlueprintValidator $validator = null,
-		Canonicalizer $canonicalizer = null,
-		StorageRecommendation $recommendation = null,
-		RegistryHub $registries = null
+		?BlueprintValidator $validator = null,
+		?Canonicalizer $canonicalizer = null,
+		?StorageRecommendation $recommendation = null,
+		?RegistryHub $registries = null
 	) {
 		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
 		$this->validator = $validator ?: new BlueprintValidator( null, $this->registries->field_primitives(), null, $this->registries );
@@ -273,7 +273,7 @@ class Compiler {
 		return $fields;
 	}
 
-	private function adapter_id( array $entity, $strategy, array $adapter_node = null ) {
+	private function adapter_id( array $entity, $strategy, ?array $adapter_node = null ) {
 		if ( 'adapter' !== $strategy ) {
 			return $strategy;
 		}

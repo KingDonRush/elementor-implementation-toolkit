@@ -16,7 +16,7 @@ class WooStorageAdapter implements StorageAdapterInterface, FieldContractSourceI
 
 	private $catalog;
 
-	public function __construct( WooFieldContractCatalog $catalog = null ) {
+	public function __construct( ?WooFieldContractCatalog $catalog = null ) {
 		$this->catalog = $catalog ?: new WooFieldContractCatalog();
 	}
 

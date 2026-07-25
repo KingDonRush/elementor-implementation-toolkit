@@ -22,7 +22,7 @@ The 1.0 release candidate includes:
 * frontend create/update workflows with policy, ownership and idempotency;
 * bounded Collection queries, filters, facets, URL state and Explain Why evidence;
 * five Elementor Free connector widgets and optional typed Dynamic Tags;
-* checksum-bound read-only legacy shadow import and comparison;
+* compiler-bound read-only legacy shadow comparison across raw, candidate and active authorities;
 * recoverable Blueprint apply and rollback for supported non-destructive plans;
 * concrete Impact Maps, redacted Flight Recorder events and reproducible QA scenarios.
 
@@ -59,7 +59,7 @@ No. Default uninstall preserves Toolkit options and tables. An explicit develope
 * Added checksum-bound shadow import, diagnostics, Impact Map and release-candidate packaging.
 * Added durable storage claims, interrupted-publication recovery and fail-closed extension contracts.
 * Hardened frontend media, relation selection, exact multivalue filtering and factual Explain Why output.
-* Verified five local shadow pilots without switching runtime.
+* Verified four compatible local shadow pilots without switching runtime; the `projects` CCT remains explicitly blocked by its unsupported filterable textarea capability.
 * Added four non-distributed domain sufficiency fixtures using one primitive grammar.
 * Preserved WooCommerce live canary and human visual approval as open release gates.
 

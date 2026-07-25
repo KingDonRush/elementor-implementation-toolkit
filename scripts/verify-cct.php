@@ -10,6 +10,11 @@ use EIT\CCT\CurrentItemContext;
 use EIT\CCT\DefinitionManager;
 use EIT\CCT\Repository;
 use EIT\CCT\SchemaManager;
+use EIT\Blueprint\MigrationStorageLockCoordinator;
+use EIT\Blueprint\StorageMutationGuard;
+use EIT\Entry\EntryStorageGateway;
+use EIT\Infrastructure\LockStore;
+use EIT\Infrastructure\Tables;
 use EIT\Rest\FilterRequestPolicy;
 use EIT\Support\FilterPresets;
 use EIT\Support\FilterResolver;
@@ -63,6 +68,59 @@ eit_cct_assert( in_array( 'eit_f_score', $indexes, true ), 'Filterable score ind
 $first_id = $repository->save( $type, [ 'title' => 'Alpha', 'kind' => 'plugin', 'score' => 8, 'notes' => 'retained' ] );
 $second_id = $repository->save( $type, [ 'title' => 'Beta', 'kind' => 'website', 'score' => 4 ] );
 eit_cct_assert( ! is_wp_error( $first_id ) && ! is_wp_error( $second_id ), 'Could not insert disposable rows.' );
+
+$resource = StorageMutationGuard::resource_key( 'cct', $type );
+StorageMutationGuard::shared()->release_all();
+$GLOBALS['wpdb']->delete( Tables::name( Tables::LOCKS ), [ 'resource_key' => $resource ] );
+$writer_prefix = $GLOBALS['wpdb']->esc_like( StorageMutationGuard::writer_prefix( 'cct', $type ) ) . '%';
+$GLOBALS['wpdb']->query( $GLOBALS['wpdb']->prepare( 'DELETE FROM `' . Tables::name( Tables::LOCKS ) . '` WHERE resource_key LIKE %s', $writer_prefix ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+$secondary = new wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+$secondary->set_prefix( $GLOBALS['wpdb']->prefix );
+$secondary->suppress_errors( true );
+$with_secondary = function ( callable $callback ) use ( $secondary ) {
+	global $wpdb;
+	$primary = $wpdb;
+	$wpdb = $secondary;
+	try {
+		return $callback();
+	} finally {
+		$wpdb = $primary;
+	}
+};
+$barrier_result = null;
+$barrier = function () use ( &$barrier_result, $type, $with_secondary ) {
+	$barrier_result = $with_secondary( fn() => ( new MigrationStorageLockCoordinator( null, new LockStore() ) )->acquire_storage( 'cct', $type, 0 ) );
+};
+$barrier_repository = new class( StorageMutationGuard::shared(), $barrier ) extends Repository {
+	private $barrier;
+
+	public function __construct( StorageMutationGuard $guard, callable $barrier ) {
+		parent::__construct( null, null, $guard );
+		$this->barrier = $barrier;
+	}
+
+	public function save( $type, array $values, $id = 0 ) {
+		$result = parent::save( $type, $values, $id );
+		if ( ! is_wp_error( $result ) ) {
+			call_user_func( $this->barrier );
+		}
+		return $result;
+	}
+};
+$lease_contract = [
+	'blueprint_id' => 'cct-lease-integration',
+	'entity' => [ 'strategy' => 'cct', 'definition' => [ 'slug' => $type ] ],
+	'fields' => [ [ 'id' => 'lease-title', 'type' => 'short_text', 'storage' => [ 'key' => 'kind' ] ] ],
+	'title_field_id' => 'lease-title',
+];
+$lease_record_id = ( new EntryStorageGateway( $barrier_repository ) )->save( $lease_contract, [ 'lease-title' => 'Lease boundary' ], 0, 'publish', 1 );
+eit_cct_assert( ! is_wp_error( $lease_record_id ), 'CCT Entry write failed during the lease boundary proof.' );
+eit_cct_assert( is_wp_error( $barrier_result ) && 'eit_migration_storage_locked' === $barrier_result->get_error_code(), 'A migration gate ignored the active CCT writer lease.' );
+$after_commit_leases = $with_secondary( fn() => ( new MigrationStorageLockCoordinator( null, new LockStore() ) )->acquire_storage( 'cct', $type, 0 ) );
+eit_cct_assert( is_array( $after_commit_leases ) && 1 === count( $after_commit_leases ), 'The CCT writer lease was not released after the outer Entry transaction committed.' );
+eit_cct_assert( true === $with_secondary( fn() => ( new MigrationStorageLockCoordinator( null, new LockStore() ) )->release( $after_commit_leases ) ), 'The second connection could not release its verification gate.' );
+$secondary->close();
+eit_cct_assert( true === $repository->delete( $type, $lease_record_id ), 'The CCT lease verification row could not be removed.' );
 
 $filtered = $repository->query(
 	$type,
@@ -206,5 +264,5 @@ eit_cct_assert( null === DefinitionManager::get( $type ), 'Definition survived p
 eit_cct_assert( $table !== $GLOBALS['wpdb']->get_var( $GLOBALS['wpdb']->prepare( 'SHOW TABLES LIKE %s', $table ) ), 'Table survived permanent deletion.' );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
-	WP_CLI::success( 'CCT atomic schema, stable identities, public status, request bounds, exact matching, required zero, persistence, and nested context verified.' );
+	WP_CLI::success( 'CCT atomic schema, cross-connection write lease, stable identities, public status, request bounds, exact matching, required zero, persistence, and nested context verified.' );
 }

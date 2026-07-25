@@ -178,13 +178,13 @@ try {
 	$assert( ! is_wp_error( $lifecycle->save_draft( $blueprint_type_change ) ), 'Blueprint type-change draft save failed.' );
 	$blocked_type = $lifecycle->prepare( $blueprint_id, 1 );
 	$assert( ! is_wp_error( $blocked_type ) && 'blocked' === $blocked_type['status'] && null === $blocked_type['confirmation_token'], 'Published field type change was not blocked before storage preparation.' );
-	$assert( in_array( 'published_field_semantics_locked', array_column( $blocked_type['impact']['blockers'], 'code' ), true ), 'Field semantic migration blocker is not explicit.' );
+	$assert( in_array( 'eit_migration_transform_unsupported', array_column( $blocked_type['impact']['blockers'], 'code' ), true ), 'Unsupported Field transform blocker is not explicit.' );
 
 	$blueprint_v3 = $build_blueprint( 3 );
 	$assert( ! is_wp_error( $lifecycle->save_draft( $blueprint_v3 ) ), 'Blueprint V3 draft save failed.' );
 	$blocked = $lifecycle->prepare( $blueprint_id, 1 );
 	$assert( ! is_wp_error( $blocked ) && 'blocked' === $blocked['status'] && null === $blocked['confirmation_token'], 'Published storage key change was not blocked.' );
-	$assert( 'published_storage_key_locked' === $blocked['impact']['blockers'][0]['code'], 'Storage migration blocker is not explicit.' );
+	$assert( in_array( 'eit_migration_source_alias_required', array_column( $blocked['impact']['blockers'], 'code' ), true ), 'Source-preserving storage migration blocker is not explicit.' );
 
 	$rollback = $lifecycle->rollback( $blueprint_id, $version_v1['id'], 'Integration rollback', 1 );
 	$assert( ! is_wp_error( $rollback ), 'Blueprint rollback failed.' );

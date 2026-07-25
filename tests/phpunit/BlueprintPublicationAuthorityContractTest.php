@@ -37,6 +37,7 @@ class BlueprintPublicationAuthorityContractTest extends TestCase {
 			'missing evidence' => [ [], $candidate, 'eit_migration_evidence_missing' ],
 			'ambiguous evidence' => [ [ $record, $record ], $candidate, 'eit_migration_evidence_ambiguous' ],
 			'unverified comparison' => [ [ array_replace( $record, [ 'status' => 'mismatch' ] ) ], $candidate, 'eit_migration_comparison_unverified' ],
+			'stale authority evidence' => [ [ array_replace_recursive( $record, [ 'comparison' => [ 'verification_scope' => 'compiled_projection' ] ] ) ], $candidate, 'eit_migration_evidence_stale' ],
 			'draft changed' => [ [ array_replace( $record, [ 'draft_checksum' => str_repeat( 'd', 64 ) ] ) ], $candidate, 'eit_migration_draft_changed' ],
 			'source missing' => [ [ $record ], null, 'eit_migration_source_missing' ],
 			'source changed' => [ [ $record ], array_replace( $candidate, [ 'source_checksum' => str_repeat( 's', 64 ) ] ), 'eit_migration_source_changed' ],
@@ -48,6 +49,23 @@ class BlueprintPublicationAuthorityContractTest extends TestCase {
 			self::assertTrue( is_wp_error( $result ), $label );
 			self::assertSame( $expected_code, $result->get_error_code(), $label );
 		}
+		$compiler_changed = $this->migration_guard( [ $record ], $candidate, str_repeat( 'x', 64 ) )->validate( $blueprint );
+		self::assertSame( 'eit_migration_compiler_changed', $compiler_changed->get_error_code() );
+	}
+
+	public function test_apply_authority_must_match_the_evidence_frozen_during_prepare(): void {
+		$blueprint = $this->imported_blueprint();
+		$record = $this->verified_record();
+		$guard = $this->migration_guard( [ $record ], $this->candidate() );
+		$snapshot = $guard->snapshot( $blueprint );
+
+		self::assertIsArray( $snapshot );
+		self::assertTrue( $guard->validate_snapshot( $blueprint, $snapshot ) );
+
+		$changed_record = array_replace( $record, [ 'source_checksum' => str_repeat( 'e', 64 ) ] );
+		$changed_candidate = array_replace( $this->candidate(), [ 'source_checksum' => str_repeat( 'e', 64 ) ] );
+		$changed = $this->migration_guard( [ $changed_record ], $changed_candidate )->validate_snapshot( $blueprint, $snapshot );
+		self::assertSame( 'eit_legacy_authority_evidence_changed', $changed->get_error_code() );
 	}
 
 	public function test_external_legacy_storage_requires_verified_matching_handoff(): void {
@@ -146,13 +164,14 @@ class BlueprintPublicationAuthorityContractTest extends TestCase {
 				'change_sets' => new PublicationApplyChangeSets( $state ),
 				'locks' => new PublicationApplyLocks( $state ),
 				'migration_guard' => new PublicationApplyMigrationGuard( $state ),
+				'migration_ledger' => new PublicationApplyLedger(),
 				'ownership' => new PublicationApplyOwnership( $state ),
 			]
 		);
 	}
 
-	private function migration_guard( array $records, $candidate ): MigrationPublicationGuard {
-		return new MigrationPublicationGuard( new PublicationMigrationRecords( $records ), new PublicationLegacyCandidate( $candidate ) );
+	private function migration_guard( array $records, $candidate, ?string $compiler_checksum = null ): MigrationPublicationGuard {
+		return new MigrationPublicationGuard( new PublicationMigrationRecords( $records ), new PublicationLegacyCandidate( $candidate ), new PublicationLegacyCompiler( $compiler_checksum ?: str_repeat( 'c', 64 ) ) );
 	}
 
 	private function imported_blueprint(): array {
@@ -164,6 +183,7 @@ class BlueprintPublicationAuthorityContractTest extends TestCase {
 	}
 
 	private function verified_record(): array {
+		$contract_checksum = str_repeat( 'd', 64 );
 		return [
 			'blueprint_id' => 'blueprint-one',
 			'source_type' => 'cpt',
@@ -171,7 +191,19 @@ class BlueprintPublicationAuthorityContractTest extends TestCase {
 			'source_checksum' => str_repeat( 'b', 64 ),
 			'draft_checksum' => str_repeat( 'a', 64 ),
 			'status' => 'verified',
-			'comparison' => [ 'status' => 'verified' ],
+			'comparison' => [
+				'status' => 'verified',
+				'verification_scope' => 'independent_authority_projection',
+				'compiler_checksum' => str_repeat( 'c', 64 ),
+				'authorities' => [
+					'legacy' => [ 'authority' => 'legacy_option', 'available' => true, 'contract_checksum' => $contract_checksum ],
+					'candidate' => [ 'authority' => 'compiled_candidate_artifact', 'available' => true, 'contract_checksum' => $contract_checksum ],
+				],
+				'checks' => [
+					'semantic_contract_checksum' => [ 'legacy' => $contract_checksum, 'shadow' => $contract_checksum, 'match' => true ],
+					'capability_downgrades' => [ 'legacy' => [], 'shadow' => [], 'match' => true ],
+				],
+			],
 		];
 	}
 
@@ -208,6 +240,29 @@ class PublicationLegacyCandidate {
 	}
 	public function candidate() {
 		return $this->candidate;
+	}
+}
+
+class PublicationLegacyCompiler {
+	private $checksum;
+	public function __construct( string $checksum ) {
+		$this->checksum = $checksum;
+	}
+	public function compile() {
+		return new PublicationCompiledCandidate( $this->checksum );
+	}
+}
+
+class PublicationCompiledCandidate {
+	private $checksum;
+	public function __construct( string $checksum ) {
+		$this->checksum = $checksum;
+	}
+	public function is_valid() {
+		return true;
+	}
+	public function checksum() {
+		return $this->checksum;
 	}
 }
 
@@ -320,6 +375,10 @@ class PublicationApplyLocks {
 		$this->state->events[] = 'release:' . $resource;
 		return true;
 	}
+	public function renew( $resource ) {
+		$this->state->events[] = 'renew:' . $resource;
+		return true;
+	}
 }
 
 class PublicationApplyMigrationGuard {
@@ -333,6 +392,12 @@ class PublicationApplyMigrationGuard {
 	}
 	public function blockers() {
 		return [];
+	}
+}
+
+class PublicationApplyLedger {
+	public function validate() {
+		return true;
 	}
 }
 

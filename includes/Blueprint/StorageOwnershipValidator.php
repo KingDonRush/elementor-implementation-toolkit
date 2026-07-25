@@ -21,7 +21,7 @@ class StorageOwnershipValidator {
 	private $migrations;
 	private $claims;
 
-	public function __construct( BlueprintStore $blueprints = null, ArtifactStore $artifacts = null, MigrationPublicationGuard $migrations = null, $claims = null ) {
+	public function __construct( ?BlueprintStore $blueprints = null, ?ArtifactStore $artifacts = null, ?MigrationPublicationGuard $migrations = null, $claims = null ) {
 		$this->blueprints = $blueprints ?: new BlueprintStore();
 		$this->artifacts = $artifacts ?: new ArtifactStore();
 		$this->migrations = $migrations ?: new MigrationPublicationGuard();
@@ -38,7 +38,7 @@ class StorageOwnershipValidator {
 	public function blockers( $blueprint_id, array $artifacts ) {
 		$active = $this->active_owners( $blueprint_id );
 		$proposed = [];
-		$route_paths = [];
+		$route_patterns = [];
 		$field_ids = [];
 		$node_ids = [];
 		$blockers = [];
@@ -57,29 +57,37 @@ class StorageOwnershipValidator {
 			}
 			if ( 'route_contract' === ( $artifact['kind'] ?? '' ) ) {
 				$payload = $artifact['payload'] ?? [];
-				$route_path = $this->public_virtual_route_path( $payload );
-				if ( '' === $route_path ) {
+				$route = $this->public_virtual_route( $payload );
+				if ( ! $route ) {
 					continue;
 				}
+				$route_path = $route['path'];
 				$node_id = (string) ( $payload['route_id'] ?? $artifact['node_id'] ?? '' );
-				if ( isset( $route_paths[ $route_path ] ) && $route_paths[ $route_path ] !== $node_id ) {
-					$blockers[] = $this->route_blocker( 'blueprint_route_path_duplicate', $route_path, $node_id, 'Two public Routes in this Blueprint compile to the same virtual path.' );
+				foreach ( $route_patterns as $owner ) {
+					if ( $owner['node_id'] !== $node_id && $this->route_patterns_overlap( $route['segments'], $owner['segments'] ) ) {
+						$exact = $route_path === $owner['path'];
+						$blockers[] = $this->route_blocker( $exact ? 'blueprint_route_path_duplicate' : 'blueprint_route_pattern_ambiguous', $route_path, $node_id, $exact ? 'Two public Routes in this Blueprint compile to the same virtual path.' : 'Two public Routes in this Blueprint can match the same request path.' );
+					}
 				}
-				$route_paths[ $route_path ] = $node_id;
-				if ( isset( $active['route_paths'][ $route_path ] ) ) {
+				$route_patterns[] = [ 'path' => $route_path, 'segments' => $route['segments'], 'node_id' => $node_id ];
+				foreach ( $active['route_patterns'] as $owner ) {
+					if ( ! $this->route_patterns_overlap( $route['segments'], $owner['segments'] ) ) {
+						continue;
+					}
+					$exact = $route_path === $owner['path'];
 					$blockers[] = $this->route_blocker(
-						'route_path_owned',
+						$exact ? 'route_path_owned' : 'route_pattern_owned',
 						$route_path,
 						$node_id,
-						'Another active Blueprint already owns this public virtual path.',
-						[ 'blueprint_id' => $active['route_paths'][ $route_path ] ]
+						$exact ? 'Another active Blueprint already owns this public virtual path.' : 'Another active Blueprint owns an overlapping public Route pattern.',
+						[ 'blueprint_id' => $owner['blueprint_id'], 'route_path' => $owner['path'] ]
 					);
 				}
 				$reserved = $this->reserved_route_owner( $route_path );
 				if ( $reserved ) {
 					$blockers[] = $this->route_blocker( 'route_path_reserved', $route_path, $node_id, 'WordPress reserves this public path.', [ 'path' => $reserved ] );
 				}
-				foreach ( $this->wordpress_route_owners( $route_path ) as $owner ) {
+				foreach ( $route['parameterized'] ? [] : $this->wordpress_route_owners( $route_path ) as $owner ) {
 					$type = in_array( $owner['type'] ?? '', [ 'page', 'post_type', 'taxonomy' ], true ) ? $owner['type'] : 'runtime';
 					$blockers[] = $this->route_blocker( 'route_path_wordpress_' . $type, $route_path, $node_id, 'WordPress content or rewrite ownership conflicts with this public path.', $owner );
 				}
@@ -131,7 +139,7 @@ class StorageOwnershipValidator {
 	}
 
 	private function active_owners( $blueprint_id ) {
-		$result = [ 'identities' => [], 'own_identities' => [], 'field_ids' => [], 'node_ids' => [], 'route_paths' => [] ];
+		$result = [ 'identities' => [], 'own_identities' => [], 'field_ids' => [], 'node_ids' => [], 'route_patterns' => [] ];
 		foreach ( $this->blueprints->all() as $blueprint ) {
 			if ( empty( $blueprint['active_version_id'] ) ) {
 				continue;
@@ -162,9 +170,9 @@ class StorageOwnershipValidator {
 				if ( 'route_contract' !== ( $artifact['kind'] ?? '' ) ) {
 					continue;
 				}
-				$route_path = $this->public_virtual_route_path( $artifact['payload'] ?? [] );
-				if ( '' !== $route_path ) {
-					$result['route_paths'][ $route_path ] = (string) $blueprint['id'];
+				$route = $this->public_virtual_route( $artifact['payload'] ?? [] );
+				if ( $route ) {
+					$result['route_patterns'][] = [ 'path' => $route['path'], 'segments' => $route['segments'], 'blueprint_id' => (string) $blueprint['id'] ];
 				}
 			}
 		}
@@ -193,11 +201,41 @@ class StorageOwnershipValidator {
 		return $this->claims->owner( $identity['strategy'], $identity['slug'] ?? '' );
 	}
 
-	private function public_virtual_route_path( array $payload ) {
+	private function public_virtual_route( array $payload ) {
 		$raw = trim( (string) ( $payload['path'] ?? '' ) );
 		$kind = sanitize_key( $payload['kind'] ?? ( filter_var( $raw, FILTER_VALIDATE_URL ) ? 'existing_document' : 'virtual' ) );
 		$exposure = sanitize_key( $payload['exposure'] ?? 'public' );
-		return 'virtual' === $kind && 'public' === $exposure ? $this->normalize_route_path( $raw ) : '';
+		if ( 'virtual' !== $kind || 'public' !== $exposure ) {
+			return null;
+		}
+		$path = strtolower( trim( trim( $raw ), '/' ) );
+		$segments = [];
+		$parameterized = false;
+		foreach ( explode( '/', $path ) as $segment ) {
+			if ( preg_match( '/^[a-z0-9_-]+$/', $segment ) ) {
+				$segments[] = [ 'literal' => $segment ];
+				continue;
+			}
+			if ( preg_match( '/^\{([0-9a-f-]{36})\}$/', $segment, $match ) && Uuid::is_valid( $match[1] ) ) {
+				$segments[] = [ 'field_id' => $match[1] ];
+				$parameterized = true;
+				continue;
+			}
+			return null;
+		}
+		return $segments ? [ 'path' => $path, 'segments' => $segments, 'parameterized' => $parameterized ] : null;
+	}
+
+	private function route_patterns_overlap( array $first, array $second ) {
+		if ( count( $first ) !== count( $second ) ) {
+			return false;
+		}
+		foreach ( $first as $offset => $segment ) {
+			if ( isset( $segment['literal'], $second[ $offset ]['literal'] ) && $segment['literal'] !== $second[ $offset ]['literal'] ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private function normalize_route_path( $path ) {

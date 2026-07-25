@@ -5,6 +5,8 @@
 
 namespace EIT\Entry;
 
+use EIT\Blueprint\MigrationWriteFence;
+use EIT\Blueprint\StorageMutationGuard;
 use EIT\CCT\Repository as CctRepository;
 use EIT\Infrastructure\NormalizedValueStore;
 use EIT\Infrastructure\Transaction;
@@ -21,12 +23,18 @@ class EntryStorageGateway {
 	private $normalized;
 	private $transaction;
 	private $woo;
+	private $write_fence;
+	private $mutation_guard;
+	private $post_mutations;
 
-	public function __construct( CctRepository $cct = null, NormalizedValueStore $normalized = null, Transaction $transaction = null, WooValueGateway $woo = null ) {
-		$this->cct = $cct ?: new CctRepository();
+	public function __construct( ?CctRepository $cct = null, ?NormalizedValueStore $normalized = null, ?Transaction $transaction = null, ?WooValueGateway $woo = null, ?MigrationWriteFence $write_fence = null, ?StorageMutationGuard $mutation_guard = null, ?PostMutationGateway $post_mutations = null ) {
+		$this->write_fence = $write_fence ?: new MigrationWriteFence();
+		$this->mutation_guard = $mutation_guard ?: ( $write_fence ? new StorageMutationGuard( $this->write_fence ) : StorageMutationGuard::shared() );
+		$this->cct = $cct ?: new CctRepository( $this->write_fence, null, $this->mutation_guard );
 		$this->normalized = $normalized ?: new NormalizedValueStore();
 		$this->transaction = $transaction ?: new Transaction();
 		$this->woo = $woo ?: new WooValueGateway();
+		$this->post_mutations = $post_mutations ?: new PostMutationGateway();
 	}
 
 	public function item_context( array $contract, $item_id ) {
@@ -90,8 +98,18 @@ class EntryStorageGateway {
 	}
 
 	public function save( array $contract, array $values, $item_id, $status, $actor_id, $content = null ) {
-		return $this->transaction->run(
-			function () use ( $contract, $values, $item_id, $status, $actor_id, $content ) {
+		$strategy = $contract['entity']['strategy'] ?? '';
+		$lease = in_array( $strategy, [ 'cpt', 'cct' ], true )
+			? $this->mutation_guard->enter( $strategy, $contract['entity']['definition']['slug'] ?? '' )
+			: null;
+		if ( is_wp_error( $lease ) ) {
+			return $lease;
+		}
+		$this->post_mutations->begin();
+		$committed = false;
+		try {
+			$result = $this->transaction->run(
+				function () use ( $contract, $values, $item_id, $status, $actor_id, $content ) {
 				if ( 'cpt' === ( $contract['entity']['strategy'] ?? '' ) ) {
 					$result = $this->save_cpt( $contract, $values, $item_id, $status, $actor_id, $content );
 				} elseif ( $this->is_woo( $contract ) ) {
@@ -108,10 +126,21 @@ class EntryStorageGateway {
 				if ( is_wp_error( $normalized ) ) {
 					return $normalized;
 				}
-				$this->attach_media( $contract, $values, $result );
+				$media = $this->attach_media( $contract, $values, $result );
+				if ( is_wp_error( $media ) ) {
+					return $media;
+				}
 				return $result;
+				}
+			);
+			$committed = ! is_wp_error( $result );
+			return $result;
+		} finally {
+			$this->post_mutations->finish( $committed );
+			if ( is_array( $lease ) ) {
+				$this->mutation_guard->leave( $lease );
 			}
-		);
+		}
 	}
 
 	private function save_cpt( array $contract, array $values, $item_id, $status, $actor_id, $content ) {
@@ -123,7 +152,7 @@ class EntryStorageGateway {
 		}
 		if ( $item_id ) {
 			$post['ID'] = absint( $item_id );
-			$id = wp_update_post( wp_slash( $post ), true );
+			$id = $this->post_mutations->update_post( wp_slash( $post ) );
 		} else {
 			$post['post_author'] = absint( $actor_id );
 			$id = wp_insert_post( wp_slash( $post ), true );
@@ -131,6 +160,10 @@ class EntryStorageGateway {
 		if ( is_wp_error( $id ) ) {
 			return $id;
 		}
+		if ( ! $id ) {
+			return new \WP_Error( 'eit_entry_post_insert_failed', __( 'The Entry item could not be created.', 'elementor-implementation-toolkit' ) );
+		}
+		$this->post_mutations->track( $id );
 		foreach ( $contract['fields'] as $field ) {
 			if ( ! array_key_exists( $field['id'], $values ) || in_array( $field['type'], [ 'relation', 'repeatable_group' ], true ) ) {
 				continue;
@@ -146,7 +179,10 @@ class EntryStorageGateway {
 					return $stored;
 				}
 			} else {
-				update_post_meta( $id, $field['storage']['key'], $values[ $field['id'] ] );
+				$stored = $this->post_mutations->update_meta( $id, $field['storage']['key'], $values[ $field['id'] ] );
+				if ( is_wp_error( $stored ) ) {
+					return $stored;
+				}
 			}
 		}
 		return $id;
@@ -226,15 +262,22 @@ class EntryStorageGateway {
 					continue;
 				}
 				if ( 'cpt' === ( $contract['entity']['strategy'] ?? '' ) || $this->is_woo( $contract ) ) {
-					wp_update_post( [ 'ID' => $attachment_id, 'post_parent' => $item_id, 'post_status' => 'inherit' ] );
+					$attached = $this->post_mutations->update_post( [ 'ID' => $attachment_id, 'post_parent' => $item_id, 'post_status' => 'inherit' ] );
 				} else {
-					update_post_meta( $attachment_id, '_eit_entry_cct_owner', $contract['entity_id'] . ':' . $item_id );
+					$attached = $this->post_mutations->update_meta( $attachment_id, '_eit_entry_cct_owner', $contract['entity_id'] . ':' . $item_id );
 				}
-				delete_post_meta( $attachment_id, '_eit_entry_pending_surface' );
-				delete_post_meta( $attachment_id, '_eit_entry_pending_actor' );
-				delete_post_meta( $attachment_id, '_eit_entry_pending_at' );
+				if ( is_wp_error( $attached ) ) {
+					return $attached;
+				}
+				foreach ( [ '_eit_entry_pending_surface', '_eit_entry_pending_actor', '_eit_entry_pending_at' ] as $meta_key ) {
+					$deleted = $this->post_mutations->delete_meta( $attachment_id, $meta_key );
+					if ( is_wp_error( $deleted ) ) {
+						return $deleted;
+					}
+				}
 			}
 		}
+		return true;
 	}
 
 	private function hydrate_value( $value, array $field ) {

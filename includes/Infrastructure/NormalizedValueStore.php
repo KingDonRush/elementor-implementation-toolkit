@@ -15,7 +15,7 @@ class NormalizedValueStore {
 
 	private $transaction;
 
-	public function __construct( Transaction $transaction = null ) {
+	public function __construct( ?Transaction $transaction = null ) {
 		$this->transaction = $transaction ?: new Transaction();
 	}
 

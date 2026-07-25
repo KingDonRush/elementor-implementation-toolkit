@@ -14,7 +14,7 @@ class WooValueGateway {
 	private $loader;
 	private $creator;
 
-	public function __construct( callable $loader = null, callable $creator = null ) {
+	public function __construct( ?callable $loader = null, ?callable $creator = null ) {
 		$this->loader = $loader;
 		$this->creator = $creator;
 	}

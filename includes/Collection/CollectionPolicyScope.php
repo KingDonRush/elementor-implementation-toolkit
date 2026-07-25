@@ -13,7 +13,7 @@ class CollectionPolicyScope {
 
 	private $assigned_resolver;
 
-	public function __construct( callable $assigned_resolver = null ) {
+	public function __construct( ?callable $assigned_resolver = null ) {
 		$this->assigned_resolver = $assigned_resolver;
 	}
 

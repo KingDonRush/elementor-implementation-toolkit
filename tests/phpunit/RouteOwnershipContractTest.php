@@ -51,6 +51,31 @@ class RouteOwnershipContractTest extends TestCase {
 		self::assertSame( $owner, $blockers[0]['owner']['blueprint_id'] );
 	}
 
+	public function test_overlapping_parameterized_paths_are_blocked_across_blueprints(): void {
+		$field_id = '11111111-1111-4111-8111-111111111111';
+		$owner = 'blueprint-owner';
+		$blueprints = new RouteOwnershipBlueprintStore( [ [ 'id' => $owner, 'active_version_id' => 7 ] ] );
+		$artifacts = new RouteOwnershipArtifactStore( [ 7 => [ $this->route_artifact( 'owner-route', 'clinic/{' . $field_id . '}' ) ] ] );
+
+		$blockers = ( new StorageOwnershipValidator( $blueprints, $artifacts ) )->blockers( 'contender', [ $this->route_artifact( 'contender-route', 'clinic/team' ) ] );
+
+		self::assertContains( 'route_pattern_owned', array_column( $blockers, 'code' ) );
+		self::assertSame( $owner, $blockers[0]['owner']['blueprint_id'] );
+	}
+
+	public function test_overlapping_parameterized_paths_are_blocked_inside_one_blueprint(): void {
+		$first = '11111111-1111-4111-8111-111111111111';
+		$second = '22222222-2222-4222-8222-222222222222';
+		$artifacts = [
+			$this->route_artifact( 'first-route', 'clinic/{' . $first . '}' ),
+			$this->route_artifact( 'second-route', 'clinic/{' . $second . '}' ),
+		];
+
+		$blockers = ( new StorageOwnershipValidator( new RouteOwnershipBlueprintStore( [] ), new RouteOwnershipArtifactStore( [] ) ) )->blockers( 'contender', $artifacts );
+
+		self::assertContains( 'blueprint_route_pattern_ambiguous', array_column( $blockers, 'code' ) );
+	}
+
 	public function test_reserved_wordpress_route_namespaces_are_blocked(): void {
 		$artifacts = [];
 		foreach ( [ 'wp-admin/toolkit', 'wp-json/eit/v1', 'feed/rss2', 'author/editor', 'search/toolkit' ] as $offset => $path ) {

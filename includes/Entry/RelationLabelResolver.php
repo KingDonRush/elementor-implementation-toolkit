@@ -18,7 +18,7 @@ class RelationLabelResolver {
 	private $references;
 	private $woo;
 
-	public function __construct( EntryReferenceValidator $references = null, CctRepository $cct = null, WooValueGateway $woo = null ) {
+	public function __construct( ?EntryReferenceValidator $references = null, ?CctRepository $cct = null, ?WooValueGateway $woo = null ) {
 		$this->references = $references ?: new EntryReferenceValidator();
 		$this->cct = $cct ?: new CctRepository();
 		$this->woo = $woo ?: new WooValueGateway();

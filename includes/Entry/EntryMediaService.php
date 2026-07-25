@@ -17,7 +17,7 @@ class EntryMediaService {
 	private $pending;
 	private $media_policy;
 
-	public function __construct( EntrySurfaceResolver $resolver = null, EntryPolicyEngine $policy = null, GuestIntakeGuard $guard = null, PendingUploadStore $pending = null, EntryMediaPolicy $media_policy = null ) {
+	public function __construct( ?EntrySurfaceResolver $resolver = null, ?EntryPolicyEngine $policy = null, ?GuestIntakeGuard $guard = null, ?PendingUploadStore $pending = null, ?EntryMediaPolicy $media_policy = null ) {
 		$this->resolver = $resolver ?: new EntrySurfaceResolver();
 		$this->policy = $policy ?: new EntryPolicyEngine();
 		$this->guard = $guard ?: new GuestIntakeGuard();

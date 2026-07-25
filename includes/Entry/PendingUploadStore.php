@@ -23,7 +23,7 @@ class PendingUploadStore {
 	private $contract_resolver;
 	private $submission_reconciler;
 
-	public function __construct( $directory = '', callable $mover = null, EntryMediaPolicy $policy = null, callable $contract_resolver = null, PendingUploadSubmissionReconciler $submission_reconciler = null ) {
+	public function __construct( $directory = '', ?callable $mover = null, ?EntryMediaPolicy $policy = null, ?callable $contract_resolver = null, ?PendingUploadSubmissionReconciler $submission_reconciler = null ) {
 		$this->files = new PendingUploadFiles( $directory, $mover );
 		$this->policy = $policy ?: new EntryMediaPolicy();
 		$this->contract_resolver = $contract_resolver ?: static fn( $surface_id ) => ( new EntrySurfaceResolver() )->get( $surface_id );

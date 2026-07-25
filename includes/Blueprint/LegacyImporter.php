@@ -19,7 +19,7 @@ class LegacyImporter {
 	private $canonicalizer;
 	private $elementor;
 
-	public function __construct( FieldContractFactory $factory = null, Canonicalizer $canonicalizer = null, ElementorDocumentImporter $elementor = null ) {
+	public function __construct( ?FieldContractFactory $factory = null, ?Canonicalizer $canonicalizer = null, ?ElementorDocumentImporter $elementor = null ) {
 		$this->factory = $factory ?: new FieldContractFactory( new FieldPrimitiveRegistry() );
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
 		$this->elementor = $elementor ?: new ElementorDocumentImporter( $this->canonicalizer );
@@ -85,6 +85,7 @@ class LegacyImporter {
 			? $this->cpt_fields( $seed, $definition )
 			: $this->cct_fields( $seed, $definition );
 		$name = sanitize_text_field( $definition['singular'] ?? $definition['plural'] ?? $slug );
+		$supports = array_values( array_unique( array_filter( array_map( 'sanitize_key', (array) ( $definition['supports'] ?? [] ) ) ) ) );
 		$nodes = [
 			[
 				'id' => $entity_id,
@@ -95,10 +96,17 @@ class LegacyImporter {
 					'slug' => sanitize_key( $slug ),
 					'singular' => sanitize_text_field( $definition['singular'] ?? $name ),
 					'plural' => sanitize_text_field( $definition['plural'] ?? $name ),
+					'description' => sanitize_textarea_field( $definition['description'] ?? '' ),
+					'menu_icon' => sanitize_text_field( $definition['menu_icon'] ?? ( 'cpt' === $strategy ? 'dashicons-screenoptions' : 'dashicons-database' ) ),
 					'public' => ! empty( $definition['public'] ),
+					'show_in_rest' => 'cpt' === $strategy && ! empty( $definition['show_in_rest'] ),
 					'routed' => 'cpt' === $strategy && ! empty( $definition['has_archive'] ),
+					'hierarchical' => 'cpt' === $strategy && ! empty( $definition['hierarchical'] ),
+					'route_slug' => 'cpt' === $strategy ? sanitize_title( $definition['rewrite_slug'] ?? '' ) : '',
+					'supports' => 'cpt' === $strategy ? $supports : [],
 					'versioned' => 'cpt' === $strategy && in_array( 'revisions', $definition['supports'] ?? [], true ),
 					'mode' => 'cpt' === $strategy && in_array( 'editor', $definition['supports'] ?? [], true ) ? 'hybrid' : 'structured',
+					'state' => 'cct' === $strategy && 'archived' === ( $definition['state'] ?? '' ) ? 'archived' : 'active',
 					'storage' => [
 						'strategy' => $strategy,
 						'override_reason' => 'Preserve the existing legacy storage during read-only shadow comparison.',
@@ -160,7 +168,7 @@ class LegacyImporter {
 		foreach ( $definition['taxonomies'] ?? [] as $taxonomy ) {
 			$key = sanitize_key( $taxonomy['slug'] ?? '' );
 			if ( '' !== $key ) {
-				$fields[] = $this->legacy_field( $seed, $key, $taxonomy['singular'] ?? $key, 'taxonomy', [ 'show_in_rest' => $taxonomy['show_in_rest'] ?? false ] );
+				$fields[] = $this->legacy_field( $seed, $key, $taxonomy['singular'] ?? $key, 'taxonomy', $taxonomy );
 			}
 		}
 		return $fields;
@@ -199,11 +207,25 @@ class LegacyImporter {
 			$label,
 			$type,
 			[
-				'validation' => [ 'required' => ! empty( $legacy['required'] ) ],
-				'exposure' => [ 'public' => ! empty( $legacy['show_in_rest'] ) || ! empty( $legacy['public'] ) ],
+				'validation' => [
+					'required' => ! empty( $legacy['required'] ),
+					'default' => $legacy['default'] ?? '',
+					'options' => $this->legacy_options( $legacy['options'] ?? '' ),
+				],
+				'exposure' => [ 'public' => array_key_exists( 'public', $legacy ) ? ! empty( $legacy['public'] ) : ! empty( $legacy['show_in_rest'] ) ],
 				'storage' => [ 'key' => $key, 'aliases' => [ $key ] ],
 			]
 		);
+		if ( 'taxonomy' === $type ) {
+			$contract['taxonomy'] = [
+				'slug' => $key,
+				'singular' => sanitize_text_field( $legacy['singular'] ?? $label ),
+				'plural' => sanitize_text_field( $legacy['plural'] ?? $label ),
+				'hierarchical' => ! empty( $legacy['hierarchical'] ),
+				'public' => ! empty( $legacy['public'] ),
+				'show_in_rest' => ! empty( $legacy['show_in_rest'] ),
+			];
+		}
 		$requested = [ 'filter' => ! empty( $legacy['filterable'] ), 'sort' => ! empty( $legacy['sortable'] ) ];
 		$downgrades = [];
 		foreach ( $requested as $capability => $enabled ) {
@@ -224,8 +246,27 @@ class LegacyImporter {
 			'text' => 'short_text', 'textarea' => 'long_text', 'number' => 'decimal', 'url' => 'url', 'email' => 'email',
 			'date' => 'date', 'time' => 'time', 'datetime' => 'datetime', 'checkbox' => 'boolean', 'boolean' => 'boolean',
 			'select' => 'single_choice', 'radio' => 'single_choice', 'multiselect' => 'multiple_choice', 'image' => 'image', 'gallery' => 'gallery',
+			'color' => 'color',
 		];
 		return $map[ sanitize_key( $legacy_type ) ] ?? 'short_text';
+	}
+
+	private function legacy_options( $raw ) {
+		$options = [];
+		foreach ( is_array( $raw ) ? $raw : preg_split( '/\r\n|\r|\n/', (string) $raw ) as $option ) {
+			if ( is_array( $option ) ) {
+				$value = sanitize_key( $option['value'] ?? '' );
+				$label = sanitize_text_field( $option['label'] ?? $value );
+			} else {
+				$parts = array_map( 'trim', explode( '|', (string) $option, 2 ) );
+				$value = sanitize_key( $parts[0] ?? '' );
+				$label = sanitize_text_field( $parts[1] ?? $value );
+			}
+			if ( '' !== $value ) {
+				$options[] = [ 'value' => $value, 'label' => $label ?: $value ];
+			}
+		}
+		return $options;
 	}
 
 	private function connection( $seed, $type, $from, $to ) {

@@ -9,15 +9,18 @@
 use EIT\Blueprint\Canonicalizer;
 use EIT\Blueprint\Compiler;
 use EIT\Blueprint\LegacyImporter;
+use EIT\Blueprint\LifecycleLeaseGuard;
 use EIT\Blueprint\LifecycleService;
 use EIT\Blueprint\MigrationPublicationGuard;
 use EIT\Blueprint\MigrationService;
+use EIT\Blueprint\ShadowComparator;
 use EIT\Blueprint\StorageOwnershipValidator;
 use EIT\Blueprint\Uuid;
 use EIT\CPT\DefinitionManager as CptDefinitions;
 use EIT\Infrastructure\ArtifactStore;
 use EIT\Infrastructure\BlueprintStore;
 use EIT\Infrastructure\ChangeSetStore;
+use EIT\Infrastructure\LockStore;
 use EIT\Infrastructure\MigrationStore;
 use EIT\Infrastructure\SchemaManager;
 use EIT\Infrastructure\StorageClaimStore;
@@ -32,6 +35,7 @@ $assertions = 0;
 $blueprint_id = '';
 $collision_blueprint_id = '';
 $registered_post_type = false;
+$lease_resources = [];
 $suffix = substr( str_replace( '-', '', Uuid::v4() ), 0, 8 );
 $source_key = 'eit_gate_' . $suffix;
 $legacy_before = get_option( CptDefinitions::OPTION, [] );
@@ -44,13 +48,17 @@ $assert = function ( $condition, $message ) use ( &$assertions ) {
 	}
 };
 
-$cleanup = function () use ( &$blueprint_id, &$collision_blueprint_id, &$registered_post_type, $source_key, $legacy_before ) {
+$cleanup = function () use ( &$blueprint_id, &$collision_blueprint_id, &$registered_post_type, &$lease_resources, $source_key, $legacy_before ) {
 	global $wpdb;
 
 	if ( $registered_post_type && post_type_exists( $source_key ) ) {
 		unregister_post_type( $source_key );
 	}
 	update_option( CptDefinitions::OPTION, $legacy_before, false );
+	$lock_table = Tables::name( Tables::LOCKS );
+	foreach ( $lease_resources as $lease_resource ) {
+		$wpdb->query( $wpdb->prepare( "DELETE FROM `{$lock_table}` WHERE resource_key = %s", $lease_resource ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
 	$blueprint_ids = array_filter( [ $blueprint_id, $collision_blueprint_id ] );
 	if ( ! $blueprint_ids ) {
 		return;
@@ -70,7 +78,6 @@ $cleanup = function () use ( &$blueprint_id, &$collision_blueprint_id, &$registe
 			}
 		}
 		$wpdb->delete( Tables::name( Tables::BLUEPRINTS ), [ 'id' => $cleanup_id ] );
-		$lock_table = Tables::name( Tables::LOCKS );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM `{$lock_table}` WHERE resource_key = %s", 'blueprint-' . $cleanup_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 };
@@ -80,11 +87,18 @@ try {
 	$assert( true === SchemaManager::install() && true === SchemaManager::verify(), 'Publication authority infrastructure is unavailable.' );
 	$legacy = $legacy_before;
 	$legacy[ $source_key ] = [
+		'slug' => $source_key,
 		'singular' => 'Authority record',
 		'plural' => 'Authority records',
+		'description' => '',
+		'menu_icon' => 'dashicons-screenoptions',
 		'public' => false,
+		'show_in_rest' => false,
 		'has_archive' => false,
+		'hierarchical' => false,
+		'rewrite_slug' => '',
 		'supports' => [ 'title' ],
+		'taxonomies' => [],
 		'meta_fields' => [ [ 'key' => 'legacy_code', 'label' => 'Legacy code', 'type' => 'text', 'show_in_rest' => true ] ],
 	];
 	$assert( update_option( CptDefinitions::OPTION, $legacy, false ), 'Legacy fixture could not be written.' );
@@ -98,6 +112,8 @@ try {
 	$assert( ! is_wp_error( $draft ), 'Imported Blueprint draft could not be stored.' );
 
 	$migrations = new MigrationStore();
+	$comparison = ( new ShadowComparator() )->compare( 'cpt', $source_key, $draft['draft_document'] );
+	$assert( 'verified' === ( $comparison['status'] ?? '' ) && 64 === strlen( (string) ( $comparison['compiler_checksum'] ?? '' ) ), 'Independent migration evidence could not be produced.' );
 	$evidence = $migrations->save(
 		[
 			'source_type' => 'cpt',
@@ -106,7 +122,7 @@ try {
 			'source_checksum' => $candidate['source_checksum'],
 			'draft_checksum' => $draft['draft_checksum'],
 			'status' => 'verified',
-			'comparison' => [ 'status' => 'verified', 'checks' => [ 'count' => [ 'match' => true ] ] ],
+			'comparison' => $comparison,
 		]
 	);
 	$assert( ! is_wp_error( $evidence ) && 1 === count( $migrations->for_blueprint( $blueprint_id ) ), 'Migration evidence is not uniquely addressable by Blueprint.' );
@@ -175,6 +191,24 @@ try {
 	$cas_result = $blueprints->activate_if_current( $blueprint_id, $version_two['id'], $version_one['id'], str_repeat( 'x', 64 ) );
 	$assert( is_wp_error( $cas_result ) && 'eit_blueprint_activation_stale' === $cas_result->get_error_code(), 'Activation compare-and-swap accepted a stale draft checksum.' );
 	$assert( $version_one['id'] === $blueprints->get( $blueprint_id )['active_version_id'], 'Failed activation compare-and-swap changed the runtime pointer.' );
+	$operational_before = $blueprints->get( $blueprint_id );
+	$operational_after = $blueprints->save_draft( $operational_before['draft_document'], $operational_before['draft_checksum'] );
+	$assert( ! is_wp_error( $operational_after ) && $operational_before['draft_checksum'] === $operational_after['draft_checksum'] && $operational_before['draft_revision'] + 1 === $operational_after['draft_revision'], 'Operational revision ABA fixture could not be staged.' );
+	$revision_cas = $blueprints->activate_if_current( $blueprint_id, $version_two['id'], $version_one['id'], $operational_before['draft_checksum'], $operational_before['draft_revision'] );
+	$assert( is_wp_error( $revision_cas ) && 'eit_blueprint_activation_stale' === $revision_cas->get_error_code(), 'Activation compare-and-swap accepted a stale operational draft revision.' );
+	$assert( $version_one['id'] === $blueprints->get( $blueprint_id )['active_version_id'], 'Operational revision conflict changed the runtime pointer.' );
+
+	$locks = new LockStore();
+	$lease_resources = [ 'eit-lease-a-' . $suffix, 'eit-lease-b-' . $suffix ];
+	$lease_one = $locks->acquire( $lease_resources[0], 1, LifecycleLeaseGuard::LEASE_TTL );
+	$lease_two = $locks->acquire( $lease_resources[1], 1, LifecycleLeaseGuard::LEASE_TTL );
+	$assert( ! is_wp_error( $lease_one ) && ! is_wp_error( $lease_two ), 'Lifecycle lease smoke could not acquire its real database locks.' );
+	$lease_guard = new LifecycleLeaseGuard( $locks, [ $lease_resources[0] => $lease_one, $lease_resources[1] => $lease_two ] );
+	$assert( true === $lease_guard->pulse(), 'Lifecycle lease smoke could not renew its complete real lock set.' );
+	$assert( true === $locks->release( $lease_resources[0], $lease_one ), 'Lifecycle lease smoke could not stage ownership loss.' );
+	$lease_loss = $lease_guard->pulse();
+	$assert( is_wp_error( $lease_loss ) && 'eit_lifecycle_lease_lost' === $lease_loss->get_error_code(), 'Lifecycle lease guard did not fail closed after real lock ownership loss.' );
+	$locks->release( $lease_resources[1], $lease_two );
 
 	$source_plan = $lifecycle->prepare( $blueprint_id, 1 );
 	$assert( 'prepared' === ( $source_plan['status'] ?? '' ), 'Source drift plan could not be prepared.' );

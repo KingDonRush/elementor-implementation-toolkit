@@ -66,6 +66,7 @@ export function fieldContract( schema, name = 'Title', type = 'short_text' ) {
 		id,
 		name,
 		type,
+		primitive: { id: type, version: schema.primitives[ type ]?.version || '' },
 		shape: definition.shape,
 		validation: { required: false },
 		exposure: { public: false, roles: [] },
@@ -85,6 +86,7 @@ export function changeFieldPrimitive( field, schema, type ) {
 	return {
 		...field,
 		type,
+		primitive: { id: type, version: schema.primitives[ type ].version },
 		shape: definition.shape,
 		components: definition.components,
 		elementor: definition.elementor,

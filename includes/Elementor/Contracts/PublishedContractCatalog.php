@@ -20,7 +20,7 @@ class PublishedContractCatalog {
 	private $fields;
 	private $context;
 
-	public function __construct( BlueprintStore $blueprints = null, ArtifactStore $artifacts = null, ElementorContextResolver $context = null ) {
+	public function __construct( ?BlueprintStore $blueprints = null, ?ArtifactStore $artifacts = null, ?ElementorContextResolver $context = null ) {
 		$this->blueprints = $blueprints ?: new BlueprintStore();
 		$this->artifacts = $artifacts ?: new ArtifactStore();
 		$this->context = $context ?: new ElementorContextResolver();

@@ -16,7 +16,7 @@ class WooCollectionProvider extends BaseCollectionProvider {
 	private $values;
 	private $query_factory;
 
-	public function __construct( WooValueGateway $values = null, callable $query_factory = null ) {
+	public function __construct( ?WooValueGateway $values = null, ?callable $query_factory = null ) {
 		$this->values = $values ?: new WooValueGateway();
 		$this->query_factory = $query_factory;
 	}

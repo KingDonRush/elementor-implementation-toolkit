@@ -20,7 +20,7 @@ class TypedValueResolver {
 	private $cct;
 	private $normalized;
 
-	public function __construct( PublishedContractCatalog $catalog = null ) {
+	public function __construct( ?PublishedContractCatalog $catalog = null ) {
 		$this->catalog = $catalog ?: new PublishedContractCatalog();
 		$this->cct = new CctRepository();
 		$this->normalized = new NormalizedValueStore();

@@ -17,7 +17,7 @@ class CollectionSurfaceResolver {
 	private $artifacts;
 	private $blueprints;
 
-	public function __construct( ArtifactStore $artifacts = null, BlueprintStore $blueprints = null ) {
+	public function __construct( ?ArtifactStore $artifacts = null, ?BlueprintStore $blueprints = null ) {
 		$this->artifacts = $artifacts ?: new ArtifactStore();
 		$this->blueprints = $blueprints ?: new BlueprintStore();
 	}

@@ -17,6 +17,7 @@ class Tables {
 	const BINDINGS = 'bindings';
 	const CHANGE_SETS = 'change_sets';
 	const STORAGE_CLAIMS = 'storage_claims';
+	const MIGRATION_OPERATIONS = 'migration_operations';
 	const LOCKS = 'locks';
 	const RUNS = 'runs';
 	const RECONCILIATIONS = 'reconciliations';
@@ -47,6 +48,7 @@ class Tables {
 			self::BINDINGS,
 			self::CHANGE_SETS,
 			self::STORAGE_CLAIMS,
+			self::MIGRATION_OPERATIONS,
 			self::LOCKS,
 			self::RUNS,
 			self::RECONCILIATIONS,

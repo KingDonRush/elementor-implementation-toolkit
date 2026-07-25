@@ -17,7 +17,7 @@ class FlightRecorder {
 	private $runs;
 	private $events;
 
-	public function __construct( RunStore $runs = null, RunEventStore $events = null ) {
+	public function __construct( ?RunStore $runs = null, ?RunEventStore $events = null ) {
 		$this->runs = $runs ?: new RunStore();
 		$this->events = $events ?: new RunEventStore();
 	}

@@ -15,7 +15,7 @@ class PendingUploadSubmissionReconciler {
 
 	private $submissions;
 
-	public function __construct( EntrySubmissionStore $submissions = null ) {
+	public function __construct( ?EntrySubmissionStore $submissions = null ) {
 		$this->submissions = $submissions ?: new EntrySubmissionStore();
 	}
 

@@ -1,13 +1,10 @@
 <?php
 /**
- * Compares legacy sources with imported draft projections without switching runtime.
+ * Compares raw legacy authority with an independently compiled candidate projection.
  */
 
 namespace EIT\Blueprint;
 
-use EIT\CCT\DefinitionManager as CctDefinitions;
-use EIT\CCT\Repository as CctRepository;
-use EIT\CPT\DefinitionManager as CptDefinitions;
 use EIT\Elementor\ElementorDocumentRenderer;
 use EIT\Support\FilterPresets;
 
@@ -17,12 +14,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class ShadowComparator {
 
-	private $cct;
+	private $cct_records;
 	private $elementor;
+	private $legacy;
+	private $candidate;
+	private $runtime;
 
-	public function __construct( CctRepository $cct = null, ElementorDocumentRenderer $elementor = null ) {
-		$this->cct = $cct ?: new CctRepository();
+	public function __construct(
+		?CctShadowRecordProbe $cct_records = null,
+		?ElementorDocumentRenderer $elementor = null,
+		?LegacyAuthorityProbe $legacy = null,
+		?CandidateArtifactProbe $candidate = null,
+		?ActiveRuntimeProbe $runtime = null
+	) {
+		$this->cct_records = $cct_records ?: new CctShadowRecordProbe();
 		$this->elementor = $elementor ?: new ElementorDocumentRenderer();
+		$this->legacy = $legacy ?: new LegacyAuthorityProbe();
+		$this->candidate = $candidate ?: new CandidateArtifactProbe();
+		$this->runtime = $runtime ?: new ActiveRuntimeProbe();
 	}
 
 	public function compare( $source_type, $source_key, array $blueprint ) {
@@ -31,24 +40,23 @@ class ShadowComparator {
 		$started = microtime( true );
 		$compiled = ( new Compiler() )->compile( $blueprint );
 		if ( ! $compiled->is_valid() ) {
-			return [
-				'status' => 'mismatch',
-				'verification_scope' => 'compiled_projection',
-				'runtime_switched' => false,
-				'checks' => [ 'compiler' => [ 'legacy' => true, 'shadow' => false, 'match' => false ] ],
-				'duration_ms' => round( ( microtime( true ) - $started ) * 1000, 3 ),
-				'query_plan' => [ 'legacy_queries' => 0, 'shadow_queries' => 0, 'budget' => 0 ],
-				'errors' => $compiled->errors(),
-			];
+			return $this->compiler_mismatch( $started, $compiled->errors() );
 		}
-		$projection = $compiled->artifacts();
+
 		$queries_before = (int) $wpdb->num_queries;
-		$legacy = $this->snapshot_source( $source_type, $source_key, null );
+		$legacy_authority = $this->legacy->probe( $source_type, $source_key );
+		$legacy = $this->snapshot_source( $source_type, $source_key, $legacy_authority['fields'] ?? [] );
 		$legacy_queries = (int) $wpdb->num_queries - $queries_before;
+
 		$shadow_before = (int) $wpdb->num_queries;
-		$shadow = $this->snapshot_source( $source_type, $source_key, $blueprint, $projection );
+		$candidate_authority = $this->candidate->probe( $source_type, $source_key, $compiled->artifacts(), $blueprint );
+		$shadow = $this->snapshot_source( $source_type, $source_key, $candidate_authority['fields'] ?? [], $blueprint );
 		$shadow_queries = (int) $wpdb->num_queries - $shadow_before;
-		$checks = $this->checks( $legacy, $shadow );
+
+		$runtime_before = (int) $wpdb->num_queries;
+		$runtime = $this->runtime->probe( $source_type, $source_key );
+		$runtime_queries = (int) $wpdb->num_queries - $runtime_before;
+		$checks = $this->checks( $legacy, $shadow, $legacy_authority, $candidate_authority );
 		$query_budget = max( 10, $legacy_queries + 2 );
 		$checks['query_budget'] = [
 			'legacy' => $legacy_queries,
@@ -60,20 +68,32 @@ class ShadowComparator {
 
 		return [
 			'status' => $verified ? 'verified' : 'mismatch',
-			'verification_scope' => 'compiled_projection',
+			'verification_scope' => 'independent_authority_projection',
+			'compiler_checksum' => $compiled->checksum(),
 			'runtime_switched' => false,
+			'record_probe' => $this->record_probe_facts( $source_type ),
+			'authorities' => [
+				'legacy' => $this->authority_facts( $legacy_authority ),
+				'candidate' => $this->authority_facts( $candidate_authority ),
+				'active_runtime' => $this->authority_facts( $runtime ),
+			],
 			'checks' => $checks,
 			'duration_ms' => round( ( microtime( true ) - $started ) * 1000, 3 ),
-			'query_plan' => [ 'legacy_queries' => $legacy_queries, 'shadow_queries' => $shadow_queries, 'budget' => $query_budget ],
+			'query_plan' => [
+				'legacy_queries' => $legacy_queries,
+				'shadow_queries' => $shadow_queries,
+				'active_runtime_queries' => $runtime_queries,
+				'budget' => $query_budget,
+			],
 		];
 	}
 
-	private function snapshot_source( $source_type, $source_key, array $blueprint = null, array $projection = [] ) {
+	private function snapshot_source( $source_type, $source_key, array $fields, ?array $blueprint = null ) {
 		switch ( sanitize_key( $source_type ) ) {
 			case 'cpt':
-				return $this->cpt_snapshot( sanitize_key( $source_key ), $blueprint, $projection );
+				return $this->cpt_snapshot( sanitize_key( $source_key ), $fields );
 			case 'cct':
-				return $this->cct_snapshot( sanitize_key( $source_key ), $blueprint, $projection );
+				return $this->cct_snapshot( sanitize_key( $source_key ), $fields );
 			case 'filter_preset':
 				return $this->preset_snapshot( sanitize_key( $source_key ), $blueprint );
 			case 'elementor_document':
@@ -83,50 +103,38 @@ class ShadowComparator {
 		}
 	}
 
-	private function cpt_snapshot( $slug, array $blueprint = null, array $projection = [] ) {
-		$definition = CptDefinitions::get( $slug );
-		if ( ! $definition ) {
-			return [];
-		}
-		$field_keys = null === $blueprint ? $this->legacy_cpt_keys( $definition ) : $this->compiled_field_keys( 'cpt', $projection );
+	private function cpt_snapshot( $slug, array $fields ) {
 		$statuses = [ 'publish', 'draft', 'pending', 'private', 'future', 'trash', 'eit_archived' ];
 		$ids = get_posts( [ 'post_type' => $slug, 'post_status' => $statuses, 'posts_per_page' => -1, 'fields' => 'ids', 'orderby' => 'ID', 'order' => 'ASC', 'no_found_rows' => true ] );
 		$rows = [];
+		$available = true;
 		foreach ( $ids as $post_id ) {
 			$values = [];
-			foreach ( $field_keys as $key ) {
-				$values[] = taxonomy_exists( $key )
-					? array_map( 'intval', wp_get_object_terms( $post_id, $key, [ 'fields' => 'ids' ] ) )
-					: get_post_meta( $post_id, $key, true );
+			foreach ( $fields as $field ) {
+				$key = sanitize_key( $field['key'] ?? '' );
+				if ( 'taxonomy' === ( $field['kind'] ?? '' ) ) {
+					$terms = wp_get_object_terms( $post_id, $key, [ 'fields' => 'ids' ] );
+					if ( is_wp_error( $terms ) ) {
+						$available = false;
+						$values[] = null;
+					} else {
+						$values[] = array_map( 'intval', $terms );
+					}
+				} else {
+					$values[] = get_post_meta( $post_id, $key, true );
+				}
 			}
 			$rows[] = [ 'id' => (int) $post_id, 'status' => get_post_status( $post_id ), 'values' => $values ];
 		}
-		return $this->record_snapshot( $rows );
+		return array_merge( $this->record_snapshot( $rows ), [ 'storage_available' => $available ] );
 	}
 
-	private function cct_snapshot( $slug, array $blueprint = null, array $projection = [] ) {
-		$definition = CctDefinitions::get( $slug );
-		if ( ! $definition ) {
-			return [];
-		}
-		$field_keys = null === $blueprint ? array_keys( CctDefinitions::fields( $slug ) ) : $this->compiled_field_keys( 'cct', $projection );
-		$page = 1;
-		$rows = [];
-		do {
-			$result = $this->cct->query( $slug, [ 'status' => [ 'publish', 'draft', 'review', 'archived' ], 'page' => $page, 'per_page' => 100, 'orderby' => 'id' ] );
-			foreach ( $result['items'] ?? [] as $item ) {
-				$values = [];
-				foreach ( $field_keys as $key ) {
-					$values[] = $item[ $key ] ?? null;
-				}
-				$rows[] = [ 'id' => (int) $item['id'], 'status' => $item['status'], 'values' => $values ];
-			}
-			++$page;
-		} while ( $page <= (int) ( $result['pages'] ?? 1 ) );
-		return $this->record_snapshot( $rows );
+	private function cct_snapshot( $slug, array $fields ) {
+		$probe = $this->cct_records->snapshot( $slug, $fields );
+		return array_merge( $this->record_snapshot( $probe['rows'] ?? [] ), [ 'storage_available' => ! empty( $probe['available'] ) ] );
 	}
 
-	private function preset_snapshot( $id, array $blueprint = null ) {
+	private function preset_snapshot( $id, ?array $blueprint = null ) {
 		if ( null === $blueprint ) {
 			$presets = get_option( FilterPresets::OPTION, [] );
 			$preset = is_array( $presets ) ? ( $presets[ $id ] ?? [] ) : [];
@@ -142,7 +150,7 @@ class ShadowComparator {
 		return [ 'count' => count( $filters ), 'status_checksum' => hash( 'sha256', 'configured' ), 'data_checksum' => $this->checksum( $filters ) ];
 	}
 
-	private function elementor_snapshot( $post_id, array $blueprint = null ) {
+	private function elementor_snapshot( $post_id, ?array $blueprint = null ) {
 		if ( null !== $blueprint ) {
 			$post_id = $this->blueprint_document_id( $blueprint ) ?: $post_id;
 			$html = $this->elementor->render( $post_id );
@@ -164,51 +172,72 @@ class ShadowComparator {
 		return [ 'count' => count( $rows ), 'status_counts' => $statuses, 'status_checksum' => $this->checksum( $statuses ), 'data_checksum' => $this->checksum( $rows ) ];
 	}
 
-	private function checks( array $legacy, array $shadow ) {
-		$checks = [];
+	private function checks( array $legacy, array $shadow, array $legacy_authority, array $candidate_authority ) {
+		$checks = [
+			'authority_available' => [ 'legacy' => ! empty( $legacy_authority['available'] ), 'shadow' => ! empty( $candidate_authority['available'] ), 'match' => ! empty( $legacy_authority['available'] ) && ! empty( $candidate_authority['available'] ) ],
+			'semantic_contract_checksum' => [
+				'legacy' => $legacy_authority['contract_checksum'] ?? '',
+				'shadow' => $candidate_authority['contract_checksum'] ?? '',
+				'match' => $this->same_checksum( $legacy_authority['contract_checksum'] ?? '', $candidate_authority['contract_checksum'] ?? '' ),
+			],
+			'capability_downgrades' => [
+				'legacy' => [],
+				'shadow' => $candidate_authority['capability_downgrades'] ?? [],
+				'match' => empty( $candidate_authority['capability_downgrades'] ),
+			],
+		];
 		foreach ( [ 'count', 'status_checksum', 'data_checksum', 'html_checksum' ] as $key ) {
 			if ( ! array_key_exists( $key, $legacy ) && ! array_key_exists( $key, $shadow ) ) {
 				continue;
 			}
 			$checks[ $key ] = [ 'legacy' => $legacy[ $key ] ?? null, 'shadow' => $shadow[ $key ] ?? null, 'match' => ( $legacy[ $key ] ?? null ) === ( $shadow[ $key ] ?? null ) ];
 		}
+		if ( array_key_exists( 'storage_available', $legacy ) || array_key_exists( 'storage_available', $shadow ) ) {
+			$checks['storage_available'] = [ 'legacy' => ! empty( $legacy['storage_available'] ), 'shadow' => ! empty( $shadow['storage_available'] ), 'match' => ! empty( $legacy['storage_available'] ) && ! empty( $shadow['storage_available'] ) ];
+		}
 		return $checks;
 	}
 
-	private function blueprint_field_keys( array $blueprint ) {
-		$keys = [];
-		foreach ( $blueprint['nodes'] ?? [] as $node ) {
-			if ( 'field_group' !== ( $node['type'] ?? '' ) ) {
-				continue;
-			}
-			foreach ( $node['config']['fields'] ?? [] as $field ) {
-				if ( ! empty( $field['storage']['key'] ) ) {
-					$keys[] = sanitize_key( $field['storage']['key'] );
-				}
-			}
-		}
-		return $keys;
+	private function compiler_mismatch( $started, array $errors ) {
+		return [
+			'status' => 'mismatch',
+			'verification_scope' => 'independent_authority_projection',
+			'compiler_checksum' => '',
+			'runtime_switched' => false,
+			'authorities' => [],
+			'checks' => [ 'compiler' => [ 'legacy' => true, 'shadow' => false, 'match' => false ] ],
+			'duration_ms' => round( ( microtime( true ) - $started ) * 1000, 3 ),
+			'query_plan' => [ 'legacy_queries' => 0, 'shadow_queries' => 0, 'active_runtime_queries' => 0, 'budget' => 0 ],
+			'errors' => $errors,
+		];
 	}
 
-	private function compiled_field_keys( $strategy, array $artifacts ) {
-		foreach ( $artifacts as $artifact ) {
-			$payload = $artifact['payload'] ?? [];
-			if ( 'entity_definition' !== ( $artifact['kind'] ?? '' ) || $strategy !== ( $payload['strategy'] ?? '' ) ) {
-				continue;
-			}
-			$definition = $payload['definition'] ?? [];
-			if ( 'cct' === $strategy ) {
-				return array_values( array_filter( array_map( fn( $field ) => sanitize_key( $field['key'] ?? '' ), $definition['fields'] ?? [] ) ) );
-			}
-			return $this->legacy_cpt_keys( $definition );
+	private function authority_facts( array $probe ) {
+		$facts = [
+			'authority' => (string) ( $probe['authority'] ?? '' ),
+			'available' => ! empty( $probe['available'] ),
+			'contract_checksum' => (string) ( $probe['contract_checksum'] ?? '' ),
+		];
+		if ( ! empty( $probe['binding_mode'] ) ) {
+			$facts['binding_mode'] = sanitize_key( $probe['binding_mode'] );
 		}
-		return [];
+		return $facts;
 	}
 
-	private function legacy_cpt_keys( array $definition ) {
-		$meta = array_filter( array_map( fn( $field ) => sanitize_key( $field['key'] ?? '' ), $definition['meta_fields'] ?? [] ) );
-		$taxonomies = array_filter( array_map( fn( $taxonomy ) => sanitize_key( $taxonomy['slug'] ?? '' ), $definition['taxonomies'] ?? [] ) );
-		return array_values( array_merge( $meta, $taxonomies ) );
+	private function record_probe_facts( $source_type ) {
+		$facts = [
+			'cpt' => [ 'mode' => 'wordpress_api_diagnostic', 'runtime_definition_independent' => false ],
+			'cct' => [ 'mode' => 'direct_table_contract_hydration', 'runtime_definition_independent' => true ],
+			'filter_preset' => [ 'mode' => 'legacy_option_and_compiled_projection', 'runtime_definition_independent' => true ],
+			'elementor_document' => [ 'mode' => 'same_wordpress_document_binding', 'runtime_definition_independent' => false ],
+		];
+		return $facts[ sanitize_key( $source_type ) ] ?? [ 'mode' => 'unsupported', 'runtime_definition_independent' => false ];
+	}
+
+	private function same_checksum( $left, $right ) {
+		$left = (string) $left;
+		$right = (string) $right;
+		return 64 === strlen( $left ) && 64 === strlen( $right ) && hash_equals( $left, $right );
 	}
 
 	private function legacy_filter_shape( $filter ) {

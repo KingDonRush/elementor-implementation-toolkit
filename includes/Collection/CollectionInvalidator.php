@@ -14,7 +14,7 @@ class CollectionInvalidator {
 	private $resolver;
 	private $cache;
 
-	public function __construct( CollectionSurfaceResolver $resolver = null, CollectionCache $cache = null ) {
+	public function __construct( ?CollectionSurfaceResolver $resolver = null, ?CollectionCache $cache = null ) {
 		$this->resolver = $resolver ?: new CollectionSurfaceResolver();
 		$this->cache = $cache ?: new CollectionCache();
 	}

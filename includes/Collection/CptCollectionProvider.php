@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class CptCollectionProvider extends BaseCollectionProvider {
 	private $relations;
 
-	public function __construct( CollectionRelationConstraints $relations = null ) {
+	public function __construct( ?CollectionRelationConstraints $relations = null ) {
 		$this->relations = $relations ?: new CollectionRelationConstraints();
 	}
 

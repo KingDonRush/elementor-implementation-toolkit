@@ -14,7 +14,7 @@ class FilterResolver {
 	private $normalizer;
 	private $matcher;
 
-	public function __construct( LegacyDomPayload $normalizer = null, LegacyDomMatcher $matcher = null ) {
+	public function __construct( ?LegacyDomPayload $normalizer = null, ?LegacyDomMatcher $matcher = null ) {
 		$this->normalizer = $normalizer ?: new LegacyDomPayload();
 		$this->matcher = $matcher ?: new LegacyDomMatcher();
 	}

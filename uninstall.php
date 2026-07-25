@@ -16,18 +16,58 @@ if ( ! defined( 'EIT_UNINSTALL_REMOVE_DATA' ) || true !== EIT_UNINSTALL_REMOVE_D
 
 global $wpdb;
 
+$normalize_cct_slug = static function ( $slug ) {
+	$slug = substr( preg_replace( '/[^a-z0-9_]/', '_', sanitize_key( (string) $slug ) ), 0, 32 );
+	return preg_match( '/^[a-z0-9_]{1,32}$/', $slug ) ? $slug : '';
+};
+$table_exists = static function ( $table ) use ( $wpdb ) {
+	$match = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+	return (string) $table === (string) $match;
+};
+$cct_slugs = [];
 $definitions = get_option( 'eit_cct_definitions', [] );
 foreach ( is_array( $definitions ) ? array_keys( $definitions ) : [] as $slug ) {
-	$slug = substr( preg_replace( '/[^a-z0-9_]/', '_', strtolower( (string) $slug ) ), 0, 32 );
+	$slug = $normalize_cct_slug( $slug );
 	if ( '' !== $slug ) {
-		$table = $wpdb->prefix . 'eit_cct_' . $slug;
-		$wpdb->query( "DROP TABLE IF EXISTS `{$table}`" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.SchemaChange
+		$cct_slugs[ $slug ] = true;
 	}
+}
+
+$claims_table = $wpdb->prefix . 'eit_storage_claims';
+if ( $table_exists( $claims_table ) ) {
+	$claimed_slugs = $wpdb->get_col( $wpdb->prepare( "SELECT storage_slug FROM `{$claims_table}` WHERE strategy = %s", 'cct' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	foreach ( $claimed_slugs ?: [] as $slug ) {
+		$slug = $normalize_cct_slug( $slug );
+		if ( '' !== $slug ) {
+			$cct_slugs[ $slug ] = true;
+		}
+	}
+}
+
+$artifacts_table = $wpdb->prefix . 'eit_artifacts';
+if ( $table_exists( $artifacts_table ) ) {
+	$payloads = $wpdb->get_col( $wpdb->prepare( "SELECT payload FROM `{$artifacts_table}` WHERE kind = %s", 'entity_definition' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	foreach ( $payloads ?: [] as $encoded ) {
+		$payload = json_decode( (string) $encoded, true );
+		if ( ! is_array( $payload ) || 'cct' !== sanitize_key( $payload['strategy'] ?? '' ) ) {
+			continue;
+		}
+		$slug = $normalize_cct_slug( $payload['definition']['slug'] ?? '' );
+		if ( '' !== $slug ) {
+			$cct_slugs[ $slug ] = true;
+		}
+	}
+}
+
+ksort( $cct_slugs, SORT_STRING );
+foreach ( array_keys( $cct_slugs ) as $slug ) {
+	$table = $wpdb->prefix . 'eit_cct_' . $slug;
+	$wpdb->query( "DROP TABLE IF EXISTS `{$table}`" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.SchemaChange
 }
 
 $tables = [
 	'blueprints', 'blueprint_versions', 'artifacts', 'bindings', 'change_sets',
-	'storage_claims', 'locks', 'runs', 'reconciliations', 'rollbacks', 'relation_values',
+	'storage_claims', 'migration_operations', 'locks', 'runs', 'reconciliations', 'rollbacks', 'relation_values',
 	'multivalue_values', 'entry_submissions', 'pending_uploads', 'entry_action_jobs', 'migrations',
 	'run_events', 'qa_scenarios',
 ];

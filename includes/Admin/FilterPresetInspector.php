@@ -13,7 +13,7 @@ class FilterPresetInspector {
 
 	private $rules;
 
-	public function __construct( FilterPresetDiagnosticRules $rules = null ) {
+	public function __construct( ?FilterPresetDiagnosticRules $rules = null ) {
 		$this->rules = $rules ?: new FilterPresetDiagnosticRules();
 	}
 

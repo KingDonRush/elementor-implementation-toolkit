@@ -119,12 +119,14 @@ class BlueprintAdminController {
 	}
 
 	public function rollback( \WP_REST_Request $request ) {
+		$target = sanitize_key( (string) $request->get_param( 'target' ) );
+		$is_legacy = 'legacy' === $target;
 		$version_id = absint( $request->get_param( 'version_id' ) );
 		$reason = sanitize_textarea_field( $request->get_param( 'reason' ) );
-		if ( ! $version_id || '' === trim( $reason ) ) {
-			return $this->error( 'eit_rollback_reason_required', __( 'Choose a version and record a rollback reason.', 'elementor-implementation-toolkit' ), 400 );
+		if ( ( ! $is_legacy && ! $version_id ) || '' === trim( $reason ) ) {
+			return $this->error( 'eit_rollback_reason_required', __( 'Choose a rollback target and record a reason.', 'elementor-implementation-toolkit' ), 400 );
 		}
-		$result = BlueprintModule::lifecycle()->rollback( $request['id'], $version_id, $reason, get_current_user_id() );
+		$result = BlueprintModule::lifecycle()->rollback( $request['id'], $is_legacy ? 'legacy' : $version_id, $reason, get_current_user_id() );
 		return is_wp_error( $result ) ? $this->status( $result, 409 ) : rest_ensure_response( $this->presenter()->system( $request['id'] ) );
 	}
 

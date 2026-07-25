@@ -15,7 +15,7 @@ class CollectionRelationConstraints {
 
 	private $values;
 
-	public function __construct( NormalizedValueStore $values = null ) {
+	public function __construct( ?NormalizedValueStore $values = null ) {
 		$this->values = $values ?: new NormalizedValueStore();
 	}
 

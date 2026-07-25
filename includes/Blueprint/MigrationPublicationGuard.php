@@ -15,10 +15,14 @@ class MigrationPublicationGuard {
 
 	private $migrations;
 	private $importer;
+	private $compiler;
+	private $snapshots;
 
-	public function __construct( $migrations = null, $importer = null ) {
+	public function __construct( $migrations = null, $importer = null, $compiler = null, ?LegacyAuthoritySnapshot $snapshots = null ) {
 		$this->migrations = $migrations ?: new MigrationStore();
 		$this->importer = $importer ?: new LegacyImporter();
+		$this->compiler = $compiler ?: new Compiler();
+		$this->snapshots = $snapshots ?: new LegacyAuthoritySnapshot();
 	}
 
 	public function validate( array $blueprint ) {
@@ -46,6 +50,20 @@ class MigrationPublicationGuard {
 		if ( 'verified' !== ( $record['status'] ?? '' ) || 'verified' !== ( $record['comparison']['status'] ?? '' ) ) {
 			return $this->error( 'eit_migration_comparison_unverified', __( 'Imported Blueprint comparison is not verified.', 'elementor-implementation-toolkit' ) );
 		}
+		$comparison = $record['comparison'] ?? [];
+		$semantic = $comparison['checks']['semantic_contract_checksum'] ?? [];
+		$capabilities = $comparison['checks']['capability_downgrades'] ?? [];
+		$authorities = $comparison['authorities'] ?? [];
+		$legacy_authority = 'elementor_document' === ( $record['source_type'] ?? '' ) ? 'wordpress_post_meta' : 'legacy_option';
+		if (
+			'independent_authority_projection' !== ( $comparison['verification_scope'] ?? '' )
+			|| empty( $semantic['match'] )
+			|| empty( $capabilities['match'] )
+			|| $legacy_authority !== ( $authorities['legacy']['authority'] ?? '' )
+			|| 'compiled_candidate_artifact' !== ( $authorities['candidate']['authority'] ?? '' )
+		) {
+			return $this->error( 'eit_migration_evidence_stale', __( 'Imported Blueprint evidence predates independent semantic authority checks.', 'elementor-implementation-toolkit' ) );
+		}
 		if ( ! $this->same_checksum( $record['draft_checksum'] ?? '', $blueprint['draft_checksum'] ?? '' ) ) {
 			return $this->error( 'eit_migration_draft_changed', __( 'Imported Blueprint draft changed after verification.', 'elementor-implementation-toolkit' ) );
 		}
@@ -67,7 +85,42 @@ class MigrationPublicationGuard {
 		) {
 			return $this->error( 'eit_migration_projection_changed', __( 'Imported projection changed after verification.', 'elementor-implementation-toolkit' ) );
 		}
+		$document = $blueprint['draft_document'] ?? null;
+		try {
+			$compiled = is_array( $document ) ? $this->compiler->compile( $document ) : null;
+		} catch ( \Throwable $error ) {
+			$compiled = null;
+		}
+		if ( ! is_object( $compiled ) || ! method_exists( $compiled, 'is_valid' ) || ! method_exists( $compiled, 'checksum' ) || ! $compiled->is_valid() ) {
+			return $this->error( 'eit_migration_candidate_uncompilable', __( 'Imported Blueprint no longer compiles under the current runtime.', 'elementor-implementation-toolkit' ) );
+		}
+		if ( ! $this->same_checksum( $comparison['compiler_checksum'] ?? '', $compiled->checksum() ) ) {
+			return $this->error( 'eit_migration_compiler_changed', __( 'Compiler output changed after the shadow evidence was recorded.', 'elementor-implementation-toolkit' ) );
+		}
 		return $record;
+	}
+
+	public function snapshot( array $blueprint ) {
+		$record = $this->validate( $blueprint );
+		if ( is_wp_error( $record ) ) {
+			return $record;
+		}
+		return is_array( $record ) ? $this->snapshots->capture( $record, $blueprint ) : null;
+	}
+
+	public function validate_snapshot( array $blueprint, $snapshot ) {
+		$record = $this->validate( $blueprint );
+		if ( is_wp_error( $record ) ) {
+			return $record;
+		}
+		if ( ! is_array( $record ) ) {
+			return null === $snapshot
+				? true
+				: $this->error( 'eit_legacy_authority_snapshot_unexpected', __( 'Native Blueprint cannot consume legacy activation authority.', 'elementor-implementation-toolkit' ) );
+		}
+		return is_array( $snapshot )
+			? $this->snapshots->matches_evidence( $snapshot, $record, $blueprint )
+			: $this->error( 'eit_legacy_authority_snapshot_missing', __( 'Imported Blueprint has no frozen legacy activation authority.', 'elementor-implementation-toolkit' ) );
 	}
 
 	public function blockers( array $blueprint ) {

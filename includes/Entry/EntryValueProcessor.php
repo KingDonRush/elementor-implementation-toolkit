@@ -20,7 +20,7 @@ class EntryValueProcessor {
 	private $expressions;
 	private $primitives;
 
-	public function __construct( FieldValueSanitizer $sanitizer = null, ConditionEvaluator $conditions = null, SafeExpression $expressions = null, FieldPrimitiveRegistry $primitives = null ) {
+	public function __construct( ?FieldValueSanitizer $sanitizer = null, ?ConditionEvaluator $conditions = null, ?SafeExpression $expressions = null, ?FieldPrimitiveRegistry $primitives = null ) {
 		$this->sanitizer = $sanitizer ?: new FieldValueSanitizer();
 		$this->conditions = $conditions ?: new ConditionEvaluator();
 		$this->expressions = $expressions ?: new SafeExpression();

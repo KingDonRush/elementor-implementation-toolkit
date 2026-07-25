@@ -22,7 +22,7 @@ class EntryActionDispatcher {
 	private $redactor;
 	private $registries;
 
-	public function __construct( EntryActionStore $jobs = null, RunStore $runs = null, PayloadRedactor $redactor = null, RegistryHub $registries = null ) {
+	public function __construct( ?EntryActionStore $jobs = null, ?RunStore $runs = null, ?PayloadRedactor $redactor = null, ?RegistryHub $registries = null ) {
 		$this->jobs = $jobs ?: new EntryActionStore();
 		$this->runs = $runs ?: new RunStore();
 		$this->redactor = $redactor ?: new PayloadRedactor();

@@ -12,10 +12,20 @@ export default defineConfig({
   use: {
     baseURL: process.env.EIT_E2E_BASE_URL || 'http://localhost:8080',
     headless: true,
-    launchOptions: {
-      executablePath: process.env.EIT_E2E_CHROME || '/usr/bin/google-chrome',
-    },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        browserName: 'chromium',
+        launchOptions: {
+          executablePath: process.env.EIT_E2E_CHROME || '/usr/bin/google-chrome',
+        },
+      },
+    },
+    { name: 'firefox', use: { browserName: 'firefox' } },
+    { name: 'webkit', use: { browserName: 'webkit' } },
+  ],
 });

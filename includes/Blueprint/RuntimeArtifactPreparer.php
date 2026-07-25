@@ -16,7 +16,7 @@ class RuntimeArtifactPreparer {
 
 	private $registries;
 
-	public function __construct( RegistryHub $registries = null ) {
+	public function __construct( ?RegistryHub $registries = null ) {
 		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
 	}
 

@@ -71,7 +71,7 @@ try {
 	$cleanup();
 	$assert( true === SchemaManager::install(), 'Infrastructure installation failed.' );
 	$assert( true === SchemaManager::verify(), 'Infrastructure verification failed.' );
-	$assert( count( Tables::keys() ) === 18, 'Dedicated infrastructure table count drifted.' );
+	$assert( count( Tables::keys() ) === 19, 'Dedicated infrastructure table count drifted.' );
 
 	$document = [
 		'api_version' => 'eit.dev/v1',
@@ -121,9 +121,10 @@ try {
 	$binding_result = $bindings->insert_many(
 		$blueprint_id,
 		$first_version['id'],
-		[ [ 'field_id' => $field_id, 'adapter' => 'cct', 'storage_key' => 'eit_price', 'aliases' => [ 'legacy_price' ] ] ]
+		[ [ 'field_id' => $field_id, 'entity_id' => $artifact['node_id'], 'adapter' => 'cct', 'storage_key' => 'eit_price', 'aliases' => [ 'legacy_price' ], 'migration' => null ] ]
 	);
-	$assert( true === $binding_result && [ 'legacy_price' ] === $bindings->get( $first_version['id'], $field_id )['aliases'], 'Stable binding aliases failed.' );
+	$stored_binding = $bindings->get_checked( $first_version['id'], $field_id );
+	$assert( true === $binding_result && ! is_wp_error( $stored_binding ) && [ 'legacy_price' ] === $stored_binding['aliases'] && $artifact['node_id'] === $stored_binding['entity_id'], 'Complete stable binding payload failed.' );
 
 	$change_set_id = Uuid::v4();
 	$change_sets = new ChangeSetStore();
@@ -227,6 +228,8 @@ try {
 	$resource = 'blueprint-' . $blueprint_id;
 	$lock_token = $locks->acquire( $resource, 1 );
 	$assert( is_string( $lock_token ) && is_wp_error( $locks->acquire( $resource, 2 ) ), 'Exclusive Blueprint lock failed.' );
+	$assert( is_wp_error( $locks->renew( $resource, 'stale-token' ) ) && true === $locks->is_active( $resource ), 'A stale token renewed or hid an active lock.' );
+	$assert( true === $locks->renew( $resource, $lock_token ) && false === $locks->release( $resource, 'stale-token' ), 'Lock renewal or compare-and-swap ownership failed.' );
 	$assert( true === $locks->release( $resource, $lock_token ), 'Blueprint lock release failed.' );
 
 	$runs = new RunStore();

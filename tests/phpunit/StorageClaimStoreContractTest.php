@@ -4,6 +4,7 @@
  */
 
 use EIT\Infrastructure\SchemaManager;
+use EIT\Infrastructure\SchemaContract;
 use EIT\Infrastructure\StorageClaimStore;
 use EIT\Infrastructure\Tables;
 use PHPUnit\Framework\TestCase;
@@ -23,9 +24,10 @@ class StorageClaimStoreContractTest extends TestCase {
 	}
 
 	public function test_schema_registers_the_durable_claim_ledger(): void {
-		self::assertSame( '6', SchemaManager::VERSION );
-		self::assertCount( 18, Tables::keys() );
+		self::assertSame( '8', SchemaManager::VERSION );
+		self::assertCount( 19, Tables::keys() );
 		self::assertContains( Tables::STORAGE_CLAIMS, Tables::keys() );
+		self::assertContains( 'payload', SchemaContract::expected_columns()[ Tables::BINDINGS ] );
 	}
 
 	public function test_store_never_drops_or_mutates_external_storage(): void {

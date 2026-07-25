@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SchemaManager {
 
-	const VERSION = '6';
+	const VERSION = '8';
 	const VERSION_OPTION = 'eit_blueprint_schema_version';
 
 	public static function maybe_upgrade() {
@@ -49,7 +49,7 @@ class SchemaManager {
 	public static function verify() {
 		global $wpdb;
 
-		foreach ( self::expected_columns() as $table_key => $expected ) {
+		foreach ( SchemaContract::expected_columns() as $table_key => $expected ) {
 			$table = Tables::name( $table_key );
 			$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
 			if ( $table !== $found ) {
@@ -120,6 +120,7 @@ class SchemaManager {
 				adapter varchar(64) NOT NULL,
 				storage_key varchar(191) NOT NULL,
 				aliases longtext DEFAULT NULL,
+				payload longtext DEFAULT NULL,
 				created_at datetime NOT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY version_field (version_id,field_id),
@@ -156,6 +157,39 @@ class SchemaManager {
 				PRIMARY KEY  (identity_hash),
 				UNIQUE KEY storage_identity (strategy,storage_slug),
 				KEY claim_owner (blueprint_id,change_set_id,status)
+			) {$collate};",
+			"CREATE TABLE {$table( Tables::MIGRATION_OPERATIONS )} (
+				id char(64) NOT NULL,
+				blueprint_id char(36) NOT NULL,
+				change_set_id char(36) NOT NULL,
+				field_id char(36) NOT NULL,
+				adapter varchar(64) NOT NULL,
+				operation_checksum char(64) NOT NULL,
+				source_identity_hash char(64) NOT NULL,
+				target_identity_hash char(64) NOT NULL,
+				operation longtext NOT NULL,
+				status varchar(24) NOT NULL,
+				resume_status varchar(24) DEFAULT NULL,
+				state_revision bigint(20) unsigned NOT NULL DEFAULT 0,
+				`cursor` longtext DEFAULT NULL,
+				copied_count bigint(20) unsigned NOT NULL DEFAULT 0,
+				source_count bigint(20) unsigned DEFAULT NULL,
+				transformed_count bigint(20) unsigned DEFAULT NULL,
+				target_count bigint(20) unsigned DEFAULT NULL,
+				rejected_count bigint(20) unsigned NOT NULL DEFAULT 0,
+				source_checksum char(64) DEFAULT NULL,
+				target_checksum char(64) DEFAULT NULL,
+				attempts int(10) unsigned NOT NULL DEFAULT 0,
+				error_code varchar(96) DEFAULT NULL,
+				created_at datetime NOT NULL,
+				updated_at datetime NOT NULL,
+				finished_at datetime DEFAULT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY target_identity (target_identity_hash),
+				UNIQUE KEY change_set_field (change_set_id,field_id),
+				KEY blueprint_status (blueprint_id,status),
+				KEY change_set_status (change_set_id,status),
+				KEY source_identity (source_identity_hash)
 			) {$collate};",
 			"CREATE TABLE {$table( Tables::LOCKS )} (
 				resource_key varchar(191) NOT NULL,
@@ -344,29 +378,6 @@ class SchemaManager {
 				KEY blueprint_kind (blueprint_id,kind),
 				KEY status (status)
 			) {$collate};",
-		];
-	}
-
-	private static function expected_columns() {
-		return [
-			Tables::BLUEPRINTS => [ 'id', 'draft_document', 'active_version_id' ],
-			Tables::VERSIONS => [ 'id', 'blueprint_id', 'version', 'checksum', 'document' ],
-			Tables::ARTIFACTS => [ 'id', 'version_id', 'kind', 'payload' ],
-			Tables::BINDINGS => [ 'id', 'field_id', 'storage_key', 'aliases' ],
-			Tables::CHANGE_SETS => [ 'id', 'status', 'impact', 'confirmation_hash' ],
-			Tables::STORAGE_CLAIMS => [ 'identity_hash', 'strategy', 'storage_slug', 'blueprint_id', 'change_set_id', 'artifact_checksum', 'existed_before', 'status', 'failure_code' ],
-			Tables::LOCKS => [ 'resource_key', 'token_hash', 'expires_at' ],
-			Tables::RUNS => [ 'id', 'operation', 'status', 'request_id' ],
-			Tables::RECONCILIATIONS => [ 'id', 'change_set_id', 'counts', 'checksums' ],
-			Tables::ROLLBACKS => [ 'id', 'from_version_id', 'to_version_id', 'reason' ],
-			Tables::RELATIONS => [ 'id', 'relation_id', 'source_id', 'target_id' ],
-			Tables::MULTIVALUES => [ 'id', 'field_id', 'owner_id', 'row_id', 'value' ],
-			Tables::ENTRY_SUBMISSIONS => [ 'id', 'surface_id', 'actor_key', 'idempotency_hash', 'payload_checksum', 'status', 'response' ],
-			Tables::PENDING_UPLOADS => [ 'id', 'blueprint_id', 'version_id', 'contract_checksum', 'surface_id', 'field_id', 'actor_key', 'token_hash', 'storage_name', 'file_checksum', 'status', 'submission_id', 'attachment_id', 'promoted_path', 'cleanup_attempts', 'last_error', 'expires_at' ],
-			Tables::ACTION_JOBS => [ 'id', 'submission_id', 'action_id', 'action_type', 'status', 'attempts', 'context', 'available_at' ],
-			Tables::MIGRATIONS => [ 'id', 'source_type', 'source_key', 'blueprint_id', 'source_checksum', 'draft_checksum', 'status', 'comparison' ],
-			Tables::RUN_EVENTS => [ 'id', 'run_id', 'sequence', 'event_type', 'payload', 'duration_ms' ],
-			Tables::QA_SCENARIOS => [ 'id', 'blueprint_id', 'name', 'kind', 'request', 'expected', 'last_result', 'status' ],
 		];
 	}
 

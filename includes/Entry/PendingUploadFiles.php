@@ -16,7 +16,7 @@ class PendingUploadFiles {
 	private $directory;
 	private $mover;
 
-	public function __construct( $directory = '', callable $mover = null ) {
+	public function __construct( $directory = '', ?callable $mover = null ) {
 		$this->directory = trim( (string) $directory );
 		$this->mover = $mover ?: static fn( $source, $destination ) => move_uploaded_file( $source, $destination );
 	}

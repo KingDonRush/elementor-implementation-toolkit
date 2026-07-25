@@ -115,6 +115,17 @@ class HandoffNotesGenerator {
 		if ( empty( $scenarios ) || array_filter( $scenarios, fn( $scenario ) => 'passed' !== $scenario['status'] ) ) {
 			$lines[] = '- One or more required QA scenarios have no passing recorded result.';
 		}
+		foreach ( $migrations as $migration ) {
+			$downgrade = $migration['comparison']['checks']['capability_downgrades'] ?? [];
+			if ( ! empty( $downgrade['match'] ) || empty( $downgrade['shadow'] ) ) {
+				continue;
+			}
+			$facts = [];
+			foreach ( $downgrade['shadow'] as $field ) {
+				$facts[] = sanitize_key( $field['storage_key'] ?? '' ) . ' (' . implode( ', ', array_map( 'sanitize_key', $field['capabilities'] ?? [] ) ) . ')';
+			}
+			$lines[] = sprintf( '- Legacy `%s` capability downgrade blocks cutover: %s.', $this->text( $migration['source_key'] ), implode( '; ', array_filter( $facts ) ) );
+		}
 		$lines[] = '- Human browser approval is external evidence and is not inferred from automated health checks.';
 		return implode( "\n", $lines ) . "\n";
 	}

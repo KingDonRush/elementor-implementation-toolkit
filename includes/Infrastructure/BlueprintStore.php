@@ -87,6 +87,30 @@ class BlueprintStore {
 		return array_map( [ $this, 'hydrate' ], $rows ?: [] );
 	}
 
+	/**
+	 * Reads runtime authority without collapsing database or document failures
+	 * into an apparently empty registry.
+	 */
+	public function all_checked() {
+		global $wpdb;
+
+		$table = Tables::name( Tables::BLUEPRINTS );
+		$wpdb->last_error = '';
+		$rows = $wpdb->get_results( "SELECT * FROM `{$table}` ORDER BY name ASC", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( '' !== $wpdb->last_error ) {
+			return new \WP_Error( 'eit_blueprint_runtime_read_failed', __( 'Blueprint runtime authority could not be read safely.', 'elementor-implementation-toolkit' ), [ 'database_error' => sanitize_text_field( $wpdb->last_error ) ] );
+		}
+		$records = [];
+		foreach ( $rows ?: [] as $row ) {
+			$record = $this->hydrate( $row );
+			if ( ! is_array( $record['draft_document'] ?? null ) ) {
+				return new \WP_Error( 'eit_blueprint_runtime_document_invalid', __( 'Blueprint runtime authority contains an invalid document.', 'elementor-implementation-toolkit' ) );
+			}
+			$records[] = $record;
+		}
+		return $records;
+	}
+
 	public function set_active_version( $blueprint_id, $version_id ) {
 		global $wpdb;
 
@@ -100,11 +124,11 @@ class BlueprintStore {
 			: true;
 	}
 
-	public function activate_if_current( $blueprint_id, $version_id, $expected_active_version_id, $draft_checksum ) {
+	public function activate_if_current( $blueprint_id, $version_id, $expected_active_version_id, $draft_checksum, $draft_revision = null ) {
 		global $wpdb;
 
 		$table = Tables::name( Tables::BLUEPRINTS );
-		if ( null === $expected_active_version_id ) {
+		if ( null === $expected_active_version_id && null === $draft_revision ) {
 			$result = $wpdb->query(
 				$wpdb->prepare(
 					"UPDATE `{$table}` SET active_version_id = %d, updated_at = %s WHERE id = %s AND draft_checksum = %s AND active_version_id IS NULL", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -114,7 +138,18 @@ class BlueprintStore {
 					(string) $draft_checksum
 				)
 			);
-		} else {
+		} elseif ( null === $expected_active_version_id ) {
+			$result = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE `{$table}` SET active_version_id = %d, updated_at = %s WHERE id = %s AND draft_checksum = %s AND draft_revision = %d AND active_version_id IS NULL", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					absint( $version_id ),
+					current_time( 'mysql', true ),
+					(string) $blueprint_id,
+					(string) $draft_checksum,
+					absint( $draft_revision )
+				)
+			);
+		} elseif ( null === $draft_revision ) {
 			$result = $wpdb->query(
 				$wpdb->prepare(
 					"UPDATE `{$table}` SET active_version_id = %d, updated_at = %s WHERE id = %s AND draft_checksum = %s AND active_version_id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -122,6 +157,18 @@ class BlueprintStore {
 					current_time( 'mysql', true ),
 					(string) $blueprint_id,
 					(string) $draft_checksum,
+					absint( $expected_active_version_id )
+				)
+			);
+		} else {
+			$result = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE `{$table}` SET active_version_id = %d, updated_at = %s WHERE id = %s AND draft_checksum = %s AND draft_revision = %d AND active_version_id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					absint( $version_id ),
+					current_time( 'mysql', true ),
+					(string) $blueprint_id,
+					(string) $draft_checksum,
+					absint( $draft_revision ),
 					absint( $expected_active_version_id )
 				)
 			);
@@ -136,10 +183,45 @@ class BlueprintStore {
 		$no_op = null !== $expected_active_version_id
 			&& absint( $expected_active_version_id ) === absint( $version_id )
 			&& absint( $current['active_version_id'] ?? 0 ) === absint( $version_id )
-			&& hash_equals( (string) $draft_checksum, (string) ( $current['draft_checksum'] ?? '' ) );
+			&& hash_equals( (string) $draft_checksum, (string) ( $current['draft_checksum'] ?? '' ) )
+			&& ( null === $draft_revision || absint( $draft_revision ) === absint( $current['draft_revision'] ?? 0 ) );
 		return $no_op
 			? true
 			: new \WP_Error( 'eit_blueprint_activation_stale', __( 'Blueprint authority changed before activation could commit.', 'elementor-implementation-toolkit' ), [ 'status' => 409 ] );
+	}
+
+	public function deactivate_if_current( $blueprint_id, $expected_active_version_id, $draft_checksum, $draft_revision = null ) {
+		global $wpdb;
+
+		$table = Tables::name( Tables::BLUEPRINTS );
+		if ( null === $draft_revision ) {
+			$result = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE `{$table}` SET active_version_id = NULL, updated_at = %s WHERE id = %s AND draft_checksum = %s AND active_version_id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					current_time( 'mysql', true ),
+					(string) $blueprint_id,
+					(string) $draft_checksum,
+					absint( $expected_active_version_id )
+				)
+			);
+		} else {
+			$result = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE `{$table}` SET active_version_id = NULL, updated_at = %s WHERE id = %s AND draft_checksum = %s AND draft_revision = %d AND active_version_id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					current_time( 'mysql', true ),
+					(string) $blueprint_id,
+					(string) $draft_checksum,
+					absint( $draft_revision ),
+					absint( $expected_active_version_id )
+				)
+			);
+		}
+		if ( false === $result ) {
+			return new \WP_Error( 'eit_blueprint_deactivation_failed', __( 'Blueprint active authority could not be released.', 'elementor-implementation-toolkit' ) );
+		}
+		return 1 === $result
+			? true
+			: new \WP_Error( 'eit_blueprint_deactivation_stale', __( 'Blueprint authority changed before legacy restoration could commit.', 'elementor-implementation-toolkit' ), [ 'status' => 409 ] );
 	}
 
 	public function delete_unpublished( $blueprint_id ) {
@@ -151,6 +233,20 @@ class BlueprintStore {
 		}
 		if ( ! empty( $record['active_version_id'] ) ) {
 			return new \WP_Error( 'eit_blueprint_delete_published', __( 'Published Blueprints remain auditable and cannot be deleted.', 'elementor-implementation-toolkit' ) );
+		}
+		$versions = Tables::name( Tables::VERSIONS );
+		$change_sets = Tables::name( Tables::CHANGE_SETS );
+		$wpdb->last_error = '';
+		$version_history = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$versions}` WHERE blueprint_id = %s LIMIT 1", (string) $blueprint_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( '' !== (string) $wpdb->last_error ) {
+			return new \WP_Error( 'eit_blueprint_delete_history_unavailable', __( 'Blueprint publication history could not be verified safely.', 'elementor-implementation-toolkit' ) );
+		}
+		$publication_history = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$change_sets}` WHERE blueprint_id = %s AND status IN ('applied','reconciled','rolled_back') LIMIT 1", (string) $blueprint_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( '' !== (string) $wpdb->last_error ) {
+			return new \WP_Error( 'eit_blueprint_delete_history_unavailable', __( 'Blueprint publication history could not be verified safely.', 'elementor-implementation-toolkit' ) );
+		}
+		if ( null !== $version_history || null !== $publication_history ) {
+			return new \WP_Error( 'eit_blueprint_delete_historical', __( 'Blueprints with publication history remain auditable and cannot be deleted.', 'elementor-implementation-toolkit' ) );
 		}
 
 		return ( new Transaction() )->run(

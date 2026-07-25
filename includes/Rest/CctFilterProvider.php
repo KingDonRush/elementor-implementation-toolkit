@@ -21,7 +21,7 @@ class CctFilterProvider {
 	private $current_type;
 	private $documents;
 
-	public function __construct( ElementorDocumentRenderer $documents = null ) {
+	public function __construct( ?ElementorDocumentRenderer $documents = null ) {
 		$this->documents = $documents ?: new ElementorDocumentRenderer();
 	}
 

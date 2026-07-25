@@ -61,13 +61,7 @@ class CoreStorageAdapter implements StorageAdapterInterface {
 		$config = $entity['config'] ?? [];
 		$slug = substr( sanitize_key( $config['slug'] ?? $context['slug'] ?? $entity['name'] ?? 'eit_item' ), 0, 20 );
 		$mode = $config['mode'] ?? 'structured';
-		$supports = [ 'title' ];
-		if ( in_array( $mode, [ 'editorial', 'hybrid' ], true ) ) {
-			$supports[] = 'editor';
-		}
-		if ( ! empty( $config['versioned'] ) ) {
-			$supports[] = 'revisions';
-		}
+		$supports = $this->cpt_supports( $config, $mode );
 
 		$meta_fields = [];
 		$taxonomies = [];
@@ -99,9 +93,9 @@ class CoreStorageAdapter implements StorageAdapterInterface {
 				'singular' => sanitize_text_field( $config['singular'] ?? $entity['name'] ),
 				'plural' => sanitize_text_field( $config['plural'] ?? $entity['name'] ),
 				'description' => sanitize_textarea_field( $config['description'] ?? '' ),
-				'menu_icon' => 'dashicons-screenoptions',
+				'menu_icon' => sanitize_text_field( $config['menu_icon'] ?? 'dashicons-screenoptions' ),
 				'public' => ! empty( $config['public'] ),
-				'show_in_rest' => true,
+				'show_in_rest' => array_key_exists( 'show_in_rest', $config ) ? ! empty( $config['show_in_rest'] ) : true,
 				'has_archive' => ! empty( $config['routed'] ),
 				'hierarchical' => ! empty( $config['hierarchical'] ),
 				'rewrite_slug' => sanitize_title( $config['route_slug'] ?? $slug ),
@@ -146,9 +140,9 @@ class CoreStorageAdapter implements StorageAdapterInterface {
 				'singular' => sanitize_text_field( $config['singular'] ?? $entity['name'] ),
 				'plural' => sanitize_text_field( $config['plural'] ?? $entity['name'] ),
 				'description' => sanitize_textarea_field( $config['description'] ?? '' ),
-				'menu_icon' => 'dashicons-database',
+				'menu_icon' => sanitize_text_field( $config['menu_icon'] ?? 'dashicons-database' ),
 				'public' => ! empty( $config['public'] ),
-				'state' => 'active',
+				'state' => 'archived' === ( $config['state'] ?? '' ) ? 'archived' : 'active',
 				'fields' => $compiled_fields,
 				'blueprint_managed' => true,
 				'blueprint_id' => $context['blueprint_id'] ?? '',
@@ -165,9 +159,25 @@ class CoreStorageAdapter implements StorageAdapterInterface {
 			'singular' => sanitize_text_field( $config['singular'] ?? $field['name'] ),
 			'plural' => sanitize_text_field( $config['plural'] ?? $field['name'] ),
 			'hierarchical' => ! empty( $config['hierarchical'] ),
-			'public' => ! empty( $field['exposure']['public'] ),
-			'show_in_rest' => true,
+			'public' => array_key_exists( 'public', $config ) ? ! empty( $config['public'] ) : ! empty( $field['exposure']['public'] ),
+			'show_in_rest' => array_key_exists( 'show_in_rest', $config ) ? ! empty( $config['show_in_rest'] ) : true,
 		];
+	}
+
+	private function cpt_supports( array $config, $mode ) {
+		$allowed = [ 'title', 'editor', 'thumbnail', 'excerpt', 'custom-fields', 'revisions', 'page-attributes' ];
+		if ( array_key_exists( 'supports', $config ) && is_array( $config['supports'] ) ) {
+			$supports = array_values( array_intersect( $allowed, array_map( 'sanitize_key', $config['supports'] ) ) );
+			return $supports ?: [ 'title' ];
+		}
+		$supports = [ 'title' ];
+		if ( in_array( $mode, [ 'editorial', 'hybrid' ], true ) ) {
+			$supports[] = 'editor';
+		}
+		if ( ! empty( $config['versioned'] ) ) {
+			$supports[] = 'revisions';
+		}
+		return array_values( array_unique( $supports ) );
 	}
 
 	private function legacy_type( $type, $adapter ) {
@@ -177,7 +187,7 @@ class CoreStorageAdapter implements StorageAdapterInterface {
 			'boolean' => 'cpt' === $adapter ? 'checkbox' : 'boolean', 'single_choice' => 'select', 'multiple_choice' => 'cpt' === $adapter ? 'select' : 'multiselect',
 			'date' => 'date', 'time' => 'time', 'datetime' => 'datetime', 'image' => 'image', 'gallery' => 'gallery',
 			'email' => 'email', 'phone' => 'text', 'url' => 'url', 'file' => 'image',
-			'color' => 'text',
+			'color' => 'color',
 		];
 		return $shared[ $type ] ?? ( 'cpt' === $adapter ? 'textarea' : 'textarea' );
 	}

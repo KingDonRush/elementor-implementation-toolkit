@@ -79,6 +79,31 @@ class LifecycleRollbackContractTest extends TestCase {
 		self::assertSame( [ 'lock:release:blueprint-bp-1', 'lock:release:storage-ownership' ], $this->events_starting_with( $state, 'lock:release:' ) );
 	}
 
+	public function test_lease_loss_immediately_before_commit_prevents_pointer_switch(): void {
+		$state = new LifecycleRollbackState();
+		$state->renew_failure_at = 11;
+
+		$result = $this->service( $state )->rollback( $state->blueprint_id, $state->target_version_id, 'Expired operation', 7 );
+
+		self::assertSame( 'eit_lifecycle_lease_lost', $result->get_error_code() );
+		self::assertSame( $state->from_version_id, $state->active_version_id );
+		self::assertNotContains( 'blueprints:set-active', $state->events );
+		self::assertNotContains( 'rollback:record', $state->events );
+		self::assertNotContains( 'cache:set', $state->events );
+	}
+
+	public function test_stale_rollback_cas_never_overwrites_a_newer_active_pointer(): void {
+		$state = new LifecycleRollbackState();
+		$state->concurrent_pointer_before_cas = 99;
+
+		$result = $this->service( $state )->rollback( $state->blueprint_id, $state->target_version_id, 'Stale operation', 7 );
+
+		self::assertSame( 'eit_blueprint_activation_stale', $result->get_error_code() );
+		self::assertSame( 99, $state->active_version_id );
+		self::assertNotContains( 'rollback:record', $state->events );
+		self::assertNotContains( 'cache:set', $state->events );
+	}
+
 	public function test_blueprint_lock_failure_releases_global_lock(): void {
 		$state = new LifecycleRollbackState();
 		$state->lock_failure = 'blueprint-bp-1';
@@ -104,6 +129,22 @@ class LifecycleRollbackContractTest extends TestCase {
 		self::assertSame( [ 'lock:release:blueprint-bp-1', 'lock:release:storage-ownership' ], $this->events_starting_with( $state, 'lock:release:' ) );
 	}
 
+	public function test_generic_rollback_cannot_reactivate_a_rolled_back_migrated_version(): void {
+		$state = new LifecycleRollbackState();
+		$state->rolled_back_lineage = [
+			'id' => 'migration-change',
+			'status' => 'rolled_back',
+			'impact' => [ 'migration_plan' => [ 'operations' => [ [ 'id' => 'migration-operation' ] ] ] ],
+		];
+
+		$result = $this->service( $state )->rollback( $state->blueprint_id, $state->target_version_id, 'Generic reactivation', 7 );
+
+		self::assertSame( 'eit_migration_reactivation_requires_explicit_flow', $result->get_error_code() );
+		self::assertNotContains( 'run:start', $state->events );
+		self::assertNotContains( 'runtime:prepare', $state->events );
+		self::assertSame( $state->from_version_id, $state->active_version_id );
+	}
+
 	public function test_apply_exception_is_redacted_and_releases_both_long_lived_locks(): void {
 		$state = (object) [ 'events' => [] ];
 		$token = 'confirm-publication';
@@ -113,7 +154,7 @@ class LifecycleRollbackContractTest extends TestCase {
 			'status' => 'prepared',
 			'draft_checksum' => 'draft-checksum',
 			'confirmation_hash' => hash( 'sha256', $token ),
-			'compiled_artifacts' => [ 'artifacts' => [], 'bindings' => [], 'compiler_checksum' => 'compiler-checksum' ],
+			'compiled_artifacts' => [ 'artifacts' => [], 'bindings' => [], 'compiler_checksum' => str_repeat( 'c', 64 ) ],
 		];
 		$change_sets = new class( $change_set ) {
 			private $record;
@@ -151,13 +192,28 @@ class LifecycleRollbackContractTest extends TestCase {
 				$this->state->events[] = 'release:' . $resource;
 				return true;
 			}
+
+			public function renew( $resource ) {
+				$this->state->events[] = 'renew:' . $resource;
+				return true;
+			}
 		};
 		$ownership = new class() {
 			public function validate() {
 				throw new RuntimeException( 'database-password-should-never-escape' );
 			}
 		};
-		$service = new LifecycleService( [ 'change_sets' => $change_sets, 'blueprints' => $blueprints, 'locks' => $locks, 'ownership' => $ownership ] );
+		$ledger = new class() {
+			public function validate() {
+				return true;
+			}
+		};
+		$compiler = new class() {
+			public function compile() {
+				return new CompilationResult( [ 'valid' => true, 'checksum' => str_repeat( 'c', 64 ), 'artifacts' => [], 'bindings' => [] ] );
+			}
+		};
+		$service = new LifecycleService( [ 'change_sets' => $change_sets, 'blueprints' => $blueprints, 'compiler' => $compiler, 'locks' => $locks, 'ownership' => $ownership, 'migration_ledger' => $ledger ] );
 
 		$result = $service->apply( 'change-1', $token, 7 );
 
@@ -167,6 +223,10 @@ class LifecycleRollbackContractTest extends TestCase {
 			[
 				'acquire:storage-ownership:900',
 				'acquire:blueprint-bp-1:900',
+				'renew:storage-ownership',
+				'renew:blueprint-bp-1',
+				'renew:storage-ownership',
+				'renew:blueprint-bp-1',
 				'release:blueprint-bp-1',
 				'release:storage-ownership',
 			],
@@ -180,6 +240,7 @@ class LifecycleRollbackContractTest extends TestCase {
 			[
 				'blueprints' => new LifecycleRollbackBlueprints( $state ),
 				'versions' => new LifecycleRollbackVersions( $state ),
+				'change_sets' => new LifecycleRollbackChangeSets( $state ),
 				'artifacts' => $collaborators,
 				'compiler' => $collaborators,
 				'ownership' => $collaborators,
@@ -223,6 +284,10 @@ class LifecycleRollbackState {
 	public $artifact_reads = 0;
 	public $blueprint_reads = 0;
 	public $events = [];
+	public $rolled_back_lineage;
+	public $renew_calls = 0;
+	public $renew_failure_at = 0;
+	public $concurrent_pointer_before_cas = 0;
 
 	public function __construct() {
 		$this->stored_artifacts = [ [ 'id' => 'artifact-1', 'checksum' => 'checksum-1', 'kind' => 'entity_definition', 'payload' => [] ] ];
@@ -240,15 +305,23 @@ class LifecycleRollbackBlueprints {
 	public function get( $blueprint_id ) {
 		++$this->state->blueprint_reads;
 		$this->state->events[] = 'blueprints:get:' . $this->state->blueprint_reads;
-		return $blueprint_id === $this->state->blueprint_id ? [ 'id' => $blueprint_id, 'active_version_id' => $this->state->active_version_id ] : null;
+		return $blueprint_id === $this->state->blueprint_id ? [ 'id' => $blueprint_id, 'active_version_id' => $this->state->active_version_id, 'draft_revision' => 4, 'draft_checksum' => 'operational-draft' ] : null;
 	}
 
-	public function set_active_version( $blueprint_id, $version_id ) {
+	public function activate_if_current( $blueprint_id, $version_id, $expected_version_id, $draft_checksum, $draft_revision ) {
 		$this->state->events[] = 'blueprints:set-active';
-		if ( $blueprint_id === $this->state->blueprint_id && $this->state->persist_pointer ) {
+		if ( $this->state->concurrent_pointer_before_cas ) {
+			$this->state->active_version_id = $this->state->concurrent_pointer_before_cas;
+			return new WP_Error( 'eit_blueprint_activation_stale', 'Stale.' );
+		}
+		$matches = $blueprint_id === $this->state->blueprint_id
+			&& $expected_version_id === $this->state->active_version_id
+			&& 'operational-draft' === $draft_checksum
+			&& 4 === $draft_revision;
+		if ( $matches && $this->state->persist_pointer ) {
 			$this->state->active_version_id = $version_id;
 		}
-		return true;
+		return $matches ? true : new WP_Error( 'eit_blueprint_activation_stale', 'Stale.' );
 	}
 }
 
@@ -261,7 +334,24 @@ class LifecycleRollbackVersions {
 
 	public function get( $version_id ) {
 		$this->state->events[] = 'versions:get';
-		return $version_id === $this->state->target_version_id ? [ 'id' => $version_id, 'blueprint_id' => $this->state->blueprint_id, 'document' => [ 'id' => $this->state->blueprint_id ] ] : null;
+		return $version_id === $this->state->target_version_id ? [ 'id' => $version_id, 'blueprint_id' => $this->state->blueprint_id, 'checksum' => 'target-checksum', 'document' => [ 'id' => $this->state->blueprint_id ] ] : null;
+	}
+}
+
+class LifecycleRollbackChangeSets {
+	private $state;
+
+	public function __construct( LifecycleRollbackState $state ) {
+		$this->state = $state;
+	}
+
+	public function rolled_back_for_checksum() {
+		$this->state->events[] = 'change-sets:rolled-back-lineage';
+		return $this->state->rolled_back_lineage;
+	}
+
+	public function published_for_checksum() {
+		return null;
 	}
 }
 
@@ -280,6 +370,12 @@ class LifecycleRollbackCollaborators {
 	public function release( $resource ) {
 		$this->state->events[] = 'lock:release:' . $resource;
 		return true;
+	}
+
+	public function renew( $resource ) {
+		++$this->state->renew_calls;
+		$this->state->events[] = 'lock:renew:' . $resource;
+		return $this->state->renew_failure_at === $this->state->renew_calls ? new WP_Error( 'eit_lock_lease_lost', 'Lost.' ) : true;
 	}
 
 	public function start() {
@@ -324,7 +420,7 @@ class LifecycleRollbackCollaborators {
 		$this->state->events[] = 'transaction:start';
 		$previous = $this->state->active_version_id;
 		$result = $callback();
-		if ( is_wp_error( $result ) ) {
+		if ( is_wp_error( $result ) && ! $this->state->concurrent_pointer_before_cas ) {
 			$this->state->active_version_id = $previous;
 		}
 		$this->state->events[] = 'transaction:end';

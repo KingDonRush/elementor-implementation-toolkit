@@ -20,9 +20,9 @@ class CollectionPresentationRenderer {
 	private $documents;
 
 	public function __construct(
-		CollectionHtmlRenderer $fallback = null,
-		ElementorTemplateCatalog $templates = null,
-		ElementorDocumentRenderer $documents = null
+		?CollectionHtmlRenderer $fallback = null,
+		?ElementorTemplateCatalog $templates = null,
+		?ElementorDocumentRenderer $documents = null
 	) {
 		$this->fallback = $fallback ?: new CollectionHtmlRenderer();
 		$this->templates = $templates ?: new ElementorTemplateCatalog();

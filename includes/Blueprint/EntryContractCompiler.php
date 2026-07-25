@@ -21,7 +21,7 @@ class EntryContractCompiler {
 	private $registries;
 	private $collections;
 
-	public function __construct( RegistryHub $registries = null, CollectionContractCompiler $collections = null ) {
+	public function __construct( ?RegistryHub $registries = null, ?CollectionContractCompiler $collections = null ) {
 		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
 		$this->collections = $collections ?: new CollectionContractCompiler( $this->registries );
 	}

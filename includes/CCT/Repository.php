@@ -5,6 +5,9 @@
 
 namespace EIT\CCT;
 
+use EIT\Blueprint\MigrationWriteFence;
+use EIT\Blueprint\StorageMutationGuard;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -12,6 +15,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Repository {
 
 	const MAX_PER_PAGE = 100;
+
+	private $write_fence;
+	private $codec;
+	private $mutation_guard;
+
+	public function __construct( ?MigrationWriteFence $write_fence = null, ?RecordCodec $codec = null, ?StorageMutationGuard $mutation_guard = null ) {
+		$this->write_fence = $write_fence ?: new MigrationWriteFence();
+		$this->codec = $codec ?: new RecordCodec();
+		$this->mutation_guard = $mutation_guard ?: ( $write_fence ? new StorageMutationGuard( $this->write_fence ) : StorageMutationGuard::shared() );
+	}
 
 	public function get( $type, $id ) {
 		global $wpdb;
@@ -25,21 +38,33 @@ class Repository {
 		$table = SchemaManager::table_name( $type );
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$table}` WHERE id = %d", $id ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		return $row ? $this->hydrate( $row, $definition ) : null;
+		return $row ? $this->codec->hydrate( $row, $definition ) : null;
 	}
 
 	public function save( $type, array $values, $id = 0 ) {
+		$lease = $this->mutation_guard->enter( 'cct', $type );
+		if ( is_wp_error( $lease ) ) {
+			return $lease;
+		}
+		try {
+			return $this->save_unlocked( $type, $values, $id );
+		} finally {
+			$this->mutation_guard->leave( $lease );
+		}
+	}
+
+	private function save_unlocked( $type, array $values, $id ) {
 		global $wpdb;
 
 		$definition = DefinitionManager::get( $type, false );
 		if ( ! $definition ) {
 			return new \WP_Error( 'eit_cct_missing', __( 'Content type not found.', 'elementor-implementation-toolkit' ) );
 		}
-		if ( $this->missing_required_value( $values['title'] ?? null ) ) {
+		if ( $this->codec->missing_required_value( $values['title'] ?? null ) ) {
 			return new \WP_Error( 'eit_cct_title_required', __( 'A title is required.', 'elementor-implementation-toolkit' ) );
 		}
 		foreach ( DefinitionManager::fields( $type ) as $key => $field ) {
-			if ( ! empty( $field['required'] ) && $this->missing_required_value( $values[ $key ] ?? null ) ) {
+			if ( ! empty( $field['required'] ) && $this->codec->missing_required_value( $values[ $key ] ?? null ) ) {
 				return new \WP_Error( 'eit_cct_required_field', sprintf( __( 'The field "%s" is required.', 'elementor-implementation-toolkit' ), $field['label'] ?: $key ) );
 			}
 		}
@@ -52,7 +77,7 @@ class Repository {
 		$now = current_time( 'mysql' );
 		$data = [
 			'title'      => sanitize_text_field( $values['title'] ?? '' ),
-			'status'     => $this->sanitize_status( $values['status'] ?? 'publish' ),
+			'status'     => $this->codec->sanitize_status( $values['status'] ?? 'publish' ),
 			'author_id'  => absint( $values['author_id'] ?? get_current_user_id() ),
 			'menu_order' => intval( $values['menu_order'] ?? 0 ),
 			'updated_at' => $now,
@@ -85,6 +110,18 @@ class Repository {
 	}
 
 	public function delete( $type, $id ) {
+		$lease = $this->mutation_guard->enter( 'cct', $type );
+		if ( is_wp_error( $lease ) ) {
+			return $lease;
+		}
+		try {
+			return $this->delete_unlocked( $type, $id );
+		} finally {
+			$this->mutation_guard->leave( $lease );
+		}
+	}
+
+	private function delete_unlocked( $type, $id ) {
 		global $wpdb;
 
 		if ( ! DefinitionManager::get( $type ) ) {
@@ -114,7 +151,7 @@ class Repository {
 		$where = [ '1=1' ];
 		$params = [];
 
-		$statuses = $this->normalize_statuses( $args['status'] ?? [ 'publish' ] );
+		$statuses = $this->codec->normalize_statuses( $args['status'] ?? [ 'publish' ] );
 		if ( ! empty( $statuses ) ) {
 			$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
 			$where[] = "status IN ({$placeholders})";
@@ -146,7 +183,7 @@ class Repository {
 		return [
 			'items'    => array_map(
 				function ( $row ) use ( $definition ) {
-					return $this->hydrate( $row, $definition );
+					return $this->codec->hydrate( $row, $definition );
 				},
 				$rows ?: []
 			),
@@ -337,39 +374,6 @@ class Repository {
 			: 'menu_order';
 	}
 
-	private function hydrate( array $row, array $definition ) {
-		$item = [
-			'id'         => absint( $row['id'] ?? 0 ),
-			'title'      => (string) ( $row['title'] ?? '' ),
-			'status'     => (string) ( $row['status'] ?? '' ),
-			'author_id'  => absint( $row['author_id'] ?? 0 ),
-			'menu_order' => intval( $row['menu_order'] ?? 0 ),
-			'created_at' => (string) ( $row['created_at'] ?? '' ),
-			'updated_at' => (string) ( $row['updated_at'] ?? '' ),
-		];
-
-		foreach ( $definition['fields'] ?? [] as $field ) {
-			$key = $field['key'];
-			$column = SchemaManager::column_name( $key );
-			$item[ $key ] = FieldTypes::decode( $row[ $column ] ?? null, $field );
-		}
-
-		return $item;
-	}
-
-	private function sanitize_status( $status ) {
-		$status = sanitize_key( $status );
-		return in_array( $status, [ 'publish', 'draft', 'review', 'archived' ], true ) ? $status : 'draft';
-	}
-
-	private function normalize_statuses( $statuses ) {
-		$statuses = is_array( $statuses ) ? $statuses : [ $statuses ];
-		$statuses = array_map( 'sanitize_key', $statuses );
-		$statuses = array_values( array_intersect( $statuses, [ 'publish', 'draft', 'review', 'archived' ] ) );
-
-		return $statuses ?: [ 'publish' ];
-	}
-
 	private function empty_result() {
 		return [
 			'items'    => [],
@@ -378,19 +382,6 @@ class Repository {
 			'per_page' => 20,
 			'pages'    => 1,
 		];
-	}
-
-	private function missing_required_value( $value ) {
-		if ( is_array( $value ) ) {
-			foreach ( $value as $item ) {
-				if ( ! $this->missing_required_value( $item ) ) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-		return null === $value || '' === trim( (string) $value );
 	}
 
 	private function changed( array $definition, $type, $id ) {

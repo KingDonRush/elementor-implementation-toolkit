@@ -121,13 +121,15 @@ class CptManager {
 	}
 
 	private function register_post_type( $slug, array $definition ) {
-		$singular = $definition['singular'] ?: ucfirst( str_replace( '_', ' ', $slug ) );
-		$plural = $definition['plural'] ?: $singular . 's';
+		$singular = $definition['singular'] ?? '';
+		$singular = $singular ?: ucfirst( str_replace( '_', ' ', $slug ) );
+		$plural = $definition['plural'] ?? '';
+		$plural = $plural ?: $singular . 's';
 		register_post_type( $slug, [
 			'labels' => [ 'name' => $plural, 'singular_name' => $singular, 'add_new_item' => sprintf( __( 'Add New %s', 'elementor-implementation-toolkit' ), $singular ), 'edit_item' => sprintf( __( 'Edit %s', 'elementor-implementation-toolkit' ), $singular ), 'new_item' => sprintf( __( 'New %s', 'elementor-implementation-toolkit' ), $singular ), 'view_item' => sprintf( __( 'View %s', 'elementor-implementation-toolkit' ), $singular ), 'search_items' => sprintf( __( 'Search %s', 'elementor-implementation-toolkit' ), $plural ), 'not_found' => sprintf( __( 'No %s found', 'elementor-implementation-toolkit' ), strtolower( $plural ) ), 'not_found_in_trash' => sprintf( __( 'No %s found in Trash', 'elementor-implementation-toolkit' ), strtolower( $plural ) ) ],
 			'description' => $definition['description'] ?? '', 'public' => ! empty( $definition['public'] ), 'show_ui' => true, 'show_in_menu' => false,
 			'show_in_rest' => ! empty( $definition['show_in_rest'] ), 'has_archive' => ! empty( $definition['has_archive'] ), 'hierarchical' => ! empty( $definition['hierarchical'] ),
-			'menu_icon' => $definition['menu_icon'] ?: 'dashicons-screenoptions', 'rewrite' => [ 'slug' => $definition['rewrite_slug'] ?: $slug ], 'supports' => $definition['supports'] ?? [ 'title' ],
+			'menu_icon' => ( $definition['menu_icon'] ?? '' ) ?: 'dashicons-screenoptions', 'rewrite' => [ 'slug' => ( $definition['rewrite_slug'] ?? '' ) ?: $slug ], 'supports' => $definition['supports'] ?? [ 'title' ],
 		] );
 	}
 
@@ -137,8 +139,10 @@ class CptManager {
 			if ( '' === $slug ) {
 				continue;
 			}
-			$singular = $taxonomy['singular'] ?: ucfirst( str_replace( '_', ' ', $slug ) );
-			$plural = $taxonomy['plural'] ?: $singular . 's';
+			$singular = $taxonomy['singular'] ?? '';
+			$singular = $singular ?: ucfirst( str_replace( '_', ' ', $slug ) );
+			$plural = $taxonomy['plural'] ?? '';
+			$plural = $plural ?: $singular . 's';
 			register_taxonomy( $slug, [ $post_type ], [ 'labels' => [ 'name' => $plural, 'singular_name' => $singular, 'search_items' => sprintf( __( 'Search %s', 'elementor-implementation-toolkit' ), $plural ), 'all_items' => sprintf( __( 'All %s', 'elementor-implementation-toolkit' ), $plural ), 'edit_item' => sprintf( __( 'Edit %s', 'elementor-implementation-toolkit' ), $singular ), 'add_new_item' => sprintf( __( 'Add New %s', 'elementor-implementation-toolkit' ), $singular ) ], 'public' => ! empty( $taxonomy['public'] ), 'hierarchical' => ! empty( $taxonomy['hierarchical'] ), 'show_ui' => true, 'show_admin_column' => true, 'show_in_rest' => ! empty( $taxonomy['show_in_rest'] ), 'rewrite' => [ 'slug' => $slug ] ] );
 		}
 	}

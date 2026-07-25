@@ -28,12 +28,12 @@ class BlueprintValidator {
 	private $relation_contracts;
 
 	public function __construct(
-		NodeTypeRegistry $nodes = null,
-		FieldPrimitiveRegistry $primitives = null,
-		Canonicalizer $canonicalizer = null,
-		RegistryHub $registries = null,
-		RouteContractValidator $route_contracts = null,
-		RelationContractValidator $relation_contracts = null
+		?NodeTypeRegistry $nodes = null,
+		?FieldPrimitiveRegistry $primitives = null,
+		?Canonicalizer $canonicalizer = null,
+		?RegistryHub $registries = null,
+		?RouteContractValidator $route_contracts = null,
+		?RelationContractValidator $relation_contracts = null
 	) {
 		$this->nodes = $nodes ?: new NodeTypeRegistry();
 		$this->primitives = $primitives ?: new FieldPrimitiveRegistry();

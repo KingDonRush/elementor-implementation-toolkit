@@ -13,7 +13,7 @@ class EntryPolicyEngine {
 
 	private $storage;
 
-	public function __construct( EntryStorageGateway $storage = null ) {
+	public function __construct( ?EntryStorageGateway $storage = null ) {
 		$this->storage = $storage ?: new EntryStorageGateway();
 	}
 

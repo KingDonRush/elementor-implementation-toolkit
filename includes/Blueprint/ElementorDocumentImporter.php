@@ -13,7 +13,7 @@ class ElementorDocumentImporter {
 
 	private $canonicalizer;
 
-	public function __construct( Canonicalizer $canonicalizer = null ) {
+	public function __construct( ?Canonicalizer $canonicalizer = null ) {
 		$this->canonicalizer = $canonicalizer ?: new Canonicalizer();
 	}
 

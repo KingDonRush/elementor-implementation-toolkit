@@ -26,20 +26,25 @@ $assertions = 0;
 $assert = function ( $condition, $message ) use ( &$assertions ) {
 	++$assertions;
 	if ( ! $condition ) {
-		throw new RuntimeException( $message );
+		throw new RuntimeException( esc_html( $message ) );
 	}
 };
 $sources = [
-	'cpt|__imoveis' => [ 'type' => 'cpt', 'key' => '__imoveis', 'fields' => 5, 'records' => 1 ],
-	'cct|projects' => [ 'type' => 'cct', 'key' => 'projects', 'fields' => 7, 'records' => 6 ],
-	'elementor_document|301' => [ 'type' => 'elementor_document', 'key' => '301', 'fields' => 0, 'records' => 0 ],
-	'elementor_document|340' => [ 'type' => 'elementor_document', 'key' => '340', 'fields' => 0, 'records' => 0 ],
-	'elementor_document|479' => [ 'type' => 'elementor_document', 'key' => '479', 'fields' => 0, 'records' => 0 ],
+	'cpt|__imoveis' => [ 'type' => 'cpt', 'key' => '__imoveis', 'fields' => 5, 'records' => 1, 'status' => 'verified' ],
+	'cct|projects' => [ 'type' => 'cct', 'key' => 'projects', 'fields' => 7, 'records' => 6, 'status' => 'mismatch' ],
+	'elementor_document|301' => [ 'type' => 'elementor_document', 'key' => '301', 'fields' => 0, 'records' => 0, 'status' => 'verified' ],
+	'elementor_document|340' => [ 'type' => 'elementor_document', 'key' => '340', 'fields' => 0, 'records' => 0, 'status' => 'verified' ],
+	'elementor_document|479' => [ 'type' => 'elementor_document', 'key' => '479', 'fields' => 0, 'records' => 0, 'status' => 'verified' ],
 ];
 
 try {
 	$assert( SchemaManager::VERSION === get_option( SchemaManager::VERSION_OPTION ), 'Installed Blueprint schema version is stale.' );
-	$assert( true === SchemaManager::verify() && 18 === count( Tables::keys() ), 'Release-candidate infrastructure is incomplete.' );
+	$assert( true === SchemaManager::verify() && 19 === count( Tables::keys() ), 'Release-candidate infrastructure is incomplete.' );
+	$assert( file_exists( __DIR__ . '/verify-destructive-field-migrations.php' ), 'The destructive Field migration WordPress gate is missing.' );
+	$assert( file_exists( __DIR__ . '/verify-entry-storage-atomicity.php' ), 'The atomic Entry storage WordPress gate is missing.' );
+	$assert( file_exists( __DIR__ . '/verify-reconciliation-integrity.php' ), 'The complete publication reconciliation WordPress gate is missing.' );
+	$assert( file_exists( __DIR__ . '/verify-legacy-first-activation-rollback.php' ), 'The first-activation legacy rollback WordPress gate is missing.' );
+	$assert( file_exists( __DIR__ . '/verify-parameterized-routes.php' ), 'The parameterized Route WordPress gate is missing.' );
 
 	$service = new MigrationService();
 	$inventory = $service->inventory();
@@ -70,9 +75,11 @@ try {
 
 	foreach ( $sources as $identity => $expected ) {
 		$record = $migrations[ $identity ] ?? null;
-		$assert( $record && 'verified' === $record['status'], 'Missing verified migration: ' . $identity );
+		$assert( $record && $expected['status'] === $record['status'], 'Stored migration status does not reflect the independent authority gate: ' . $identity );
 		$checks = $record['comparison']['checks'] ?? [];
-		$assert( ! empty( $checks ) && ! in_array( false, array_column( $checks, 'match' ), true ), 'Stored shadow checks do not match: ' . $identity );
+		$assert( isset( $checks['semantic_contract_checksum'], $checks['capability_downgrades'] ), 'Stored semantic authority checks are missing: ' . $identity );
+		$assert( 'independent_authority_projection' === ( $record['comparison']['verification_scope'] ?? '' ), 'Stored evidence predates independent authority probes: ' . $identity );
+		$assert( 64 === strlen( (string) ( $record['comparison']['compiler_checksum'] ?? '' ) ), 'Stored evidence is not bound to compiler output: ' . $identity );
 		$assert( ( $record['comparison']['query_plan']['shadow_queries'] ?? PHP_INT_MAX ) <= ( $record['comparison']['query_plan']['budget'] ?? -1 ), 'Stored shadow query budget failed: ' . $identity );
 
 		$stored = $blueprints->get( $record['blueprint_id'] );
@@ -83,8 +90,26 @@ try {
 		$assert( $validation->is_valid() && $compiled->is_valid(), 'Imported pilot draft is not executable: ' . $identity );
 
 		$fresh = $comparator->compare( $expected['type'], $expected['key'], $document );
-		$assert( 'verified' === $fresh['status'], 'Fresh shadow comparison drifted: ' . $identity );
-		$assert( 'compiled_projection' === ( $fresh['verification_scope'] ?? '' ) && false === ( $fresh['runtime_switched'] ?? true ), 'Shadow evidence must identify its compiled projection scope without implying a runtime switch: ' . $identity );
+		$assert( $expected['status'] === $fresh['status'], 'Fresh independent authority result drifted: ' . $identity );
+		$assert( $compiled->checksum() === ( $fresh['compiler_checksum'] ?? '' ), 'Fresh evidence is not bound to the current compiler: ' . $identity );
+		$assert( 'independent_authority_projection' === ( $fresh['verification_scope'] ?? '' ) && false === ( $fresh['runtime_switched'] ?? true ), 'Shadow evidence must identify independent authorities without implying a runtime switch: ' . $identity );
+		$expected_legacy = 'elementor_document' === $expected['type'] ? 'wordpress_post_meta' : 'legacy_option';
+		$assert( $expected_legacy === ( $fresh['authorities']['legacy']['authority'] ?? '' ) && 'compiled_candidate_artifact' === ( $fresh['authorities']['candidate']['authority'] ?? '' ), 'Shadow authorities are not independent: ' . $identity );
+		if ( 'elementor_document' === $expected['type'] ) {
+			$assert( 'source_wordpress_document' === ( $fresh['authorities']['legacy']['binding_mode'] ?? '' ) && 'same_wordpress_document' === ( $fresh['authorities']['candidate']['binding_mode'] ?? '' ), 'Elementor evidence pretends to be a dual-runtime comparison: ' . $identity );
+		} elseif ( 'cct' === $expected['type'] ) {
+			$assert( 'direct_table_contract_hydration' === ( $fresh['record_probe']['mode'] ?? '' ) && ! empty( $fresh['record_probe']['runtime_definition_independent'] ), 'CCT records reentered combined runtime authority.' );
+		} elseif ( 'cpt' === $expected['type'] ) {
+			$assert( 'wordpress_api_diagnostic' === ( $fresh['record_probe']['mode'] ?? '' ) && empty( $fresh['record_probe']['runtime_definition_independent'] ), 'CPT diagnostic was mislabeled as runtime-independent.' );
+		}
+		if ( 'cct|projects' === $identity ) {
+			$downgrades = $fresh['checks']['capability_downgrades']['shadow'] ?? [];
+			$assert( false === ( $fresh['checks']['semantic_contract_checksum']['match'] ?? true ), 'Projects semantic contract incorrectly claims equivalence.' );
+			$assert( false === ( $fresh['checks']['capability_downgrades']['match'] ?? true ), 'Projects capability downgrade is not release-blocking.' );
+			$assert( 'summary' === ( $downgrades[0]['storage_key'] ?? '' ) && [ 'filter' ] === ( $downgrades[0]['capabilities'] ?? [] ), 'Projects blocker must identify the filterable textarea field.' );
+		} else {
+			$assert( ! in_array( false, array_column( $fresh['checks'], 'match' ), true ), 'Compatible shadow checks do not match: ' . $identity );
+		}
 		$impact = $impacts->build( $document, [ 'affected_node_ids' => array_column( $document['nodes'], 'id' ) ] );
 		$assert( $expected['fields'] === $impact['summary']['fields'], 'Impact Map field count drifted: ' . $identity );
 		$assert( $expected['records'] === $impact['summary']['records'], 'Impact Map record count drifted: ' . $identity );
@@ -97,7 +122,8 @@ try {
 		$scenario = $scenarios[ $identity ] ?? null;
 		$assert( $scenario, 'Migration QA scenario is missing: ' . $identity );
 		$scenario = $runner->run( $scenario['id'] );
-		$assert( ! is_wp_error( $scenario ) && 'passed' === $scenario['status'] && ! empty( $scenario['last_result']['passed'] ), 'Migration QA replay failed: ' . $identity );
+		$expected_scenario_status = 'verified' === $expected['status'] ? 'passed' : 'failed';
+		$assert( ! is_wp_error( $scenario ) && $expected_scenario_status === $scenario['status'], 'Migration QA replay did not preserve the expected gate result: ' . $identity );
 	}
 
 	$runs = new RunStore();
@@ -113,6 +139,7 @@ try {
 	$handoff = ( new HandoffNotesGenerator() )->generate();
 	$assert( false !== strpos( $handoff, 'CPT `__imoveis`: expected 1, observed 1.' ), 'Handoff omitted the CPT pilot fact.' );
 	$assert( false !== strpos( $handoff, 'CCT `projects`: expected 6, observed 6.' ), 'Handoff omitted the CCT pilot fact.' );
+	$assert( false !== strpos( $handoff, 'projects' ) && false !== strpos( $handoff, 'capability downgrade' ), 'Handoff hid the projects capability blocker.' );
 	$assert( false !== strpos( $handoff, 'WooCommerce live-runtime canary has not run' ), 'Handoff hid the absent WooCommerce canary.' );
 	$assert( false !== strpos( $handoff, 'Human browser approval is external evidence' ), 'Handoff inferred visual approval.' );
 	$assert( false === strpos( $handoff, '_elementor_data' ), 'Handoff persisted raw Elementor content.' );
@@ -129,7 +156,7 @@ try {
 		$assert( isset( $routes[ $route ] ), 'Release-candidate REST route is missing: ' . $route );
 	}
 
-	WP_CLI::success( sprintf( 'Release candidate verified with %d assertions across five shadow pilots.', $assertions ) );
+	WP_CLI::success( sprintf( 'Release gate audited with %d assertions; projects remains blocked by one explicit capability downgrade.', $assertions ) );
 } catch ( Throwable $error ) {
 	WP_CLI::error( $error->getMessage() );
 }

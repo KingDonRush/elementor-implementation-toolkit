@@ -21,7 +21,7 @@ class CollectionRequestValidator {
 
 	private $semantics;
 
-	public function __construct( CollectionFieldSemantics $semantics = null ) {
+	public function __construct( ?CollectionFieldSemantics $semantics = null ) {
 		$this->semantics = $semantics ?: new CollectionFieldSemantics();
 	}
 

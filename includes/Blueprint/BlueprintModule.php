@@ -17,6 +17,7 @@ class BlueprintModule {
 	public function init_hooks() {
 		add_action( 'plugins_loaded', [ self::class, 'registries' ], 8 );
 		( new RouteRuntime() )->init_hooks();
+		( new WordPressMutationGuard() )->init_hooks();
 	}
 
 	public static function registries() {

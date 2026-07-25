@@ -11,6 +11,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class ImpactPlanner {
 
+	private $field_migrations;
+
+	public function __construct( ?FieldMigrationPlanner $field_migrations = null ) {
+		$this->field_migrations = $field_migrations ?: new FieldMigrationPlanner();
+	}
+
 	public function plan( array $active_artifacts, array $active_bindings, array $next_artifacts, array $next_bindings ) {
 		$active = $this->artifact_index( $active_artifacts );
 		$next = $this->artifact_index( $next_artifacts );
@@ -37,15 +43,35 @@ class ImpactPlanner {
 		$blockers = array_merge( $blockers, $this->destructive_artifact_changes( $active, $next ) );
 		$blockers = array_merge( $blockers, $this->identity_rebinding_changes( $active, $next ) );
 		$blockers = array_merge( $blockers, $this->storage_rebinding_changes( $active, $active_bindings, $next, $next_bindings ) );
+		$migrations = $this->field_migrations->plan( $active_artifacts, $active_bindings, $next_artifacts, $next_bindings );
+		$blockers = $this->replace_field_migration_blockers( $blockers, $migrations );
 
 		return [
 			'blocked' => ! empty( $blockers ),
 			'blockers' => $blockers,
 			'artifacts' => [ 'added' => $added, 'changed' => $changed, 'removed' => $removed ],
 			'bindings' => $binding_changes,
+			'migration_plan' => $migrations,
 			'affected_node_ids' => $this->affected_nodes( $active, $next, array_merge( $added, $changed, $removed ) ),
-			'summary' => [ 'added' => count( $added ), 'changed' => count( $changed ), 'removed' => count( $removed ), 'binding_changes' => count( $binding_changes ) ],
+			'summary' => [ 'added' => count( $added ), 'changed' => count( $changed ), 'removed' => count( $removed ), 'binding_changes' => count( $binding_changes ), 'migration_operations' => count( $migrations['operations'] ) ],
 		];
+	}
+
+	private function replace_field_migration_blockers( array $blockers, array $migrations ) {
+		$fields = [];
+		foreach ( array_merge( $migrations['operations'] ?? [], $migrations['blockers'] ?? [] ) as $item ) {
+			if ( ! empty( $item['field_id'] ) ) {
+				$fields[ (string) $item['field_id'] ] = true;
+			}
+		}
+		$replaceable = [ 'published_storage_key_locked', 'published_field_semantics_locked' ];
+		$blockers = array_values(
+			array_filter(
+				$blockers,
+				fn( $blocker ) => ! isset( $fields[ (string) ( $blocker['field_id'] ?? '' ) ] ) || ! in_array( $blocker['code'] ?? '', $replaceable, true )
+			)
+		);
+		return array_merge( $blockers, $migrations['blockers'] ?? [] );
 	}
 
 	private function artifact_index( array $artifacts ) {

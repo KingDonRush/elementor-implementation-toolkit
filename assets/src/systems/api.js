@@ -12,7 +12,11 @@ export const api = {
 	impact: ( id ) => apiFetch( { path: `${ root }/blueprints/${ encodeURIComponent( id ) }/impact`, method: 'POST' } ),
 	apply: ( changeSet ) => apiFetch( { path: `${ root }/change-sets/${ encodeURIComponent( changeSet.id ) }/apply`, method: 'POST', data: { confirmation_token: changeSet.confirmation_token } } ),
 	reconcile: ( changeSetId ) => apiFetch( { path: `${ root }/change-sets/${ encodeURIComponent( changeSetId ) }/reconcile`, method: 'POST' } ),
-	rollback: ( blueprintId, versionId, reason ) => apiFetch( { path: `${ root }/blueprints/${ encodeURIComponent( blueprintId ) }/rollback`, method: 'POST', data: { version_id: versionId, reason } } ),
+	rollback: ( blueprintId, target, reason ) => apiFetch( {
+		path: `${ root }/blueprints/${ encodeURIComponent( blueprintId ) }/rollback`,
+		method: 'POST',
+		data: 'legacy' === target ? { target: 'legacy', reason } : { version_id: target, reason },
+	} ),
 };
 
 export function errorMessage( error ) {

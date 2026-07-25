@@ -19,7 +19,7 @@ class EntryReferenceValidator {
 	private $relation_checker;
 	private $normalized;
 
-	public function __construct( callable $taxonomy_checker = null, callable $relation_checker = null, NormalizedValueStore $normalized = null ) {
+	public function __construct( ?callable $taxonomy_checker = null, ?callable $relation_checker = null, ?NormalizedValueStore $normalized = null ) {
 		$this->taxonomy_checker = $taxonomy_checker;
 		$this->relation_checker = $relation_checker;
 		$this->normalized = $normalized ?: new NormalizedValueStore();

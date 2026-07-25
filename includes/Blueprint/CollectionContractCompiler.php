@@ -19,7 +19,7 @@ class CollectionContractCompiler {
 	private $semantics;
 	private $requirements;
 
-	public function __construct( RegistryHub $registries = null, CollectionProviderRequirements $requirements = null ) {
+	public function __construct( ?RegistryHub $registries = null, ?CollectionProviderRequirements $requirements = null ) {
 		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
 		$this->semantics = new CollectionFieldSemantics();
 		$this->requirements = $requirements ?: new CollectionProviderRequirements();

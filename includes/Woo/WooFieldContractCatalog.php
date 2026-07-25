@@ -17,7 +17,7 @@ class WooFieldContractCatalog {
 
 	private $factory;
 
-	public function __construct( FieldContractFactory $factory = null ) {
+	public function __construct( ?FieldContractFactory $factory = null ) {
 		$this->factory = $factory ?: new FieldContractFactory( new FieldPrimitiveRegistry() );
 	}
 

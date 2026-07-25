@@ -53,6 +53,93 @@ class ChangeSetStore {
 		return $row ? $this->hydrate( $row ) : null;
 	}
 
+	public function published_for_checksum( $blueprint_id, $draft_checksum ) {
+		global $wpdb;
+
+		$table = Tables::name( Tables::CHANGE_SETS );
+		$wpdb->last_error = '';
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name comes from the closed Toolkit registry.
+				"SELECT * FROM `{$table}` WHERE blueprint_id = %s AND draft_checksum = %s AND status IN ('applied','reconciled') ORDER BY applied_at DESC,created_at DESC LIMIT 1",
+				$blueprint_id,
+				$draft_checksum
+			),
+			ARRAY_A
+		);
+		if ( '' !== $wpdb->last_error ) {
+			return new \WP_Error( 'eit_change_set_read_failed', __( 'Blueprint publication lineage could not be read safely.', 'elementor-implementation-toolkit' ), [ 'database_error' => sanitize_text_field( $wpdb->last_error ) ] );
+		}
+		return $row ? $this->hydrate( $row ) : null;
+	}
+
+	public function prepared_for_draft( $blueprint_id, $from_version_id, $draft_checksum ) {
+		$records = $this->prepared_candidates_for_draft( $blueprint_id, $from_version_id, $draft_checksum );
+		return is_wp_error( $records ) ? $records : ( $records[0] ?? null );
+	}
+
+	public function prepared_candidates_for_draft( $blueprint_id, $from_version_id, $draft_checksum ) {
+		global $wpdb;
+
+		$table = Tables::name( Tables::CHANGE_SETS );
+		$from_version_id = null === $from_version_id ? 0 : absint( $from_version_id );
+		$wpdb->last_error = '';
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name comes from the closed Toolkit registry.
+				"SELECT * FROM `{$table}` WHERE blueprint_id = %s AND draft_checksum = %s AND status = 'prepared' AND ((from_version_id IS NULL AND %d = 0) OR from_version_id = %d) ORDER BY created_at DESC,id DESC FOR UPDATE",
+				$blueprint_id,
+				$draft_checksum,
+				$from_version_id,
+				$from_version_id
+			),
+			ARRAY_A
+		);
+		if ( '' !== $wpdb->last_error ) {
+			return new \WP_Error( 'eit_change_set_read_failed', __( 'Prepared Blueprint authority could not be read safely.', 'elementor-implementation-toolkit' ), [ 'database_error' => sanitize_text_field( $wpdb->last_error ) ] );
+		}
+		return array_map( [ $this, 'hydrate' ], $rows ?: [] );
+	}
+
+	public function rotate_confirmation( $id, $expected_hash, $confirmation_hash, $user_id = 0 ) {
+		global $wpdb;
+
+		if ( ! preg_match( '/^[a-f0-9]{64}$/', (string) $expected_hash ) || ! preg_match( '/^[a-f0-9]{64}$/', (string) $confirmation_hash ) ) {
+			return new \WP_Error( 'eit_change_set_confirmation_invalid', __( 'Blueprint confirmation authority is invalid.', 'elementor-implementation-toolkit' ) );
+		}
+		$result = $wpdb->update(
+			Tables::name( Tables::CHANGE_SETS ),
+			[ 'confirmation_hash' => $confirmation_hash, 'created_by' => absint( $user_id ), 'updated_at' => current_time( 'mysql', true ) ],
+			[ 'id' => (string) $id, 'status' => 'prepared', 'confirmation_hash' => (string) $expected_hash ]
+		);
+		if ( 1 === $result ) {
+			return $this->get( $id );
+		}
+		return false === $result
+			? new \WP_Error( 'eit_change_set_write_failed', __( 'Blueprint confirmation authority could not be rotated.', 'elementor-implementation-toolkit' ), [ 'database_error' => sanitize_text_field( $wpdb->last_error ) ] )
+			: new \WP_Error( 'eit_change_set_state_conflict', __( 'Blueprint change set changed state before confirmation could rotate.', 'elementor-implementation-toolkit' ) );
+	}
+
+	public function rolled_back_for_checksum( $blueprint_id, $draft_checksum ) {
+		global $wpdb;
+
+		$table = Tables::name( Tables::CHANGE_SETS );
+		$wpdb->last_error = '';
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name comes from the closed Toolkit registry.
+				"SELECT * FROM `{$table}` WHERE blueprint_id = %s AND draft_checksum = %s AND status = 'rolled_back' ORDER BY updated_at DESC,created_at DESC LIMIT 1",
+				$blueprint_id,
+				$draft_checksum
+			),
+			ARRAY_A
+		);
+		if ( '' !== $wpdb->last_error ) {
+			return new \WP_Error( 'eit_change_set_read_failed', __( 'Rolled-back Blueprint lineage could not be read safely.', 'elementor-implementation-toolkit' ), [ 'database_error' => sanitize_text_field( $wpdb->last_error ) ] );
+		}
+		return $row ? $this->hydrate( $row ) : null;
+	}
+
 	public function transition( $id, $from, $to, array $extra = [] ) {
 		global $wpdb;
 

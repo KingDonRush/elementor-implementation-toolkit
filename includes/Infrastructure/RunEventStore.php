@@ -13,7 +13,7 @@ class RunEventStore {
 
 	private $redactor;
 
-	public function __construct( PayloadRedactor $redactor = null ) {
+	public function __construct( ?PayloadRedactor $redactor = null ) {
 		$this->redactor = $redactor ?: new PayloadRedactor();
 	}
 

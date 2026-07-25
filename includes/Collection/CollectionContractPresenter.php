@@ -13,7 +13,7 @@ class CollectionContractPresenter {
 
 	private $projector;
 
-	public function __construct( CollectionProjector $projector = null ) {
+	public function __construct( ?CollectionProjector $projector = null ) {
 		$this->projector = $projector ?: new CollectionProjector();
 	}
 

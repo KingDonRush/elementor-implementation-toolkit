@@ -21,7 +21,7 @@ class EntryContractValidator {
 	const MAX_ACTIONS = 20;
 	private $registries;
 
-	public function __construct( RegistryHub $registries = null ) {
+	public function __construct( ?RegistryHub $registries = null ) {
 		$this->registries = $registries ?: ( new CoreRegistryFactory() )->create();
 	}
 
