@@ -1,317 +1,1469 @@
 # Elementor Implementation Toolkit
 
-V1.0.0-rc.1 adds checksum-bound shadow import and comparison for legacy CPT, CCT, filter
-presets and Elementor documents; concrete Impact Maps; a redacted Flight
-Recorder; reproducible QA scenarios; factual handoff notes; and a conservative,
-deterministic release package. The local dogfood pilot contains one `__imoveis`
-record, six `projects` records and three active Elementor documents. The five
-imported Blueprint drafts remain unpublished and currently pass fresh count,
-status, data, HTML and query-budget comparisons.
+> 🦸 Um compilador de sistemas estruturados para WordPress e Elementor.
+>
+> Você descreve **o que existe**, **como é editado**, **como é consultado** e
+> **quem pode fazer o quê**. O Toolkit transforma esse mapa em CPTs, CCTs,
+> formulários, consultas, filtros, contratos Elementor e políticas executáveis.
 
-This is an internal release-candidate build, not a public-ready declaration or
-final visual approval.
-WooCommerce remains absent from the dogfood runtime, the wider compatibility
-matrix still needs its live canaries, and Guilherme's browser approval remains a
-separate release gate. See `docs/compatibility.md`, `docs/upgrade-guide.md` and
-`docs/uninstall.md` before promotion.
+**Versão atual:** `1.0.0-rc.1` — build interno de dogfood
 
-V0.9.0 turns the compiled contracts into native Elementor implementation
-surfaces. Elementor Free now exposes five connector widgets: Toolkit Field,
-Collection Surface, Filter Surface, Entry Surface and Action. Their controls
-select published contracts by stable UUID and stay limited to presentation and
-placement; schema, query, authorization and workflow remain owned by the
-Blueprint runtime.
+**Requisitos:** WordPress 6.7+, PHP 8.1+, Elementor Free para os widgets conectores
 
-The optional Elementor Pro adapter adds typed text, number, URL, image, gallery
-and color Dynamic Tags through one `TypedValueResolver`. Compatible fields are
-derived from the current entity context and never require a typed meta key.
-Collection presentations render existing Elementor documents through public
-Core document managers; creating a draft template is an explicit action, and a
-read path never mutates Elementor metadata.
+**Idioma deste manual:** PT-BR
 
-The WooCommerce adapter publishes product Field Contracts and executes reads
-and permitted Entry mutations through WooCommerce query and CRUD APIs. Product
-price, inventory, media and taxonomies remain Woo-owned; cart, checkout, orders,
-payments and transactional behavior remain outside the Toolkit. When
-WooCommerce is unavailable, the catalog stays inspectable but its health check
-is explicitly unhealthy rather than pretending the runtime exists.
+> [!IMPORTANT]
+> O percurso recomendado nesta build é **criar sistemas novos do zero**.
+> Importação, comparação e migração de estruturas legacy existem para
+> diagnóstico e evolução interna, mas devem ser tratadas como experimentais.
+> Não baseie uma troca de runtime de produção nelas.
 
-V0.8.0 made Collection the single published query contract. Field capabilities
-compile into bounded filters, sort, facets and projection; CPT, indexed CCT,
-WooCommerce and limited legacy DOM providers execute behind the same Field-ID
-request grammar. Responses include semantic HTML, pagination, readable applied
-state, unavailable facet options with counts, optional Explain Why evidence and
-a request ID without exposing providers, storage keys or selectors.
+---
 
-The executable Systems inspector now derives Collection and Filter Surface
-decisions from connected fields. The existing Elementor Filter Controller can
-consume a published Collection as a compatibility bridge: it hides local filter
-repeaters, presets, raw keys and CSS selectors, then keeps Elementor responsible
-for presentation. Its DOM and direct-CCT modes remain available during 1.x.
+## Navegação rápida
 
-V0.7.0 adds governed Entry Surfaces to the canonical `eit.dev/v1 Blueprint`.
-Implementers define fields, workflow, steps, conditions, actions and guarded
-guest intake by public names in the Systems inspector; the compiler produces a
-frontend create/update workspace without exposing meta keys, storage columns or
-arbitrary code. Structured remains the default, while WordPress editorial
-content is enabled only by an explicit Editorial or Hybrid entity mode.
+- [A ideia em 90 segundos](#a-ideia-em-90-segundos)
+- [Começando: CPT, CCT ou Adapter?](#começando-cpt-cct-ou-adapter)
+- [O que cada parte da interface faz](#o-que-cada-parte-da-interface-faz)
+- [Dicionário completo dos nodes](#dicionário-completo-dos-nodes)
+- [Gramática das conexões](#gramática-das-conexões)
+- [Campos e capacidades](#campos-e-capacidades)
+- [Tutorial completo: sistema Clientes](#tutorial-completo-sistema-clientes)
+- [Como publicar sem alterar tudo por acidente](#como-publicar-sem-alterar-tudo-por-acidente)
+- [Elementor: widgets, templates e Dynamic Tags](#elementor-widgets-templates-e-dynamic-tags)
+- [Formulários e workflows](#formulários-e-workflows)
+- [Collections e filtros](#collections-e-filtros)
+- [Relações entre entidades](#relações-entre-entidades)
+- [Presentations e Routes](#presentations-e-routes)
+- [Receitas para diferentes projetos](#receitas-para-diferentes-projetos)
+- [Diagnóstico e solução de problemas](#diagnóstico-e-solução-de-problemas)
+- [Limites intencionais](#limites-intencionais)
+- [Instalação e desenvolvimento](#instalação-e-desenvolvimento)
+- [Arquitetura para extensões](#arquitetura-para-extensões)
+- [Glossário](#glossário)
 
-V0.6.0 established the executable Systems workspace inside wp-admin.
-Implementers can arrange typed nodes, connect compatible contracts, correct
-validation failures in a contextual inspector, use a keyboard-operable outline
-and review server-compiled impact before confirming any runtime change.
+---
 
-Drafts do not mutate runtime. Publication follows `save draft -> validate ->
-prepare impact -> confirm -> apply -> reconcile`; published versions and
-artifacts are immutable, and rollback reactivates an earlier version without
-deleting later data. Canvas position remains presentational and never changes a
-Blueprint checksum.
+## A ideia em 90 segundos
 
-The Toolkit navigation is now limited to `Systems`, `Runs`, `Diagnostics` and
-`Settings`. Legacy CPT, CCT and Filter Preset screens remain reachable as
-recovery surfaces during 1.x, but neither definitions nor CCT records create
-top-level menus. Systems assets load only in the Systems workspace.
+Um **System** é o projeto executável de uma pequena aplicação dentro do
+WordPress.
 
-V0.4.0 remains the trust baseline underneath the compiler: stable published
-slugs and keys, verified CCT schema changes, exact legacy matching, public status
-boundaries, bounded requests, latest-response-wins concurrency and accessible
-loading/error behavior remain enforced.
+Exemplos:
 
-V0.3.0 added table-backed Custom Content Types for implementation data that does
-not need WordPress singles. CCT records can be queried by the Filter Controller
-and remain available through legacy CCT Dynamic Tags during the 1.x migration
-window. New presentation flows use published Field IDs and existing Elementor
-documents instead of extending internal Elementor Pro Loop classes.
+- `Clientes`;
+- `Imóveis`;
+- `Profissionais e especialidades`;
+- `Cardápio`;
+- `Vagas`;
+- `Eventos`;
+- `Projetos do portfólio`;
+- `Chamados de suporte`.
 
-The legacy DOM mode remains intentionally parasitic: it detects an existing
-listing and filters its cards through bounded AJAX. Published Collection mode
-renders the server-approved semantic projection in an internal result surface
-and requires no manual listing selector.
+Dentro do System, cada cartão do mapa é um **node**. Os nodes descrevem quatro
+perguntas:
 
-## Current Scope
+| Lane | Pergunta humana | Exemplos |
+| --- | --- | --- |
+| 📦 Data | O que existe e quais dados possui? | Entity, Field Group, Relation |
+| 🧭 Experience | Como alguém cria, encontra ou filtra isso? | Entry Surface, Collection, Filter Surface |
+| 🎨 Presentation | Como isso aparece e em qual URL? | Presentation, Route |
+| 🔐 Governance | Quem manda e quem pode acessar? | Policy, Adapter |
 
-### Blueprint Kernel
+O fluxo mental mais simples é:
 
-- canonical `eit.dev/v1 Blueprint` documents with position-independent checksums;
-- four executable lanes and typed node/connection validation;
-- 28 semantic field primitives with validation, exposure, storage, indexing,
-  entry-component, Elementor-category and query-capability contracts;
-- explainable CPT/CCT/adapter recommendation with reasoned override gating;
-- deterministic artifacts for definitions, storage, capabilities, fields,
-  relations, entries, Collections, filters, presentations, literal routes and
-  policies; parameterized per-item routes remain gated;
-- stable Field ID bindings with legacy raw-key aliases;
-- immutable versions, confirmable change sets, expiring locks, redacted runs,
-  reconciliation proofs and non-destructive rollback;
-- normalized relation and repeatable-group child storage;
-- read-only deterministic shadow import for current CPT, CCT and filter-preset
-  options; activation installs infrastructure but never migrates content;
-- versioned PHP extension contracts for field primitives, storage adapters,
-  Collection providers, form actions and presentation adapters.
+```mermaid
+flowchart LR
+    A["📦 O que existe?<br>Entity"] --> B["🏷️ Quais informações?<br>Field Group"]
+    A --> C["✍️ Como criar/editar?<br>Entry Surface"]
+    A --> D["📚 Como listar?<br>Collection"]
+    D --> E["🔎 Como filtrar?<br>Filter Surface"]
+    C --> F["🎨 Como exibir?<br>Elementor"]
+    D --> F
+    G["🔐 Quem pode operar?<br>Policy"] --> C
+    G --> D
+```
 
-### Executable Systems Workspace
+O Toolkit não é um page builder. Ele divide responsabilidades assim:
 
-- native wp-admin shell using WordPress components and a scoped React Flow map;
-- node cards limited to name, function, observed health and compiled output;
-- contextual inspector ordered by purpose, flow position, compiled effect,
-  access, essential decisions and collapsed technical details;
-- typed connection inference, auto-layout and manual positions that do not alter
-  semantic checksums;
-- accessible outline equivalent, keyboard node selection, focus indicators,
-  live validation state and reduced-motion support;
-- administrative REST endpoints for draft CRUD, validation, compiler impact,
-  apply, reconcile, rollback, Runs, schema and Diagnostics;
-- incomplete drafts remain saveable for correction, while impact preparation
-  and publication remain blocked;
-- adapter selection is compiled from the connected Adapter node; raw Entity
-  adapter keys remain compatibility aliases only;
-- render failures produce a bounded recovery state instead of a blank screen.
+- **Toolkit:** dados, contratos, consulta, filtros, workflow, autorização e
+  diagnóstico;
+- **Elementor:** layout, estilo, responsividade e composição visual;
+- **WooCommerce:** preço transacional, estoque, carrinho, pedido, checkout e
+  pagamento;
+- **WordPress:** posts, usuários, taxonomias, mídia e capacidades.
 
-### Governed Entry Surfaces
+### O que significa “compilar”
 
-- frontend create/update, draft, review, publish, archive and restore workflows;
-- server-enforced capability, ownership and object-scope policy checks;
-- Field-ID request and response contracts with storage details removed from the
-  browser projection;
-- derived controls for semantic fields, media previews, inline validation,
-  conditional visibility, custom steps, repeaters and safe calculated values;
-- authenticated autosave and durable idempotency for content mutations;
-- redirect, email and SSRF-guarded webhook actions isolated into
-  retryable Run jobs so external failure cannot duplicate content;
-- moderated guest creation with signed time trap, honeypot, rate limit and
-  opt-in constrained uploads; guest edit and privileged lifecycle operations
-  remain unavailable;
-- a hidden wp-admin recovery screen for operators, while the primary editorial
-  workspace remains on the frontend;
-- shortcode `[eit_entry_surface id="SURFACE-UUID"]` as the initial presentation
-  bridge; Elementor placement and styling use the Toolkit Entry Surface
-  connector widget.
+Compilar não é gerar PHP para você editar. É transformar o mapa em contratos
+imutáveis que o runtime consegue executar:
 
-### Compiled Collections and Filter Surfaces
+```text
+Blueprint visual
+    ↓
+validação das conexões e decisões
+    ↓
+recomendação de storage
+    ↓
+Field Contracts por UUID
+    ↓
+CPT/CCT/Adapter + formulários + Collections + filtros
+    ↓
+widgets e contexto do Elementor
+```
 
-- one immutable Collection contract for CPT, indexed CCT, WooCommerce and
-  bounded legacy DOM providers;
-- browser requests accept only published Field IDs, allowed operators, sort,
-  facets, search and pagination within a computed request-cost budget;
-- public/authenticated access and field projection are enforced on the server;
-- normalized relations participate in exact filters and facet counts without
-  per-item enrichment queries;
-- unavailable facet values remain visible with zero counts, while active chips,
-  sort, URL state and windowed pagination remain readable;
-- content and Blueprint mutations invalidate versioned query caches;
-- Explain Why records provider, applied comparison, result and fallback for each
-  returned item without revealing storage keys;
-- shortcode `[eit_collection id="COLLECTION-UUID"]` provides semantic fallback
-  HTML, and the legacy Filter Controller can opt into the same contract without
-  raw mapping controls.
+O **Field ID** é a identidade estável de um campo. O nome visível pode mudar de
+“Telefone” para “WhatsApp”, mas widgets e formulários continuam ligados ao mesmo
+UUID. O fluxo normal não pede meta key, SQL, PHP ou seletor CSS.
 
-The existing CPT/CCT and Filter Controller screens remain compatibility
-surfaces during the 1.x migration window. Active compiled Entity artifacts are
-projected into the existing registrars without writing back into legacy options.
+---
 
-- Elementor widget category: `Elementor Implementation Toolkit`
-- Connector widgets: `Toolkit Field`, `Toolkit Collection Surface`, `Toolkit
-  Filter Surface`, `Toolkit Entry Surface` and `Toolkit Action`
-- Legacy compatibility widget: `Filter Controller`
-- Admin navigation: `Systems`, `Runs`, `Diagnostics`, `Settings`
-- Filter preset manager with Elementor filter-control template handoff
-- Lightweight Post Types manager for custom post types, taxonomies, and typed fields
-- Custom Content Types stored in dedicated tables
-- Optional typed Elementor Pro Dynamic Tags for text, number, URL, image,
-  gallery and color values
-- Legacy CCT Dynamic Tags retained during the 1.x migration window
-- Existing Elementor documents as explicit Collection presentation contracts
-- WooCommerce product catalog, query and governed Entry adapter contracts
-  through public Woo APIs; the installed live canary remains open
-- Server-side CCT filtering and pagination through the Filter Controller
-- Published Collection filtering through the Field-ID REST contract
-- Provider/runtime configuration summary for the current filtering surface
-- Editor listing detection with hover highlight
-- Manual CSS selector fallback
-- DOM-provider filtering for existing listings
-- AJAX filtering, sorting, active chips, result count, reset, and pagination
-- Style controls for fields, options, chips, buttons, pagination, and states
-- Public request limits: 32 KB body, 20 filters, 24 default items, 48 maximum
-- Legacy DOM fallback limited to 200 items without server-side enrichment
+## Começando: CPT, CCT ou Adapter?
 
-## Admin Tools
+Você normalmente não precisa escolher manualmente. Configure a Entity e o
+Toolkit apresenta uma recomendação explicada.
 
-The admin area is an operational backend surface, not a second page builder.
-Elementor remains responsible for layout, placement, preview, and visual styling.
-The WordPress backend is used for reusable structures that should survive across
-pages and projects:
+```mermaid
+flowchart TD
+    A["Quem é dono do dado?"] -->|WooCommerce ou sistema externo| D["🔌 Adapter"]
+    A -->|Toolkit| B{"Precisa de URL pública,<br>editorial, revisão ou post?"}
+    B -->|Sim| C["📝 CPT"]
+    B -->|Não| E["🗄️ CCT"]
+```
 
-- Systems for executable Blueprint drafts and governed publication;
-- Runs for factual execution history;
-- Diagnostics for schema and registered-extension health checks;
-- Settings for product boundaries and legacy recovery links.
+### 📝 Use CPT quando
 
-Legacy Filter Presets, Post Types and Content Types remain available from
-Settings while their runtime contracts migrate to Blueprints.
+- o conteúdo precisa de URL, archive ou single;
+- haverá publicação editorial;
+- você quer revisões do WordPress;
+- o modo da Entity é `Editorial` ou `Hybrid`;
+- plugins e APIs precisam reconhecer aquilo como post;
+- o conteúdo é público e participa da semântica normal do WordPress.
 
-Local visual assets live in `assets/images/icons/` as transparent, tightly
-cropped WebP files. The palette/tokens used by the admin surface are documented
-in `assets/design/palette.json`.
+Exemplos: imóveis públicos, profissionais, artigos estruturados, projetos de
+portfólio, cursos e eventos.
 
-### Filter Presets
+### 🗄️ Use CCT quando
 
-Filter presets move reusable behavior out of the Elementor widget panel:
+- são registros estruturados sem página própria;
+- o volume ou a consulta indexada importam;
+- são dados operacionais;
+- o editor visual do WordPress não é necessário;
+- o acesso costuma acontecer por formulário, lista ou integração.
 
-- apply mode, URL sync, result count, active chips, empty copy, and pagination;
-- filter definitions for search, checkbox, radio, select, chips, toggle, range,
-  date, swatches, and rating;
-- advanced DOM selector/query metadata when the fallback needs help;
-- Elementor filter-control template creation so layout and styling happen in
-  Elementor instead of a custom admin builder.
+Exemplos: leads, clientes internos, horários, unidades de disponibilidade,
+linhas de comparação e registros auxiliares.
 
-The widget can still use inline controls, but when `Configuration Source` is set
-to `Admin filter preset`, the preset supplies the filter definitions and runtime
-behavior. The widget remains responsible for placement and visual styling.
+### 🔌 Use Adapter quando
 
-### Post Types
+- o dado pertence ao WooCommerce;
+- outra plataforma é a fonte de verdade;
+- o Toolkit só deve expor capacidades permitidas pelo adapter.
 
-The Post Types manager is intentionally compact. It registers stored definitions
-with native WordPress APIs:
+Exemplos: produtos WooCommerce ou registros de uma futura API externa.
 
-- custom post type labels, menu icon, and description;
-- advanced visibility, REST exposure, archives, rewrite slug, hierarchy, and
-  supports;
-- taxonomies attached to the managed post type;
-- repeatable typed fields rendered in a native meta box.
+### Override avançado
 
-Supported field types include text, textarea, number, URL, email, date, time,
-date/time, checkbox, select, radio, color, image, and gallery. Image and gallery
-fields use the WordPress media selector while preserving existing URL-backed
-values.
+É possível contrariar a recomendação, mas o Toolkit exige um motivo. Isso evita
+escolher CCT para conteúdo que depois precisará de URL e revisões, ou escolher
+CPT para milhões de registros operacionais sem semântica de post.
 
-The WordPress editor is not enabled by default. Selecting the `editor` support
-is an explicit editorial decision; structured post types otherwise use the
-Toolkit fields without accidentally exposing Gutenberg as their content model.
-Required fields block publication through both the classic save path and REST,
-while valid values such as `0` remain accepted.
+---
 
-Deleting a post type definition unregisters the structure on the next request.
-It does not delete posts, terms, or post meta.
+## O que cada parte da interface faz
 
-### Content Types
+### Menu do WordPress
 
-Content Types are table-backed records intended for implementation data such as
-portfolio projects, directories, catalogs, and comparison entries:
+| Tela | Função |
+| --- | --- |
+| **Systems** | Criar, conectar, validar e publicar Blueprints |
+| **Runs** | Ver execuções reais, falhas e tentativas |
+| **Diagnostics** | Conferir schema e saúde dos adapters registrados |
+| **Settings** | Ver limites do produto e acessar superfícies legacy de recuperação |
 
-- one dedicated `{prefix}eit_cct_{slug}` table per definition;
-- typed fields, searchable/filterable flags, status, and manual order;
-- native WordPress CRUD screens without an automatic permalink or single;
-- archive/restore lifecycle that retains definitions, columns, and records;
-- explicit permanent deletion available only for archived definitions;
-- verified columns and indexes before a definition becomes the active runtime;
-- public queries restricted to published rows;
-- published Collection presentations can render an explicitly selected existing
-  Elementor document through the public Core document manager.
+As antigas telas de Post Types, Content Types e Filter Presets não são o centro
+do produto. Elas permanecem como compatibilidade e recuperação durante a série
+1.x.
 
-Removing a field from a definition marks it inactive. Its database column and
-stored values remain available for a future restoration or migration.
+### Barra superior de um System
 
-### Providers / Diagnostics
+#### `Save draft`
 
-The Diagnostics area reports current configuration facts. It does not certify
-that a page-level Elementor layout has been QA'd.
+Salva o mapa atual como rascunho.
 
-- bounded DOM provider for existing Elementor, WooCommerce, JetEngine, and
-  generic listings when usable item data is already present in the snapshot;
-- compiled CPT and CCT providers plus an optional WooCommerce product provider;
-- Elementor presentation adapter health based on the public Core document
-  manager, with an explicit compatibility canary for Loop/Theme manager access.
+- não registra CPT;
+- não cria tabela CCT;
+- não muda a página publicada;
+- não altera o runtime.
 
-Additional adapters remain extension points until a real implementation needs
-them. The admin does not expose a custom adapter mode or raw provider inputs as a
-normal setup path.
+Use para não perder o trabalho enquanto o System ainda está incompleto.
 
-## Data Contract
+#### `Validate`
 
-The legacy controller works best when each listing item exposes at least one of:
+Pergunta ao servidor: “este mapa forma um sistema executável?”
 
-- visible text;
-- filterable attributes such as `data-eit-category`, `data-eit-price`, `data-eit-material`, `data-eit-rating`;
-- child fields using `data-eit-field="category"` and optional `data-eit-value`.
+Valida, entre outras coisas:
 
-Opaque third-party listings can still be detected and highlighted, but the
-server no longer performs N+1 post enrichment. Advanced filters need usable
-snapshot data, the CCT provider, or a future Collection adapter.
+- conexões compatíveis e na direção correta;
+- nodes órfãos;
+- obrigatoriedade de Entity, Policy ou Collection;
+- IDs e referências de campos;
+- capabilities de busca, filtro e ordenação;
+- colisões de slug, storage e Route;
+- workflow e ações;
+- saúde dos adapters envolvidos.
 
-## Local Development
+Validação aprovada **não publica**. Ela apenas prova que a configuração salva é
+coerente.
 
-The current workstation runs PHPUnit and PHPCS inside the WordPress PHP 8.3
-container because its host PHP intentionally lacks the XML extensions required
-by those tools. Install the locked dependencies locally with the matching
-platform extensions, or on this workstation with the explicit Composer
-platform exceptions below:
+#### `Review impact`
+
+Salva, valida e prepara um plano do que mudaria:
+
+- definições;
+- storage;
+- campos;
+- índices;
+- Collections;
+- formulários;
+- rotas;
+- bindings Elementor;
+- políticas.
+
+É a etapa para ler antes de confirmar. Alterações no mapa nunca mudam o runtime
+imediatamente.
+
+### Map e Outline
+
+- **Map:** visão espacial; posições servem apenas para leitura;
+- **Outline:** lista equivalente para teclado, leitor de tela e inspeção rápida.
+
+Mover um node no canvas não muda o checksum semântico do Blueprint.
+
+### Inspector lateral
+
+As seis seções significam:
+
+1. **What this node does:** responsabilidade do node;
+2. **Where it enters the flow:** conexões existentes;
+3. **Compiled effect:** contrato que será gerado;
+4. **Who can access:** exposição e política;
+5. **Essential decisions:** opções realmente editáveis;
+6. **Technical details:** IDs, storage e diagnóstico avançado.
+
+Traduções importantes:
+
+- **runtime data:** o registro real usado durante uma renderização;
+- **compiled effect:** o contrato interno que nascerá da publicação;
+- **semantic fallback:** HTML seguro do Toolkit quando nenhum template Elementor
+  foi selecionado;
+- **not connected:** o node ainda não participa do sistema e a validação deve
+  bloqueá-lo.
+
+---
+
+## Dicionário completo dos nodes
+
+### 📦 Entity — “que tipo de coisa existe?”
+
+Representa um tipo de conteúdo ou registro, não um item individual.
+
+Exemplos:
+
+- Entity `Cliente` → itens João, Maria, Empresa ACME;
+- Entity `Imóvel` → itens Casa 101, Apartamento Centro;
+- Entity `Profissional` → itens Dra. Ana, Dr. Paulo.
+
+Decisões principais:
+
+- **Structured:** somente campos estruturados; padrão;
+- **Editorial:** conteúdo editorial intencional;
+- **Hybrid:** editor WordPress mais campos estruturados;
+- **Public content:** pode participar de exposição pública;
+- **Has a public route:** precisa de URL;
+- **Keep revisions:** usa semântica de revisões.
+
+Saída compilada: definição CPT, CCT ou contrato de Adapter.
+
+Conexões frequentes:
+
+- Entity → Field Group;
+- Entity → Entry Surface;
+- Entity → Collection;
+- Entity → Presentation;
+- Policy → Entity;
+- Adapter → Entity.
+
+### 🏷️ Field Group — “quais informações essa coisa possui?”
+
+Agrupa Field Contracts pertencentes a uma Entity.
+
+Cada Field declara:
+
+- nome público;
+- tipo semântico;
+- obrigatoriedade e validação;
+- exposição;
+- storage;
+- busca, filtro e sort;
+- componentes de formulário;
+- categorias compatíveis no Elementor.
+
+Uma Entity pode ter mais de um grupo, por exemplo:
+
+- `Dados principais`;
+- `Contato`;
+- `Mídia`;
+- `SEO`;
+- `Informações comerciais`.
+
+Todo Field Group precisa pertencer a exatamente uma Entity.
+
+### 🔗 Relation — “como registros diferentes se relacionam?”
+
+Cria uma relação normalizada entre duas Entities.
+
+Cardinalidades:
+
+- `one_to_one`;
+- `one_to_many`;
+- `many_to_one`;
+- `many_to_many`.
+
+Uma Relation precisa de:
+
+1. uma Entity de origem;
+2. uma Entity de destino;
+3. uma Collection da Entity de destino para fornecer opções autorizadas.
+
+Exemplo:
+
+```text
+Imóvel ──origem──▶ Relação "Corretor responsável" ──destino──▶ Corretor
+                                │
+                                └──opções──▶ Collection "Corretores ativos"
+```
+
+### ✍️ Entry Surface — “como alguém cria ou edita?”
+
+Define comportamento de formulário e workflow.
+
+Pode controlar:
+
+- criação e atualização;
+- status inicial;
+- autosave;
+- campo usado como título;
+- passos;
+- condições;
+- repeaters;
+- campos calculados;
+- redirect;
+- e-mail;
+- webhook;
+- entrada moderada de visitantes.
+
+Não define o visual final. No Elementor, use o widget **Toolkit Entry Surface**
+para posicionar e estilizar o formulário publicado.
+
+Requisitos:
+
+- exatamente uma Entity conectada;
+- exatamente uma Policy conectada.
+
+### 📚 Collection — “qual conjunto de registros quero consultar?”
+
+É a autoridade única de consulta do Toolkit.
+
+Exemplos:
+
+- todos os imóveis publicados;
+- clientes do usuário atual;
+- profissionais de uma especialidade;
+- produtos WooCommerce disponíveis;
+- próximos eventos.
+
+Configura:
+
+- público ou autenticado;
+- itens por página;
+- ordenação padrão;
+- cache;
+- diagnóstico Explain Why.
+
+Uma Collection precisa pertencer a exatamente uma Entity.
+
+### 🔎 Filter Surface — “como o usuário reduz uma Collection?”
+
+Deriva filtros dos Fields conectados à Entity da Collection.
+
+Ela não inventa operadores. Um Field de preço oferece operações numéricas; uma
+taxonomia oferece escolhas; um booleano oferece estado verdadeiro/falso.
+
+Pode controlar:
+
+- Fields disponíveis;
+- facets e contagens;
+- estado na URL;
+- chips de filtros ativos;
+- aplicação automática ou por botão.
+
+Uma Filter Surface precisa pertencer a exatamente uma Collection.
+
+Se nada aparece no inspector, confira:
+
+1. Filter Surface conectada à Collection;
+2. Collection conectada à Entity;
+3. Field Group conectado à Entity;
+4. Field com `Filter` habilitado;
+5. primitiva compatível com filtro.
+
+### 🎨 Presentation — “qual contrato visual recebe os dados?”
+
+Liga um contexto executável a um adapter de apresentação.
+
+Pode receber:
+
+- Entity → Presentation, para contexto de item;
+- Entry Surface → Presentation, para formulário;
+- Collection → Presentation, para lista;
+- Presentation → Presentation, para composição avançada.
+
+O adapter disponível é Elementor. Você pode escolher um documento/template
+Elementor existente ou usar o fallback semântico.
+
+Uma Presentation **não é** o template. Ela é o vínculo estável entre dados,
+contexto e template.
+
+### 🌐 Route — “em qual caminho público isso responde?”
+
+Expõe uma Presentation em uma URL intencional.
+
+Exemplos:
+
+- `/imoveis`;
+- `/equipe`;
+- `/agenda`;
+- uma rota parametrizada avançada como
+  `/imovel/{UUID-DO-FIELD-PUBLICO}`.
+
+Uma Route precisa pertencer a exatamente uma Presentation.
+
+Não adicione Route quando o conteúdo será usado apenas dentro de uma página já
+existente do Elementor.
+
+### 🔐 Policy — “quem pode ver, criar ou editar?”
+
+Aplica:
+
+- capability do WordPress;
+- capability de publicação;
+- ownership;
+- escopo do objeto.
+
+Pode governar Entity, Entry Surface e Collection.
+
+Exemplos:
+
+- editor administra qualquer imóvel;
+- corretor edita apenas imóveis próprios;
+- visitante somente consulta Collection pública;
+- cliente autenticado atualiza apenas seu próprio perfil.
+
+IDs enviados pelo navegador nunca substituem a autorização do servidor.
+
+### 🔌 Adapter — “qual sistema externo continua sendo dono?”
+
+Usado quando os dados não pertencem ao storage nativo do Toolkit.
+
+Exemplo principal: WooCommerce.
+
+O Adapter declara capacidades e saúde. Se WooCommerce estiver ausente, o
+contrato aparece como indisponível; o Toolkit não simula preço ou estoque.
+
+Um Adapter conecta-se a exatamente uma Entity.
+
+---
+
+## Gramática das conexões
+
+A direção importa. Arraste do node da coluna **Origem** para o node da coluna
+**Destino**.
+
+| Origem | Destino | Significado | Obrigatoriedade |
+| --- | --- | --- | --- |
+| Entity | Field Group | a Entity possui estes campos | todo Field Group precisa de 1 |
+| Entity | Relation | Entity de origem da relação | toda Relation precisa de 1 |
+| Relation | Entity | Entity de destino | toda Relation precisa de 1 |
+| Relation | Collection | fonte autorizada de opções | toda Relation precisa de 1 |
+| Entity | Entry Surface | formulário cria/edita esta Entity | toda Entry Surface precisa de 1 |
+| Entity | Collection | consulta registros desta Entity | toda Collection precisa de 1 |
+| Collection | Filter Surface | filtros controlam esta Collection | toda Filter Surface precisa de 1 |
+| Entity | Presentation | apresenta um item/contexto | opcional |
+| Entry Surface | Presentation | apresenta um formulário | opcional |
+| Collection | Presentation | apresenta uma lista | opcional |
+| Presentation | Presentation | compõe apresentações | avançado |
+| Presentation | Route | expõe a Presentation em uma URL | toda Route precisa de 1 |
+| Policy | Entity | governa a Entity | conforme o acesso |
+| Policy | Entry Surface | governa criação/edição | obrigatória |
+| Policy | Collection | governa consulta | recomendada para acesso autenticado |
+| Adapter | Entity | Adapter é dono do storage | exatamente 1 por Adapter |
+
+Visão de um sistema completo:
+
+```mermaid
+flowchart LR
+    EN["📦 Entity"] --> FG["🏷️ Field Group"]
+    EN --> ES["✍️ Entry Surface"]
+    EN --> CO["📚 Collection"]
+    CO --> FS["🔎 Filter Surface"]
+    ES --> PE["🎨 Presentation do formulário"]
+    CO --> PC["🎨 Presentation da lista"]
+    PC --> RO["🌐 Route opcional"]
+    PO["🔐 Policy"] --> EN
+    PO --> ES
+    PO --> CO
+```
+
+> [!TIP]
+> Um node solto pode ser salvo em draft, mas não pode ser publicado. Isso
+> permite construir o sistema aos poucos sem criar runtime incompleto.
+
+---
+
+## Campos e capacidades
+
+### Capacidade da primitiva × decisão do Field
+
+Para um Field aparecer em busca, filtros ou ordenação, duas coisas precisam ser
+verdadeiras:
+
+1. a primitiva suporta a capacidade;
+2. a capacidade foi habilitada no Field.
+
+| Família | Primitivas | Busca | Filtro | Sort |
+| --- | --- | :---: | :---: | :---: |
+| Texto | `short_text` | ✅ | ✅ | ✅ |
+| Texto longo | `long_text`, `rich_text` | ✅ | — | — |
+| Número | `integer`, `decimal`, `money`, `percentage` | ✅ | ✅ | ✅ |
+| Calculado | `calculated` | — | ✅ | ✅ |
+| Estado | `boolean` | ✅ | ✅ | ✅ |
+| Escolha | `single_choice` | ✅ | ✅ | ✅ |
+| Múltipla escolha | `multiple_choice` | ✅ | ✅ | — |
+| Data e hora | `date`, `time`, `datetime`, `schedule`, `availability` | ✅ | ✅ | ✅ |
+| Mídia | `image`, `gallery`, `file` | — | — | — |
+| Contato | `email`, `phone`, `url` | ✅ | ✅ | ✅ |
+| Visual | `color` | — | ✅ | ✅ |
+| Localização | `address` | ✅ | ✅ | — |
+| Coordenada | `geopoint` | ✅ | ✅ | ✅ |
+| Classificação | `taxonomy` | ✅ | ✅ | ✅ |
+| Ligação | `relation` | ✅ | ✅ | — |
+| Estrutura filha | `repeatable_group` | — | — | — |
+
+### Exposição
+
+- Field privado não deve aparecer em resposta pública;
+- Collection pública projeta somente Fields explicitamente públicos;
+- marcar como filtrável não torna automaticamente o valor público;
+- formulários autenticados continuam sujeitos à Policy.
+
+### Required e o valor `0`
+
+Required rejeita ausência real, não valores falsy válidos. O número `0` e a
+string `"0"` são valores válidos quando compatíveis com a primitiva.
+
+### Campos calculados
+
+A DSL aceita apenas:
+
+- números;
+- UUIDs de Fields entre `{}`;
+- `+`, `-`, `*`, `/`;
+- parênteses.
+
+Exemplo conceitual:
+
+```text
+({UUID-QUANTIDADE} * {UUID-PRECO}) - {UUID-DESCONTO}
+```
+
+Não existe `eval`, PHP, SQL ou chamadas arbitrárias.
+
+---
+
+## Tutorial completo: sistema Clientes
+
+Objetivo:
+
+- guardar clientes internos;
+- criar e editar pelo frontend;
+- listar somente para usuários autorizados;
+- filtrar por status;
+- ordenar por último contato;
+- montar a interface no Elementor.
+
+### 1. Crie o System
+
+Vá a:
+
+```text
+WordPress → Implementation Toolkit → Systems
+```
+
+Crie `Clientes`.
+
+O starter cria:
+
+- Entity `Content`;
+- Field Group `Content fields`;
+- conexão Entity → Field Group.
+
+Renomeie:
+
+- Entity para `Cliente`;
+- Field Group para `Dados do cliente`.
+
+### 2. Configure a Entity
+
+Para um cadastro interno:
+
+| Decisão | Valor |
+| --- | --- |
+| Content mode | `Structured` |
+| Public content | desligado |
+| Has a public route | desligado |
+| Keep revisions | conforme necessidade |
+
+Sem URL/editorial, a recomendação normal é **CCT**.
+
+Se cada cliente precisar de perfil público e permalink, ligue `Public content`
+e `Has a public route`; a recomendação passa a ser **CPT**.
+
+### 3. Configure os Fields
+
+No Field Group, crie:
+
+| Nome | Tipo | Required | Search | Filter | Sort | Público |
+| --- | --- | :---: | :---: | :---: | :---: | :---: |
+| Nome | `short_text` | ✅ | ✅ | ✅ | ✅ | — |
+| E-mail | `email` | ✅ | ✅ | ✅ | ✅ | — |
+| Telefone | `phone` | — | ✅ | — | — | — |
+| Status | `single_choice` | ✅ | — | ✅ | ✅ | — |
+| Último contato | `date` | — | — | ✅ | ✅ | — |
+| Observações | `long_text` | — | ✅ | — | — | — |
+
+Sugestão de opções de `Status`:
+
+- `lead`;
+- `ativo`;
+- `inativo`;
+- `arquivado`.
+
+Não torne e-mail e telefone públicos apenas para fazê-los aparecer no
+Elementor. Um workspace autenticado consegue usar projeções permitidas pela
+Policy.
+
+### 4. Crie a Policy
+
+Adicione `Policy` com o nome `Operadores de clientes`.
+
+Exemplo inicial:
+
+| Decisão | Valor |
+| --- | --- |
+| Capability | `edit_posts` |
+| Publish capability | `publish_posts` |
+| Ownership | `own` ou conforme o projeto |
+| Object scope | `entity` |
+
+Conecte:
+
+- Policy → Entity;
+- Policy → Entry Surface;
+- Policy → Collection.
+
+### 5. Crie o formulário
+
+Adicione `Entry Surface` com o nome `Cadastro de cliente`.
+
+Conecte:
+
+- Entity `Cliente` → Entry Surface;
+- Policy `Operadores de clientes` → Entry Surface.
+
+Decisões iniciais:
+
+- Create entries: ligado;
+- Update entries: ligado;
+- New entry status: `draft` ou `review`;
+- Autosave drafts: ligado;
+- Moderated guest intake: desligado;
+- Record title: Field `Nome`.
+
+Você pode acrescentar:
+
+- passo 1: Dados principais;
+- passo 2: Contato;
+- passo 3: Revisão;
+- condição para mostrar Observações apenas em certos status;
+- e-mail ao concluir;
+- redirect para a lista.
+
+### 6. Crie a Collection
+
+Adicione `Collection` com o nome `Lista de clientes`.
+
+Conecte:
+
+- Entity `Cliente` → Collection;
+- Policy → Collection.
+
+Configure:
+
+- Audience: Signed-in users;
+- Items per page: 24;
+- Default order: Último contato — descending;
+- Cache repeated queries: ligado;
+- Explain Why: ligado durante implementação.
+
+### 7. Crie os filtros
+
+Adicione `Filter Surface` com o nome `Filtros de clientes`.
+
+Conecte:
+
+- Collection `Lista de clientes` → Filter Surface.
+
+Selecione:
+
+- Nome;
+- E-mail;
+- Status;
+- Último contato.
+
+Para `Status`, habilite facet counts. Escolha se o filtro aplica
+automaticamente ou por botão.
+
+Se esses Fields não aparecerem, volte ao Field Group e confirme que `Filter`
+está habilitado.
+
+### 8. Salve, valide e revise
+
+```mermaid
+flowchart LR
+    A["💾 Save draft"] --> B["✅ Validate"]
+    B -->|erros| C["Corrigir node indicado"]
+    C --> A
+    B -->|válido| D["🧾 Review impact"]
+    D --> E["Confirmar publicação"]
+    E --> F["⚙️ Apply"]
+    F --> G["🔍 Reconcile"]
+    G --> H["🟢 Runtime ativo"]
+```
+
+Leia o Impact Map antes de confirmar. Para este exemplo, ele deve explicar a
+Entity, storage, Fields, formulário, Collection, Filter Surface e Policies que
+serão ativados.
+
+### 9. Monte no Elementor
+
+Depois da publicação:
+
+1. crie uma página ou template no Elementor;
+2. encontre a categoria **Elementor Implementation Toolkit**;
+3. adicione `Toolkit Entry Surface`;
+4. selecione `Cadastro de cliente`;
+5. adicione `Toolkit Collection Surface`;
+6. selecione `Lista de clientes`;
+7. adicione `Toolkit Filter Surface`;
+8. selecione `Filtros de clientes` e a Collection correspondente;
+9. use `Toolkit Field` quando existir um contexto inequívoco de item.
+
+Fallback sem Elementor:
+
+```text
+[eit_entry_surface id="UUID-DA-ENTRY-SURFACE"]
+[eit_collection id="UUID-DA-COLLECTION"]
+```
+
+Os IDs aparecem nos detalhes técnicos do contrato publicado. Não digite meta
+keys no lugar deles.
+
+---
+
+## Como publicar sem alterar tudo por acidente
+
+O ciclo é deliberadamente separado:
+
+1. **draft:** trabalho editável;
+2. **validate:** prova de coerência;
+3. **prepare impact:** plano compilado e confirmável;
+4. **confirm:** autorização explícita;
+5. **apply:** criação/ativação dos artefatos;
+6. **reconcile:** comparação do que deveria existir com o que foi persistido.
+
+Versões publicadas e artefatos são imutáveis. Uma edição posterior cria outro
+change set.
+
+### Rollback
+
+Rollback reativa uma versão anterior e preserva dados posteriores. Ele não
+significa apagar silenciosamente colunas ou registros.
+
+> [!WARNING]
+> Fluxos de migração destrutiva, importação legacy e troca de autoridade ainda
+> são experimentais nesta build. Para dogfood, prefira um novo System e novos
+> registros. Faça backup antes de qualquer teste de migração.
+
+### Estados que exigem atenção
+
+- **blocked:** o plano não pode ser aplicado;
+- **applying:** publicação em andamento ou aguardando recuperação;
+- **reconciliation failed:** o runtime não corresponde à versão esperada;
+- **rollback required:** a versão anterior deve ser reativada;
+- **adapter unhealthy:** dependência externa indisponível.
+
+Use **Runs** e **Diagnostics**; não repita cliques de publicação sem entender o
+estado.
+
+---
+
+## Elementor: widgets, templates e Dynamic Tags
+
+### Widgets do Elementor Free
+
+| Widget | Uso |
+| --- | --- |
+| `Toolkit Field` | renderiza um Field compatível no contexto atual |
+| `Toolkit Collection Surface` | renderiza os resultados de uma Collection |
+| `Toolkit Filter Surface` | controla uma Collection publicada |
+| `Toolkit Entry Surface` | posiciona um formulário/workspace |
+| `Toolkit Action` | executa operação permitida pela Entry Surface |
+| `Filter Controller` | ponte de compatibilidade com listings legacy |
+
+Esses widgets não recriam schema, consulta ou autorização. Eles conectam
+contratos publicados e oferecem controles de apresentação.
+
+### `Toolkit Field`
+
+Escolha:
+
+- contexto de Entity quando o preview não consegue inferir;
+- Field publicado compatível;
+- elemento HTML;
+- prefixo e sufixo;
+- link automático para valores URL-compatible;
+- estilo e alinhamento.
+
+Imagem e galeria são renderizadas de acordo com a categoria semântica do Field.
+
+### Collection + Filter Surface
+
+Os dois widgets devem apontar para contratos compatíveis. A Collection é dona da
+consulta; a Filter Surface é dona do comportamento de filtros; o Elementor é
+dono do visual.
+
+### Entry Surface + Action
+
+O formulário expõe os Fields e workflow. `Toolkit Action` pode oferecer ações
+como criar, atualizar, publicar, arquivar ou restaurar quando o contrato e a
+Policy permitirem.
+
+### Templates existentes
+
+Uma Presentation pode selecionar um documento Elementor já existente.
+
+- ler a lista não cria template;
+- escolher um template não reescreve seu conteúdo;
+- criação de draft, quando disponível, exige ação explícita;
+- o Toolkit usa managers públicos do Elementor Core.
+
+### Dynamic Tags do Elementor Pro
+
+Quando Pro está disponível, o Toolkit registra tags tipadas:
+
+- Text;
+- Number;
+- URL;
+- Image;
+- Gallery;
+- Color.
+
+Todas usam o mesmo `TypedValueResolver` e exibem somente Fields compatíveis com
+o contexto. Não digite meta keys.
+
+### Contexto
+
+Um Field só produz valor quando existe contexto de item:
+
+- post atual de uma Entity CPT;
+- registro atual de uma Collection;
+- contexto de Route;
+- item projetado pelo adapter;
+- seleção explícita de Entity quando o editor não consegue inferir.
+
+Se `Toolkit Field` estiver vazio no editor, não conclua que o dado sumiu.
+Primeiro verifique o contexto do preview.
+
+---
+
+## Formulários e workflows
+
+### Operações
+
+Uma Entry Surface pode permitir, conforme storage e Policy:
+
+- create;
+- update;
+- draft;
+- review;
+- publish;
+- archive;
+- restore.
+
+O servidor autoriza cada operação. Um `item_id` enviado pelo navegador não
+concede ownership.
+
+### Status inicial
+
+- `draft`: adequado para autosave e preenchimento incompleto;
+- `review`: adequado para moderação;
+- `publish`: use somente quando a Policy e o processo realmente permitirem.
+
+### Passos
+
+Passos organizam Fields sem duplicar contratos.
+
+Exemplo:
+
+```text
+1. Identificação
+2. Endereço
+3. Mídia
+4. Revisão e envio
+```
+
+### Condições
+
+Condições controlam visibilidade e comportamento a partir de Field IDs.
+
+Exemplos:
+
+- mostrar “Dados da empresa” se Tipo = Empresa;
+- mostrar “Motivo do arquivamento” se Status = Arquivado;
+- mostrar “Galeria” somente se Tipo de imóvel = Casa.
+
+### Repeaters
+
+`repeatable_group` grava estruturas filhas normalizadas, não uma string
+serializada usada como query improvisada. Use para:
+
+- telefones adicionais;
+- benefícios;
+- horários;
+- itens de um grupo;
+- membros de uma equipe.
+
+Não use repeater quando os itens precisam de vida, permissão ou consulta
+independentes; nesse caso, crie outra Entity e uma Relation.
+
+### Ações
+
+#### Redirect
+
+Redireciona após o evento usando validação segura do WordPress.
+
+#### Email
+
+Envia uma notificação factual para o administrador ou destinatário permitido.
+O payload integral do conteúdo não é copiado automaticamente.
+
+#### Webhook
+
+Envia um payload reduzido e idempotente:
+
+- request ID;
+- surface ID;
+- item ID;
+- submission ID;
+- action ID;
+- evento;
+- status.
+
+URLs passam por validação segura, não aceitam credenciais embutidas, não seguem
+redirecionamento e usam timeout limitado.
+
+Falha de e-mail ou webhook não recria o conteúdo. A ação fica retryable em
+**Runs / Entry Recovery**.
+
+### Guest intake
+
+É opt-in e limitado a criação moderada:
+
+- sem edição privilegiada;
+- honeypot;
+- time trap;
+- rate limit;
+- status de revisão ou draft;
+- upload de imagem opcional e restrito.
+
+Não use guest intake como substituto de autenticação para dashboards de
+clientes.
+
+---
+
+## Collections e filtros
+
+### Collection é o contrato de consulta
+
+Providers internos:
+
+- `WP_Query` para CPT;
+- consulta indexada para CCT;
+- APIs CRUD/query para WooCommerce;
+- snapshot DOM limitado para compatibilidade.
+
+O navegador envia Field IDs e operadores permitidos. Não escolhe tabela,
+provider, meta key ou SQL.
+
+### Limites públicos
+
+- body: 32 KB;
+- filtros: até 20;
+- padrão: 24 itens;
+- máximo: 48 itens por página;
+- custo computado por request;
+- fallback DOM: até 200 itens.
+
+### Facets
+
+Facet é uma opção acompanhada de contagem.
+
+Exemplo:
+
+```text
+Tipo
+  Casa (12)
+  Apartamento (8)
+  Terreno (0)
+```
+
+Opções indisponíveis podem continuar visíveis com contagem zero. Isso evita a
+interface “pular” e explica por que determinada combinação não retorna itens.
+
+### URL state
+
+Quando ligado, o estado pode ser compartilhado e restaurado pela URL.
+
+Exemplo conceitual:
+
+```text
+/imoveis?tipo=casa&cidade=recife&ordem=preco_asc
+```
+
+Os parâmetros reais continuam vinculados ao contrato publicado; não são
+interpretação aberta de meta keys.
+
+### Explain Why
+
+Durante implementação, Explain Why ajuda a responder:
+
+- qual Collection originou o item;
+- qual filtro foi aplicado;
+- qual comparação ocorreu;
+- por que o item passou ou falhou;
+- qual fallback foi usado.
+
+Não expõe storage keys ao visitante.
+
+### Cache
+
+O cache é versionado e invalidado por:
+
+- alteração de conteúdo;
+- alteração de meta/taxonomia relevante;
+- alteração de registro CCT;
+- alteração de valores normalizados;
+- publicação de nova versão do Blueprint.
+
+---
+
+## Relações entre entidades
+
+### Exemplo: Imóvel → Corretor
+
+Crie:
+
+1. Entity `Imóvel`;
+2. Entity `Corretor`;
+3. Collection `Corretores ativos`, ligada a Corretor;
+4. Relation `Corretor responsável`.
+
+Conecte:
+
+```mermaid
+flowchart LR
+    I["🏠 Entity Imóvel"] --> R["🔗 Corretor responsável"]
+    R --> C["🧑 Entity Corretor"]
+    R --> O["📚 Collection Corretores ativos"]
+```
+
+Depois, adicione um Field semântico `relation` no Field Group da Entity de
+origem. A Entry Surface recebe as opções da Collection autorizada.
+
+### Por que a Collection de opções é obrigatória?
+
+Porque “todos os IDs existentes” não é uma regra de autorização. A Collection
+define:
+
+- quais registros podem aparecer;
+- ordenação;
+- escopo de Policy;
+- projeção legível;
+- filtro de status.
+
+### Relação ou repeater?
+
+| Necessidade | Use |
+| --- | --- |
+| itens simples que só existem dentro do pai | Repeater |
+| item tem tela, permissão ou consulta própria | Entity + Relation |
+| precisa filtrar pela ligação | Relation |
+| pequena lista de valores fixos | Choice |
+
+---
+
+## Presentations e Routes
+
+### Presentation em linguagem simples
+
+É um adaptador de contexto:
+
+```text
+“Pegue esta Collection publicada e apresente-a usando este documento Elementor.”
+```
+
+ou:
+
+```text
+“Pegue esta Entry Surface e torne-a apresentável no adapter Elementor.”
+```
+
+O node não copia o template. Ele armazena o vínculo.
+
+### Semantic fallback
+
+Quando nenhum template é escolhido, o Toolkit pode produzir HTML semântico
+básico. Isso é útil para:
+
+- testar o contrato antes do design;
+- conferir acessibilidade;
+- usar shortcode;
+- diagnosticar se o problema está nos dados ou no Elementor.
+
+### Route literal
+
+Use quando uma Presentation precisa de URL própria:
+
+```text
+/imoveis
+/profissionais
+/agenda
+```
+
+### Route parametrizada
+
+Avançado. O placeholder ocupa um segmento inteiro e usa um Field UUID:
+
+```text
+/imovel/{8b9e59b0-0000-4000-8000-000000000001}
+```
+
+O Field precisa ser:
+
+- público;
+- scalar;
+- filterable e indexado;
+- compatível com comparação exata;
+- autorizado pela Filter Surface da Collection pública.
+
+Rotas ambíguas, raw regex, fragments e query strings como definição de path são
+bloqueados.
+
+### Quando não usar Route
+
+Não use se:
+
+- o widget ficará dentro de uma página Elementor existente;
+- o CPT já possui permalink nativo suficiente;
+- a tela é somente interna;
+- o resultado é um componente, não uma página.
+
+---
+
+## Receitas para diferentes projetos
+
+Estas receitas são testes mentais de suficiência, não templates rígidos.
+
+### 🏠 Imobiliária
+
+```text
+Entities: Imóvel, Corretor
+Fields: preço, endereço, geopoint, galeria, quartos, status
+Relation: Imóvel → Corretor
+Entry: cadastro e revisão do imóvel
+Collection: imóveis publicados
+Filters: preço, cidade, tipo, quartos
+Presentation: card/lista e single no Elementor
+Storage provável: CPT para Imóvel; CPT ou CCT para Corretor conforme exposição
+```
+
+### 🩺 Clínica sem prontuário sensível
+
+```text
+Entities: Profissional, Especialidade, Disponibilidade
+Fields: nome, bio, foto, agenda pública
+Relations: Profissional ↔ Especialidade
+Collection: profissionais disponíveis
+Filters: especialidade, unidade, dia
+Entry: atualização autenticada do perfil
+Limite: não guardar prontuário ou dado clínico sensível
+```
+
+### 🍕 Delivery
+
+```text
+Entities: Item, Grupo adicional, Disponibilidade
+Fields: nome, descrição, imagem, adicionais, janela de disponibilidade
+Collections: cardápio por categoria
+Filters: categoria, vegetariano, disponível agora
+Adapter: WooCommerce quando preço/estoque/carrinho forem transacionais
+```
+
+### 🛒 Catálogo WooCommerce
+
+```text
+Adapter: WooCommerce → Entity Produto
+Fields: derivados do catálogo Woo
+Collection: produtos publicados
+Filters: preço, estoque, taxonomias
+Presentation: lista/card Elementor
+Fora do Toolkit: carrinho, checkout, pedidos e pagamentos
+```
+
+### 💼 Diretório de vagas
+
+```text
+Entity: Vaga
+Fields: cargo, empresa, cidade, modalidade, salário, data limite
+Entry: envio moderado
+Collection: vagas abertas
+Filters: cidade, modalidade, faixa salarial
+Route: /vagas
+Storage provável: CPT por ser público e roteável
+```
+
+### 🎓 Cursos e eventos
+
+```text
+Entities: Curso, Turma, Instrutor
+Relations: Turma → Curso; Turma → Instrutor
+Fields: data, capacidade, endereço, disponibilidade
+Collection: próximas turmas
+Filters: mês, formato, instrutor
+```
+
+### 🎨 Portfólio
+
+```text
+Entity: Projeto
+Fields: título, resumo, serviços, galeria, URL, ano
+Collection: projetos publicados
+Filters: serviço, tecnologia, ano
+Presentation: cards e case no Elementor
+Storage provável: CPT
+```
+
+### 🎫 Chamados de suporte
+
+```text
+Entities: Chamado, Cliente
+Relation: Chamado → Cliente
+Fields: assunto, prioridade, status, responsável
+Entry: abertura e atualização autenticada
+Collection: chamados do usuário atual
+Filters: status, prioridade
+Storage provável: CCT
+```
+
+### 🏢 Unidades e equipe
+
+```text
+Entities: Unidade, Pessoa
+Relation: Pessoa → Unidade
+Fields: endereço, telefone, função, foto, horário
+Collections: equipe por unidade
+Filters: unidade, função
+```
+
+### 🧾 Orçamentos simples
+
+```text
+Entities: Solicitação, Item solicitado
+Entry: formulário em etapas
+Calculated: subtotal e estimativa
+Actions: e-mail + redirect
+Limite: pagamento e pedido continuam fora; use Woo quando forem transacionais
+```
+
+---
+
+## Diagnóstico e solução de problemas
+
+| Sintoma | Causa provável | O que fazer |
+| --- | --- | --- |
+| Filter Surface não mostra Fields | sem conexão ou Field não filtrável | conecte Collection → Filter Surface e habilite Filter no Field |
+| Collection não oferece ordenação | nenhum Field sortable | habilite Sort num tipo compatível |
+| Entry Surface não mostra Fields | Entity ou Field Group desconectado | confira Entity → Field Group e Entity → Entry Surface |
+| Validação diz node órfão | node não participa do grafo | conecte ou remova o node |
+| Entry exige Policy | formulário sem autorização | conecte exatamente uma Policy → Entry Surface |
+| Relation inválida | falta origem, destino ou opções | complete as três conexões obrigatórias |
+| Toolkit Field vazio no Elementor | contexto de item ausente | configure preview/contexto ou selecione a Entity |
+| Field não aparece em página pública | exposição privada | marque público somente se o dado puder ser exposto |
+| Route conflita | path já pertence ao WordPress ou outro Blueprint | escolha outro path e valide novamente |
+| Publicação bloqueada | Impact Plan possui blocker | abra o node indicado e leia o motivo |
+| Ação externa falhou | e-mail/webhook indisponível | consulte Runs e use Entry Recovery |
+| Draft alterado depois do Review Impact | plano preparado ficou stale | prepare novo impacto |
+| CPT apareceu com Gutenberg | Entity Editorial/Hybrid ou suporte editor habilitado | use Structured se o editor não for intencional |
+| CCT não tem permalink | comportamento esperado | crie Collection/Presentation; use CPT se precisa de URL por item |
+| Woo aparece unhealthy | WooCommerce ausente/incompatível | instale/ative Woo ou remova o Adapter |
+
+### Checklist antes de culpar o Elementor
+
+1. O Blueprint está publicado?
+2. A Collection/Entry Surface aparece no catálogo do widget?
+3. O Field é compatível com aquele controle?
+4. Existe contexto de item no preview?
+5. O fallback semântico/shortcode funciona?
+6. Diagnostics mostra adapter saudável?
+
+Se o shortcode funciona e o template não, o problema está na apresentação ou
+no contexto do Elementor, não no storage.
+
+### Checklist antes de publicar
+
+- [ ] slugs e paths revisados;
+- [ ] nenhum Field sensível marcado como público por conveniência;
+- [ ] Policy conectada ao formulário;
+- [ ] Collection pública retorna somente Fields públicos;
+- [ ] filtros usam capacidades reais;
+- [ ] fallback semântico testado;
+- [ ] Impact Map lido;
+- [ ] backup disponível;
+- [ ] migração legacy não está sendo tratada como requisito estável.
+
+---
+
+## Limites intencionais
+
+O Toolkit não pretende ser:
+
+- clone do JetEngine;
+- metabox builder genérico;
+- Theme Builder paralelo;
+- page builder;
+- executor de PHP ou SQL arbitrário;
+- editor de meta key crua;
+- sistema de checkout;
+- prontuário médico;
+- motor de pagamento;
+- plataforma externa de automação.
+
+### Gutenberg
+
+Nunca deve aparecer por acidente:
+
+- `Structured`: sem editor como modelo principal;
+- `Editorial`: editor WordPress intencional;
+- `Hybrid`: editor mais Fields estruturados.
+
+### WooCommerce
+
+O Toolkit pode expor catálogo, Fields, consultas e apresentação. Woo continua
+dono de:
+
+- preço transacional;
+- estoque;
+- carrinho;
+- checkout;
+- pedido;
+- pagamento.
+
+### Migração legacy
+
+O código de inventário, shadow comparison e rollback existe, mas esta build não
+declara o caminho legacy como confiável para produção. O uso suportado para
+dogfood é criar um System novo.
+
+### Compatibilidade
+
+O target é:
+
+- WordPress 6.7–6.9;
+- PHP 8.1–8.4;
+- Elementor Free 3.28–4.x;
+- Elementor Pro opcional.
+
+Isso é um alvo de engenharia, não uma declaração de que toda combinação,
+plugin de terceiros e interação visual já recebeu aprovação humana.
+
+---
+
+## Instalação e desenvolvimento
+
+### Instalação manual
+
+1. faça backup;
+2. gere ou obtenha o ZIP;
+3. WordPress → Plugins → Adicionar novo → Enviar plugin;
+4. ative;
+5. abra **Implementation Toolkit → Diagnostics**;
+6. crie um System novo;
+7. publique somente depois do Review Impact.
+
+Ativação instala infraestrutura. Ela não migra conteúdo automaticamente.
+
+### Uninstall
+
+Por padrão, uninstall preserva options, Blueprints, histórico, valores
+normalizados e tabelas CCT.
+
+Purge destrutivo exige uma constante explícita:
+
+```php
+define( 'EIT_UNINSTALL_REMOVE_DATA', true );
+```
+
+Leia [`docs/uninstall.md`](docs/uninstall.md) antes. Posts WordPress,
+documentos Elementor e objetos WooCommerce não são apagados pelo purge do
+Toolkit.
+
+### Dependências locais
 
 ```bash
-composer install --ignore-platform-req=ext-dom --ignore-platform-req=ext-simplexml --ignore-platform-req=ext-xml --ignore-platform-req=ext-xmlwriter
+composer install \
+  --ignore-platform-req=ext-dom \
+  --ignore-platform-req=ext-simplexml \
+  --ignore-platform-req=ext-xml \
+  --ignore-platform-req=ext-xmlwriter
+
 npm ci
 ```
 
-Run the kernel and trust-baseline suite:
+O host deste workspace não possui todas as extensões XML; PHPUnit e PHPCS são
+executados no container WordPress.
+
+### Comandos principais
 
 ```bash
 composer validate --strict --no-check-publish
@@ -320,15 +1472,213 @@ composer phpcs
 composer analyse -- --no-progress
 composer test
 composer test:wp
+
 npm run build
-npm test -- --run
+npm test
 npm run check:js
 npm run test:e2e
+
+php scripts/verify-line-budget.php --strict
 gitleaks git --redact --no-banner --exit-code 1
 ```
 
-Activate in the local WordPress runtime:
+### Build do ZIP
 
 ```bash
-../../../scripts/wp.sh plugin activate elementor-implementation-toolkit
+composer run build:release
 ```
+
+Saída:
+
+```text
+dist/elementor-implementation-toolkit-<versão>.zip
+dist/SHA256SUMS
+```
+
+O build exclui fontes, testes, scripts de verificação, `vendor/`,
+`node_modules/`, design sources e mapas.
+
+### Runtime WordPress local
+
+```bash
+docker compose \
+  -f ../../../wordpress/docker-compose.yml \
+  -f ../../../operations/wordpress/docker-compose.products.yml \
+  ps
+```
+
+---
+
+## Arquitetura para extensões
+
+### Blueprint canônico
+
+```text
+api_version: eit.dev/v1
+kind: Blueprint
+id: UUID
+slug: string
+name: string
+version: integer
+nodes: [...]
+connections: [...]
+```
+
+Posição visual não participa do significado.
+
+### SDK PHP
+
+Interfaces públicas:
+
+- `FieldPrimitiveInterface`;
+- `StorageAdapterInterface`;
+- `CollectionProviderInterface`;
+- `FormActionInterface`;
+- `PresentationAdapterInterface`.
+
+Extensões são registradas por código:
+
+```php
+add_action(
+    'eit_register_blueprint_extensions',
+    function ( $hub ) {
+        // Registre primitives, adapters, providers ou actions versionados.
+    }
+);
+```
+
+Todo adapter deve declarar:
+
+- ID estável;
+- versão semântica;
+- capabilities;
+- health check.
+
+Não existe painel “avançado” para colar código arbitrário.
+
+### REST administrativo
+
+O namespace administrativo oferece contratos para:
+
+- CRUD de Blueprints;
+- schema;
+- validate;
+- impact;
+- apply;
+- reconcile;
+- rollback;
+- Runs;
+- Diagnostics;
+- cenários QA;
+- handoff notes.
+
+Exige capability administrativa e nonce/cookie do WordPress.
+
+### REST de runtime
+
+Contratos principais:
+
+- `CollectionQuery`;
+- `EntrySubmission`.
+
+As respostas usam projeção permitida, Field IDs, paginação, facets, estado
+aplicado e request ID. Não devolvem SQL, storage keys ou secrets.
+
+### Persistência
+
+O Toolkit mantém tabelas dedicadas para:
+
+- Blueprints;
+- versões;
+- artefatos;
+- bindings;
+- change sets;
+- claims de storage;
+- operações de migração;
+- locks;
+- Runs e eventos;
+- reconciliações;
+- rollbacks;
+- relações;
+- multivalores;
+- submissions;
+- uploads pendentes;
+- jobs de ação;
+- cenários QA.
+
+As options legacy permanecem separadas do runtime compilado.
+
+### Segurança
+
+Princípios:
+
+- IDs do navegador não concedem autorização;
+- nonces e capabilities protegem administração;
+- entrada é sanitizada por primitiva;
+- saída é projetada e escapada;
+- requests têm limites;
+- webhooks usam APIs HTTP seguras;
+- jobs externos são idempotentes;
+- Flight Recorder redige conteúdo e secrets;
+- nenhum SQL/PHP arbitrário é aceito pelo Blueprint.
+
+---
+
+## Glossário
+
+| Termo | Significado |
+| --- | --- |
+| Blueprint | documento canônico do System |
+| System | nome humano do Blueprint e seu runtime |
+| Node | unidade executável do mapa |
+| Lane | agrupamento Data, Experience, Presentation ou Governance |
+| Field Contract | identidade e capacidades semânticas de um Field |
+| Field ID | UUID estável consumido por runtime e Elementor |
+| Storage key | detalhe interno de persistência; não é input normal |
+| CPT | Custom Post Type do WordPress |
+| CCT | tabela de registros sem semântica obrigatória de post |
+| Adapter | ponte para fonte externa de autoridade |
+| Entry Surface | contrato de formulário e workflow |
+| Collection | contrato único de consulta |
+| Filter Surface | contrato de filtros de uma Collection |
+| Presentation | vínculo entre contexto e adapter visual |
+| Route | path que expõe uma Presentation |
+| Policy | regras de capability, ownership e escopo |
+| Runtime | estruturas publicadas que atendem requests reais |
+| Artifact | saída imutável do compiler |
+| Binding | ligação estável entre Field e storage/contexto |
+| Impact Plan | previsão concreta antes da publicação |
+| Apply | ativação da versão preparada |
+| Reconcile | verificação pós-apply |
+| Run | registro factual de uma execução |
+| Explain Why | explicação de uma decisão de consulta |
+| Semantic fallback | HTML seguro sem template Elementor |
+| Shadow comparison | comparação read-only com estrutura legacy |
+
+---
+
+## Estado do produto
+
+Esta versão demonstra um núcleo amplo:
+
+- Blueprint executável;
+- CPT/CCT/Adapters;
+- 28 primitivas;
+- frontend Entry Surfaces;
+- Collections e filtros;
+- relations e repeaters;
+- widgets Elementor Free;
+- Dynamic Tags tipadas opcionais;
+- Woo catalog adapter;
+- Policies;
+- Runs e Diagnostics;
+- pacote determinístico.
+
+Mas continua sendo dogfood interno. Antes de promoção pública ainda seriam
+necessários compatibilidade ampliada, aprovação visual humana, atualização dos
+guias de upgrade e estabilização comprovada dos caminhos de migração.
+
+Para uso atual:
+
+> **crie um System novo, publique de forma governada e use Elementor para a
+> apresentação.**
